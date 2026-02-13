@@ -10,6 +10,7 @@ create table if not exists posts (
   author      text not null default 'Tenant',
   user_id     uuid default auth.uid(), -- Tracks the creator
   proposed_date date,
+  category    text not null default 'Travel',
   created_at  timestamptz not null default now()
 );
 
@@ -18,6 +19,15 @@ do $$
 begin
   if not exists (select 1 from information_schema.columns where table_name = 'posts' and column_name = 'user_id') then
     alter table posts add column user_id uuid default auth.uid();
+  end if;
+end $$;
+
+
+-- Ensure category exists (for legacy tables)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'posts' and column_name = 'category') then
+    alter table posts add column category text not null default 'Travel';
   end if;
 end $$;
 

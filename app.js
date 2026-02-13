@@ -8,7 +8,9 @@
         posts: [],
         user: null // { id: string, email: string, label: string }
     };
+    const CATEGORIES = ['Sports', 'Culture', 'Eatout', 'Travel', 'Study', 'Extra'];
     let currentSort = 'votes'; // 'votes' | 'newest'
+    let currentCategory = 'all';
     let dataLoaded = false;
 
     // ── DOM Refs ──
@@ -32,11 +34,13 @@
     // Core Features
     const newSuggestionSection = document.querySelector('.new-suggestion'); // Parent of form
     const locationInput = document.getElementById('location-input');
+    const categoryInput = document.getElementById('category-input');
     const dateInput = document.getElementById('date-input');
     const submitBtn = document.getElementById('submit-btn');
     const previewText = document.getElementById('preview-text');
     const postFeed = document.getElementById('post-feed');
     const sortBtns = document.querySelectorAll('.sort-btn');
+    const categoryBtns = document.querySelectorAll('.category-btn');
     const toastContainer = document.getElementById('toast-container');
 
     // ── Init ──
@@ -77,6 +81,9 @@
         submitBtn.addEventListener('click', handleSubmitPost);
         sortBtns.forEach(btn => {
             btn.addEventListener('click', () => handleSort(btn.dataset.sort));
+        });
+        categoryBtns.forEach(btn => {
+            btn.addEventListener('click', () => handleCategoryFilter(btn.dataset.category));
         });
     }
 
@@ -203,6 +210,7 @@
                 user_id: p.user_id, // Map ownership
                 createdAt: p.created_at,
                 proposedDate: p.proposed_date,
+                category: normalizeCategory(p.category),
                 votes: (votesByPost[p.id] || []).map(v => v.user_id),
                 rsvps: (rsvpsByPost[p.id] || []).map(r => r.user_id),
                 comments: (commentsByPost[p.id] || []).map(c => ({
@@ -255,7 +263,8 @@
             location: location,
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
-            proposed_date: dateInput.value || null
+            proposed_date: dateInput.value || null,
+            category: normalizeCategory(categoryInput.value)
         });
 
         if (error) {
@@ -264,8 +273,9 @@
         } else {
             locationInput.value = '';
             dateInput.value = '';
+            categoryInput.value = 'Travel';
             updatePreview();
-            showToast('Trip suggested!');
+            showToast('Post added!');
         }
     }
 
@@ -324,10 +334,29 @@
         render();
     }
 
+
+    function handleCategoryFilter(category) {
+        currentCategory = category;
+
+        categoryBtns.forEach(btn => {
+            if (btn.dataset.category === category) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        render();
+    }
+
     // ── Render ──
     function render() {
+        const filteredPosts = currentCategory === 'all'
+            ? state.posts
+            : state.posts.filter(post => post.category === currentCategory);
+
         // Sort
-        const sorted = [...state.posts];
+        const sorted = [...filteredPosts];
         if (currentSort === 'votes') {
             sorted.sort((a, b) => b.votes.length - a.votes.length);
         } else {
@@ -338,8 +367,8 @@
             postFeed.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">🗺️</div>
-                    <h3>No suggestions yet</h3>
-                    <p>Be the first to suggest a trip!</p>
+                    <h3>No posts in this category yet</h3>
+                    <p>Try another category or be the first to post!</p>
                 </div>`;
         } else {
             postFeed.innerHTML = sorted.map(renderPost).join('');
@@ -378,9 +407,11 @@
         const voteCount = post.votes.length;
         const commentCount = post.comments.length;
 
-        let scheduleHtml = '';
+        let scheduleHtml = `
+            <div class="category-badge">${escapeHtml(post.category)}</div>
+        `;
         if (post.proposedDate) {
-            scheduleHtml = `
+            scheduleHtml += `
                 <div class="schedule-badge">📅 ${formatDate(post.proposedDate)}</div>
                 <div class="rsvp-section">
                     <button class="btn-rsvp ${hasRsvpd ? 'joined' : ''}" data-id="${post.id}">
@@ -489,6 +520,10 @@
         if (hr < 24) return hr + 'h ago';
         if (day < 7) return day + 'd ago';
         return new Date(iso).toLocaleDateString();
+    }
+
+    function normalizeCategory(category) {
+        return CATEGORIES.includes(category) ? category : 'Travel';
     }
 
     function formatDate(str) {
