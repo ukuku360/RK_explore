@@ -632,7 +632,6 @@
             return;
         }
 
-        const { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
         if (error) {
             console.error('Confirm error:', error);
             showToast('Failed to confirm. ' + error.message);
