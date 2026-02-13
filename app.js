@@ -6,7 +6,7 @@
     // ── State ──
     let state = {
         posts: [],
-        user: null // { id: string, email: string, label: string }
+        user: null // { id: string, email: string, label: string, createdAt?: string }
     };
     const CATEGORIES = ['Sports', 'Culture', 'Eatout', 'Travel', 'Study', 'Extra'];
     let currentSort = 'votes'; // 'votes' | 'newest'
@@ -27,6 +27,14 @@
     // App Layout
     const appEl = document.getElementById('app');
     const logoutBtn = document.getElementById('logout-btn');
+    const profileToggleBtn = document.getElementById('profile-toggle-btn');
+    const profilePanel = document.getElementById('profile-panel');
+    const profileName = document.getElementById('profile-name');
+    const profileEmail = document.getElementById('profile-email');
+    const profileJoined = document.getElementById('profile-joined');
+    const profilePostCount = document.getElementById('profile-post-count');
+    const profileVoteCount = document.getElementById('profile-vote-count');
+    const profileRsvpCount = document.getElementById('profile-rsvp-count');
     const connectionStatus = document.getElementById('connection-status');
     const appContent = document.getElementById('app-content');
     const loadingScreen = document.getElementById('loading-screen');
@@ -73,8 +81,9 @@
         memberLoginBtn.addEventListener('click', handleMemberLogin);
         memberSignupBtn.addEventListener('click', handleMemberSignup);
 
-        // Logout
+        // Header Controls
         logoutBtn.addEventListener('click', handleLogout);
+        profileToggleBtn.addEventListener('click', handleProfileToggle);
 
         // App Interactions
         locationInput.addEventListener('input', updatePreview);
@@ -130,7 +139,8 @@
         state.user = {
             id: user.id, // Supabase Auth ID
             email: user.email,
-            label: normalizeNickname(user.user_metadata?.nickname) || user.email.split('@')[0]
+            label: normalizeNickname(user.user_metadata?.nickname) || user.email.split('@')[0],
+            createdAt: user.created_at
         };
         updateUIForUser();
     }
@@ -138,6 +148,7 @@
     function updateUIForUser() {
         if (!state.user) return;
         newSuggestionSection.style.display = 'block';
+        updateProfilePanel();
     }
 
     function handleLogout() {
@@ -152,6 +163,7 @@
         nicknameInput.value = '';
         passwordInput.value = '';
         loginError.textContent = '';
+        closeProfilePanel();
     }
 
     function showLoginError(msg, isSuccess = false) {
@@ -161,6 +173,49 @@
 
     function normalizeNickname(value) {
         return (value || '').trim().replace(/\s+/g, ' ').slice(0, 20);
+    }
+
+
+
+    function handleProfileToggle() {
+        if (!state.user) return;
+
+        const isOpen = !profilePanel.hasAttribute('hidden');
+        if (isOpen) {
+            closeProfilePanel();
+            return;
+        }
+
+        updateProfilePanel();
+        profilePanel.removeAttribute('hidden');
+        profileToggleBtn.setAttribute('aria-expanded', 'true');
+        profileToggleBtn.textContent = '👤 Hide Profile';
+    }
+
+    function closeProfilePanel() {
+        profilePanel.setAttribute('hidden', '');
+        profileToggleBtn.setAttribute('aria-expanded', 'false');
+        profileToggleBtn.textContent = '👤 Profile';
+    }
+
+    function updateProfilePanel() {
+        if (!state.user) return;
+
+        const ownPosts = state.posts.filter(post => post.user_id === state.user.id).length;
+        const votesCast = state.posts.filter(post => post.votes.includes(state.user.id)).length;
+        const rsvpsJoined = state.posts.filter(post => post.rsvps.includes(state.user.id)).length;
+
+        profileName.textContent = state.user.label;
+        profileEmail.textContent = state.user.email || '-';
+        profileJoined.textContent = state.user.createdAt ? new Date(state.user.createdAt).toLocaleDateString('en-AU', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric'
+        }) : '-';
+        profilePostCount.textContent = String(ownPosts);
+        profileVoteCount.textContent = String(votesCast);
+        profileRsvpCount.textContent = String(rsvpsJoined);
     }
 
     function showApp() {
@@ -222,6 +277,7 @@
             }));
 
             finishLoading();
+            updateProfilePanel();
             render();
         } catch (err) {
             console.error('Fetch error:', err);
@@ -265,7 +321,9 @@
             user_id: state.user.id,   // Save owner ID
             proposed_date: dateInput.value || null,
             category: normalizeCategory(categoryInput.value)
-        });
+        };
+
+        const { error } = await supabaseClient.from('posts').insert(postPayload);
 
         if (error) {
             console.error('Post error:', error);

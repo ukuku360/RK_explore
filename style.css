@@ -199,6 +199,56 @@ button:hover {
     background: none;
 }
 
+
+.btn-profile-toggle {
+    background: #f3f4f6;
+    color: var(--text);
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+}
+
+.btn-profile-toggle:hover {
+    background: #e5e7eb;
+}
+
+.profile-panel {
+    max-width: 600px;
+    margin: 0 auto 12px;
+    padding: 12px 16px 16px;
+    border-top: 1px solid var(--border);
+    background: #fff;
+}
+
+.profile-panel h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.profile-subtext {
+    margin: 6px 0 12px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.profile-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #f0f0f0;
+    font-size: 13px;
+}
+
+.profile-label {
+    color: var(--text-muted);
+}
+
+.profile-value {
+    font-weight: 600;
+    text-align: right;
+}
+
 .connection-status {
     display: flex;
     align-items: center;
