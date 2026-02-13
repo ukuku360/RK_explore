@@ -76,11 +76,32 @@
                     </div>
                     <div class="suggestion-row">
                         <label class="date-label">
+                            🗂️ Category
+                            <select id="category-input">
+                                <option value="Sports">Sports</option>
+                                <option value="Culture">Culture</option>
+                                <option value="Eatout">Eatout</option>
+                                <option value="Travel" selected>Travel</option>
+                                <option value="Study">Study</option>
+                                <option value="Extra">Extra</option>
+                            </select>
+                        </label>
+                        <label class="date-label">
                             📅 Proposed date
                             <input type="date" id="date-input" />
                         </label>
                     </div>
                 </div>
+            </div>
+
+            <div class="category-bar" id="category-bar">
+                <button class="category-btn active" data-category="all">All</button>
+                <button class="category-btn" data-category="Sports">Sports</button>
+                <button class="category-btn" data-category="Culture">Culture</button>
+                <button class="category-btn" data-category="Eatout">Eatout</button>
+                <button class="category-btn" data-category="Travel">Travel</button>
+                <button class="category-btn" data-category="Study">Study</button>
+                <button class="category-btn" data-category="Extra">Extra</button>
             </div>
 
             <!-- Sort Bar -->
