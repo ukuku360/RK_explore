@@ -330,7 +330,8 @@
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
             proposed_date: dateInput.value || null,
-            category: normalizeCategory(categoryInput.value)
+            category: normalizeCategory(categoryInput.value),
+            status: 'proposed'
         };
 
         if (supportsPostStatus) {
@@ -631,6 +632,7 @@
             return;
         }
 
+        const { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
         if (error) {
             console.error('Confirm error:', error);
             showToast('Failed to confirm. ' + error.message);
