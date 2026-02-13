@@ -357,6 +357,35 @@ button:hover {
     color: var(--text-muted);
 }
 
+.discovery-bar {
+    margin: 10px 0 14px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+#search-input {
+    min-width: 220px;
+    flex: 1;
+}
+
+.filter-btn {
+    background: white;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    font-size: 12px;
+    padding: 6px 12px;
+    white-space: nowrap;
+}
+
+.filter-btn.active {
+    color: var(--primary);
+    border-color: #fecaca;
+    background: #fee2e2;
+}
+
 .sort-btn {
     background: transparent;
     color: var(--text-muted);
@@ -448,6 +477,27 @@ button:hover {
     margin-bottom: 8px;
 }
 
+.post-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 999px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.post-status.proposed {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.post-status.confirmed {
+    background: #dcfce7;
+    color: #166534;
+}
+
 .schedule-badge {
     display: inline-flex;
     align-items: center;
@@ -493,6 +543,17 @@ button:hover {
     background: #f9fafb;
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
+}
+
+.btn-confirm {
+    background: #16a34a;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.btn-confirm:hover {
+    background: #15803d;
 }
 
 .action-btn {
