@@ -16,6 +16,7 @@
     const loginScreen = document.getElementById('login-screen');
     // Auth Inputs
     const emailInput = document.getElementById('member-email');
+    const nicknameInput = document.getElementById('member-nickname');
     const passwordInput = document.getElementById('member-password');
     const memberLoginBtn = document.getElementById('member-login-btn');
     const memberSignupBtn = document.getElementById('member-signup-btn');
@@ -101,11 +102,20 @@
         const password = passwordInput.value.trim();
         if (!email || !password) return showLoginError('Please enter email and password.');
 
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        const nickname = normalizeNickname(nicknameInput.value);
+        if (nickname.length < 2) return showLoginError('Please choose a nickname (2-20 chars) for sign up.');
+
+        const { data, error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: {
+                data: { nickname }
+            }
+        });
         if (error) {
             showLoginError(error.message);
         } else {
-            showLoginError('Check your email for the confirmation link!', true);
+            showLoginError(`Check your email for the confirmation link, ${nickname}!`, true);
         }
     }
 
@@ -113,7 +123,7 @@
         state.user = {
             id: user.id, // Supabase Auth ID
             email: user.email,
-            label: user.email.split('@')[0]
+            label: normalizeNickname(user.user_metadata?.nickname) || user.email.split('@')[0]
         };
         updateUIForUser();
     }
@@ -132,6 +142,7 @@
 
         // Reset forms
         emailInput.value = '';
+        nicknameInput.value = '';
         passwordInput.value = '';
         loginError.textContent = '';
     }
@@ -139,6 +150,10 @@
     function showLoginError(msg, isSuccess = false) {
         loginError.textContent = msg;
         loginError.style.color = isSuccess ? 'green' : '';
+    }
+
+    function normalizeNickname(value) {
+        return (value || '').trim().replace(/\s+/g, ' ').slice(0, 20);
     }
 
     function showApp() {
@@ -350,6 +365,9 @@
                     input.value = '';
                 });
             });
+
+            postFeed.querySelectorAll('.delete-btn').forEach(btn =>
+                btn.addEventListener('click', () => handleDeletePost(btn.dataset.id)));
         }
     }
 
@@ -383,6 +401,7 @@
         const isOwner = state.user && state.user.id === post.user_id;
         const deleteBtn = isOwner ?
             `<button class="action-btn delete-btn" data-id="${post.id}" title="Delete Post">🗑️</button>` : '';
+        const timeAgo = formatTimeAgo(post.createdAt);
 
         return `
             <div class="post-card">
@@ -411,8 +430,8 @@
                 <div class="comments-section" data-comments="${post.id}">
                     <div class="comment-list">${commentsHtml}</div>
                     <div class="comment-form" data-id="${post.id}">
-                        <input type="text" placeholder="Write a comment..." />
-                        <button>Post</button>
+                        <input type="text" class="comment-input-${post.id}" placeholder="Write a comment..." />
+                        <button data-id="${post.id}">Post</button>
                     </div>
                 </div>
             </div>
