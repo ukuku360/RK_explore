@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoomingKos Explores</title>
+    <meta name="description" content="Suggest and vote on community trips for RoomingKos tenants.">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-card">
+            <div class="login-logo">RoomingKos <span>Explores</span></div>
+            <p class="login-tagline">Community Trips & Experiences</p>
+
+            <!-- Toggle Buttons -->
+            <div class="auth-toggle">
+                <button id="btn-show-guest" class="auth-toggle-btn active">Guest Pass</button>
+                <button id="btn-show-member" class="auth-toggle-btn">Member Login</button>
+            </div>
+
+            <!-- GUEST LOGIN FORM -->
+            <div id="form-guest" class="auth-form active">
+                <div class="login-question">
+                    <strong>Quick Check</strong>
+                    How many floors in this building + how many ping pong tables?
+                </div>
+                <!-- Nickname Input -->
+                <input type="text" id="guest-nickname" placeholder="Your Nickname (e.g. Kai)" maxlength="15"
+                    autocomplete="off" />
+
+                <div class="login-input-group">
+                    <input type="text" id="guest-code-input" placeholder="Answer (Number)" autocomplete="off" />
+                    <button id="guest-login-btn">Enter</button>
+                </div>
+                <p class="auth-note">Read-only & Voting access.</p>
+            </div>
+
+            <!-- MEMBER LOGIN FORM -->
+            <div id="form-member" class="auth-form">
+                <div class="login-input-group vertical">
+                    <input type="email" id="member-email" placeholder="Email" autocomplete="email" />
+                    <input type="password" id="member-password" placeholder="Password"
+                        autocomplete="current-password" />
+                </div>
+                <div class="login-actions">
+                    <button id="member-login-btn" class="btn-primary">Log In</button>
+                    <button id="member-signup-btn" class="btn-secondary">Sign Up</button>
+                </div>
+                <p class="auth-note">Post & Organize trips.</p>
+            </div>
+
+            <div id="login-error" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div id="app" class="app">
+
+        <!-- Header -->
+        <header class="app-header">
+            <div class="app-header-inner">
+                <div class="app-logo">RoomingKos <span>Explores</span></div>
+                <div class="app-header-right">
+                    <div id="connection-status" class="connection-status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Connecting...</span>
+                    </div>
+                    <button id="logout-btn" class="btn-logout">Log out</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Loading State -->
+        <div id="loading-screen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <p>Loading suggestions...</p>
+        </div>
+
+        <!-- Content  -->
+        <main id="app-content" class="app-content" style="display:none;">
+
+            <!-- New Suggestion -->
+            <div class="new-suggestion">
+                <h2>Suggest a Trip</h2>
+                <div class="suggestion-preview" id="suggestion-preview">
+                    <span id="preview-text">Let's go to _______ ! 🚀</span>
+                </div>
+                <div class="suggestion-form">
+                    <div class="suggestion-row">
+                        <input type="text" id="location-input" placeholder="Type a destination..." />
+                        <button id="submit-btn" class="btn-submit">Post</button>
+                    </div>
+                    <div class="suggestion-row">
+                        <label class="date-label">
+                            📅 Proposed date
+                            <input type="date" id="date-input" />
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sort Bar -->
+            <div class="sort-bar">
+                <span>Sort by</span>
+                <button class="sort-btn active" data-sort="votes">Most Voted</button>
+                <button class="sort-btn" data-sort="newest">Newest</button>
+            </div>
+
+            <!-- Feed -->
+            <div id="post-feed"></div>
+
+        </main>
+    </div>
+
+    <!-- Toasts -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Supabase JS v2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+    <!-- Supabase Config -->
+    <script>
+        // ⚠️ REPLACE these values with your Supabase project config
+        const SUPABASE_URL = 'https://arbnslbtltuqzwkqbynj.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyYm5zbGJ0bHR1cXp3a3FieW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MTUyODcsImV4cCI6MjA4NjQ5MTI4N30.6cR_pFXWWMMYhYNv_NfzNNhDekH5I_u5icAEm_GbhGk';
+
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    </script>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

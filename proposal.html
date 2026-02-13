@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoomingKos Explores — Proposal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            background: #ffffff;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: #ffffff;
+            color: #374151;
+            /* gray-700 */
+            line-height: 1.6;
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+
+        /* ── Typography & Base ── */
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+            color: #111827;
+            /* gray-900 */
+            line-height: 1.2;
+            letter-spacing: -0.025em;
+        }
+
+        p {
+            margin-bottom: 1.25rem;
+            color: #4b5563;
+            /* gray-600 */
+        }
+
+        strong {
+            font-weight: 600;
+            color: #1f2937;
+            /* gray-800 */
+        }
+
+        /* ── Layout ── */
+        .container {
+            max-width: 720px;
+            /* Reading width */
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        section {
+            padding: 64px 0;
+            border-bottom: 1px solid #e5e7eb;
+            /* gray-200 */
+        }
+
+        section:last-of-type {
+            border-bottom: none;
+        }
+
+        /* ── Header / Hero (Report Style) ── */
+        .report-header {
+            padding: 80px 0 64px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .meta-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #6b7280;
+            /* gray-500 */
+            font-weight: 500;
+        }
+
+        .badge {
+            background-color: #f3f4f6;
+            /* gray-100 */
+            color: #374151;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .report-title {
+            font-size: 48px;
+            font-weight: 800;
+            margin-bottom: 24px;
+            color: #111827;
+        }
+
+        .report-title span {
+            color: #2563eb;
+            /* blue-600 */
+        }
+
+        .report-subtitle {
+            font-size: 20px;
+            color: #4b5563;
+            max-width: 600px;
+            font-weight: 400;
+            line-height: 1.5;
+        }
+
+        .report-meta {
+            margin-top: 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 24px;
+            font-size: 14px;
+        }
+
+        .meta-item label {
+            display: block;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #9ca3af;
+            /* gray-400 */
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .meta-item span {
+            color: #1f2937;
+            font-weight: 500;
+        }
+
+        /* ── Section Headers ── */
+        .section-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #2563eb;
+            /* blue-600 */
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        h2 {
+            font-size: 30px;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        /* ── Components ── */
+
+        /* Quote */
+        .highlight-quote {
+            border-left: 4px solid #bfdbfe;
+            /* blue-200 */
+            background-color: #eff6ff;
+            /* blue-50 */
+            padding: 24px;
+            margin: 32px 0;
+            font-size: 18px;
+            font-weight: 500;
+            color: #1e3a8a;
+            /* blue-900 */
+            border-radius: 0 8px 8px 0;
+        }
+
+        /* Win Grid */
+        .win-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin: 40px 0;
+        }
+
+        .win-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .win-icon {
+            font-size: 24px;
+            margin-bottom: 16px;
+            background-color: #f3f4f6;
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .win-card h3 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .win-card p {
+            font-size: 14px;
+            color: #6b7280;
+            margin-bottom: 0;
+            line-height: 1.5;
+        }
+
+        /* Process Flow */
+        .process-flow {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin: 40px 0;
+            padding: 24px;
+            background: #f9fafb;
+            /* gray-50 */
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            flex-wrap: wrap;
+        }
+
+        .process-step {
+            text-align: center;
+            flex: 1;
+        }
+
+        .step-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .process-arrow {
+            color: #9ca3af;
+            font-size: 16px;
+        }
+
+        /* Table */
+        .table-wrapper {
+            margin: 40px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+            background: #fff;
+        }
+
+        thead th {
+            padding: 16px 24px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+            color: #6b7280;
+        }
+
+        thead th:last-child {
+            background: #eff6ff;
+            /* blue-50 */
+            color: #1d4ed8;
+            /* blue-700 */
+        }
+
+        tbody td {
+            padding: 16px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            color: #374151;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody td:last-child {
+            background: #eff6ff40;
+            /* very light blue tint */
+            font-weight: 600;
+            color: #111827;
+        }
+
+        /* Callout */
+        .callout {
+            background: #f0fdfa;
+            /* teal-50 */
+            border: 1px solid #ccfbf1;
+            /* teal-200 */
+            border-radius: 12px;
+            padding: 24px;
+            margin: 40px 0;
+        }
+
+        .callout h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #0d9488;
+            /* teal-600 */
+        }
+
+        .callout p {
+            margin-bottom: 0;
+            font-size: 15px;
+            color: #134e4a;
+            /* teal-900 */
+        }
+
+        /* Scale Path */
+        .scale-path {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 32px 0;
+            flex-wrap: wrap;
+        }
+
+        .scale-node {
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            background: #f3f4f6;
+            color: #6b7280;
+            border: 1px solid transparent;
+        }
+
+        .scale-node.active {
+            background: #eff6ff;
+            color: #2563eb;
+            border-color: #bfdbfe;
+        }
+
+        .scale-arrow {
+            color: #d1d5db;
+        }
+
+        /* Ask Box */
+        .ask-box {
+            background: #ffffff;
+            border: 2px solid #2563eb;
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+            margin-top: 40px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        .ask-box h3 {
+            font-size: 24px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: #111827;
+        }
+
+        .ask-tags {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+        }
+
+        .ask-tag {
+            padding: 6px 14px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 500;
+            background: #f3f4f6;
+            color: #4b5563;
+        }
+
+        .ask-tag.green {
+            background: #ecfdf5;
+            /* emerald-50 */
+            color: #059669;
+            /* emerald-600 */
+        }
+
+        /* Footer */
+        .footer {
+            padding: 48px 0;
+            margin-top: 40px;
+            text-align: left;
+            border-top: 1px solid #e5e7eb;
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .footer-logo {
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 4px;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .win-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .process-flow {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .process-arrow {
+                transform: rotate(90deg);
+                margin-left: 50%;
+            }
+
+            .report-title {
+                font-size: 36px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <header class="report-header">
+            <div class="meta-line">
+                <span>Internal Proposal</span>
+                <span class="badge">Draft</span>
+            </div>
+            <h1 class="report-title">RoomingKos <span>Explores</span></h1>
+            <p class="report-subtitle">Community Trips &amp; Experiences Program — building tenant culture that drives
+                retention, generates revenue, and costs nothing to launch.</p>
+
+            <div class="report-meta">
+                <div class="meta-item">
+                    <label>Prepared By</label>
+                    <span>Yoonho</span>
+                </div>
+                <div class="meta-item">
+                    <label>Role</label>
+                    <span>Community Manager</span>
+                </div>
+                <div class="meta-item">
+                    <label>Location</label>
+                    <span>RoomingKos Swanston</span>
+                </div>
+                <div class="meta-item">
+                    <label>Date</label>
+                    <span>10 February 2026</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ORIGIN -->
+        <section>
+            <span class="section-label">01. Origin</span>
+            <h2>Where This Idea Came From</h2>
+            <p>In my two years at RoomingKos Swanston, I've noticed that while tenants are friendly, there is no strong
+                "RoomingKos family" culture. People live alongside each other, but not <em>with</em> each other. I
+                believe this contributes to lower lease renewal rates — tenants who don't feel connected have little
+                reason to stay.</p>
+            <p>Swanston isn't a new or luxury building, but we offer fair pricing, great locations, and reliable
+                service. To stand out against newer purpose-built competitors, we need a differentiator. I believe that
+                differentiator is community culture — and it doesn't have to cost us anything.</p>
+            <div class="highlight-quote">
+                "Last night, I overheard tenants in the common area trying to organise a trip to the Great Ocean Road.
+                They had the desire but not the means. That conversation sparked this proposal."
+            </div>
+        </section>
+
+        <!-- THE IDEA -->
+        <section>
+            <span class="section-label">02. The Concept</span>
+            <h2>The Solution</h2>
+            <p><strong>RoomingKos Explores</strong> is a program of group trips organised exclusively for our tenants.
+                We partner directly with local tour operators to offer discounted group rates on destinations like the
+                Great Ocean Road, Phillip Island, and the Yarra Valley — places that are practically unreachable for
+                students without a car.</p>
+
+            <div class="win-grid">
+                <div class="win-card">
+                    <div class="win-icon">🏠</div>
+                    <h3>Tenants Win</h3>
+                    <p>Discounted trips and a built-in social group.</p>
+                </div>
+                <div class="win-card">
+                    <div class="win-icon">🚌</div>
+                    <h3>Operators Win</h3>
+                    <p>Guaranteed group bookings (10–30 people), zero marketing spend.</p>
+                </div>
+                <div class="win-card">
+                    <div class="win-icon">⭐</div>
+                    <h3>RoomingKos Wins</h3>
+                    <p>Referral commission, stronger retention, authentic social content.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- METHODOLOGY -->
+        <section>
+            <span class="section-label">03. Methodology</span>
+            <h2>Bottom Up, Not Top Down</h2>
+            <p>A lesson from past experience: we once tried to organise a ski trip, and uptake was low. Skiing is
+                expensive and niche — it simply didn't match our demographic. We picked the activity and hoped tenants
+                would follow. That top-down approach doesn't work.</p>
+            <p><strong>RoomingKos Explores flips it.</strong> We let the tenants decide. I can build a simple voting
+                website where tenants suggest destinations and upvote each other's ideas. The most popular suggestions
+                rise to the top, and we negotiate the deal with a local operator.</p>
+
+            <div class="process-flow">
+                <div class="process-step">
+                    <div class="step-label">Tenants Vote</div>
+                </div>
+                <div class="process-arrow">→</div>
+                <div class="process-step">
+                    <div class="step-label">Identify Top Ideas</div>
+                </div>
+                <div class="process-arrow">→</div>
+                <div class="process-step">
+                    <div class="step-label">Negotiate Deal</div>
+                </div>
+                <div class="process-arrow">→</div>
+                <div class="process-step">
+                    <div class="step-label">Launch Trip</div>
+                </div>
+            </div>
+
+            <p>This way, we never waste effort on a trip nobody wants, tenants feel ownership over the program, and the
+                voting data gives us real insight into what our community actually cares about.</p>
+        </section>
+
+        <!-- FINANCIALS -->
+        <section>
+            <span class="section-label">04. Financials</span>
+            <h2>How the Money Works</h2>
+            <p>Tour operators currently pay 20–30% of each booking to platforms like Klook, Viator, and GetYourGuide to
+                acquire customers. By going direct, we cut out the middleman and split the savings.</p>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Details</th>
+                            <th>Via Klook / Viator</th>
+                            <th>Via RoomingKos Explores</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Tenant pays</td>
+                            <td>$120 (full retail)</td>
+                            <td>~$100 (group discount)</td>
+                        </tr>
+                        <tr>
+                            <td>Platform / RoomingKos receives</td>
+                            <td>$24–$36 (to platform)</td>
+                            <td>$10–$15 (to RoomingKos)</td>
+                        </tr>
+                        <tr>
+                            <td>Operator nets</td>
+                            <td>$84–$96</td>
+                            <td>$85–$90</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p>The tenant pays less. The operator keeps more. RoomingKos earns a commission that currently goes to a
+                tech platform with zero connection to our community.</p>
+        </section>
+
+        <!-- VALUE -->
+        <section>
+            <span class="section-label">05. Strategic Value</span>
+            <h2>What This Really Solves</h2>
+            <p>Commission revenue will be modest at first. But the real value is the culture it builds. A tenant who has
+                been on three trips with housemates, who has photos at the Twelve Apostles with people from their
+                building, who looks forward to next month's adventure — that tenant renews their lease.</p>
+
+            <div class="callout">
+                <h3>Authentic Content Engine</h3>
+                <p>Real tenants, real experiences — far more compelling to prospective students than any property
+                    walkthrough. Every trip generates organic social media content that money can't buy.</p>
+            </div>
+        </section>
+
+        <!-- SCALING -->
+        <section>
+            <span class="section-label">06. Growth Path</span>
+            <h2>Scaling to Spire and Beyond</h2>
+            <p>This starts as a Swanston pilot. Once proven, the same partnerships, trip calendar, and voting website
+                extend to Spire and all RoomingKos properties.</p>
+
+            <div class="scale-path">
+                <div class="scale-node active">Swanston Pilot</div>
+                <div class="scale-arrow">→</div>
+                <div class="scale-node">Spire by RoomingKos</div>
+                <div class="scale-arrow">→</div>
+                <div class="scale-node">All Properties</div>
+            </div>
+        </section>
+
+        <!-- ASK -->
+        <section>
+            <span class="section-label">07. The Ask</span>
+            <h2>What I Need</h2>
+            <p>I will build the voting website, handle operator outreach and negotiation, manage tenant communication
+                and event coordination — all within my existing workload.</p>
+
+            <div class="ask-box">
+                <h3>Approval to begin.</h3>
+                <p>No budget required. No financial risk. If a trip doesn't reach minimum numbers, we simply reschedule.
+                </p>
+                <div class="ask-tags">
+                    <span class="ask-tag green">Zero budget</span>
+                    <span class="ask-tag green">Zero financial risk</span>
+                    <span class="ask-tag">Self-built voting site</span>
+                    <span class="ask-tag">Operator outreach included</span>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-logo">RoomingKos Internal</div>
+            <p>Prepared by Yoonho &middot; RoomingKos Swanston &middot; 10 February 2026</p>
+        </div>
+    </footer>
+
+</body>
+
+</html>
