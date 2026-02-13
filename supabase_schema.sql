@@ -11,6 +11,7 @@ create table if not exists posts (
   user_id     uuid default auth.uid(), -- Tracks the creator
   proposed_date date,
   category    text not null default 'Travel',
+  status      text not null default 'proposed',
   created_at  timestamptz not null default now()
 );
 
@@ -19,6 +20,14 @@ do $$
 begin
   if not exists (select 1 from information_schema.columns where table_name = 'posts' and column_name = 'user_id') then
     alter table posts add column user_id uuid default auth.uid();
+  end if;
+end $$;
+
+-- Ensure status exists (for legacy tables)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'posts' and column_name = 'status') then
+    alter table posts add column status text not null default 'proposed';
   end if;
 end $$;
 
@@ -35,6 +44,11 @@ end $$;
 -- Only the creator can delete their post
 drop policy if exists "Users can delete own posts" on posts;
 create policy "Users can delete own posts" on posts for delete using (auth.uid() = user_id);
+
+drop policy if exists "Users can update own posts" on posts;
+create policy "Users can update own posts" on posts for update to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
 -- ── 2. Votes (one per user per post) ──
 create table if not exists votes (
