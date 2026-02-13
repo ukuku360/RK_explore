@@ -259,7 +259,7 @@
         const location = locationInput.value.trim();
         if (!location) return;
 
-        const { error } = await supabaseClient.from('posts').insert({
+        const postPayload = {
             location: location,
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
