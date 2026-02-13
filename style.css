@@ -59,34 +59,6 @@ body {
     margin-bottom: 24px;
 }
 
-/* Auth Toggle */
-.auth-toggle {
-    display: flex;
-    background: #f1f5f9;
-    padding: 4px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-}
-
-.auth-toggle-btn {
-    flex: 1;
-    border: none;
-    background: transparent;
-    padding: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-radius: 6px;
-    transition: all 0.2s;
-}
-
-.auth-toggle-btn.active {
-    background: white;
-    color: var(--text);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
 /* Auth Forms */
 .auth-form {
     display: none;
@@ -109,22 +81,6 @@ body {
         opacity: 1;
         transform: translateY(0);
     }
-}
-
-.login-question {
-    background: #fef2f2;
-    border: 1px solid #fee2e2;
-    color: #7f1d1d;
-    padding: 12px;
-    border-radius: 8px;
-    font-size: 13px;
-    margin-bottom: 12px;
-    text-align: left;
-}
-
-.login-question strong {
-    display: block;
-    margin-bottom: 4px;
 }
 
 .login-input-group {
@@ -196,34 +152,6 @@ button:hover {
     font-size: 13px;
     margin-top: 12px;
     min-height: 20px;
-}
-
-.shake {
-    animation: shake 0.4s cubic-bezier(.36, .07, .19, .97) both;
-}
-
-@keyframes shake {
-
-    10%,
-    90% {
-        transform: translate3d(-1px, 0, 0);
-    }
-
-    20%,
-    80% {
-        transform: translate3d(2px, 0, 0);
-    }
-
-    30%,
-    50%,
-    70% {
-        transform: translate3d(-4px, 0, 0);
-    }
-
-    40%,
-    60% {
-        transform: translate3d(4px, 0, 0);
-    }
 }
 
 /* App Header & Layout */

@@ -48,10 +48,19 @@ create table if not exists rsvps (
 create table if not exists comments (
   id          uuid primary key default gen_random_uuid(),
   post_id     uuid not null references posts(id) on delete cascade,
+  user_id     uuid default auth.uid(),
   author      text not null default 'Tenant',
   text        text not null,
   created_at  timestamptz not null default now()
 );
+
+-- Ensure user_id exists on comments (for ownership-aware policies)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'comments' and column_name = 'user_id') then
+    alter table comments add column user_id uuid default auth.uid();
+  end if;
+end $$;
 
 -- ── Indexes for performance ──
 create index if not exists idx_votes_post_id    on votes(post_id);
@@ -66,7 +75,7 @@ alter table votes    enable row level security;
 alter table rsvps    enable row level security;
 alter table comments enable row level security;
 
--- ── RLS Policies: allow anonymous read/write ──
+-- ── RLS Policies: email-authenticated users only for writes ──
 -- Posts
 drop policy if exists "Anyone can read posts" on posts;
 create policy "Anyone can read posts"    on posts for select using (true);
@@ -79,27 +88,32 @@ drop policy if exists "Anyone can read votes" on votes;
 create policy "Anyone can read votes"    on votes for select using (true);
 
 drop policy if exists "Anyone can create votes" on votes;
-create policy "Anyone can create votes"  on votes for insert with check (true);
+drop policy if exists "Members can create votes" on votes;
+create policy "Members can create votes"  on votes for insert to authenticated with check (user_id = auth.uid()::text);
 
 drop policy if exists "Anyone can delete votes" on votes;
-create policy "Anyone can delete votes"  on votes for delete using (true);
+drop policy if exists "Members can delete own votes" on votes;
+create policy "Members can delete own votes"  on votes for delete to authenticated using (user_id = auth.uid()::text);
 
 -- RSVPs
 drop policy if exists "Anyone can read rsvps" on rsvps;
 create policy "Anyone can read rsvps"    on rsvps for select using (true);
 
 drop policy if exists "Anyone can create rsvps" on rsvps;
-create policy "Anyone can create rsvps"  on rsvps for insert with check (true);
+drop policy if exists "Members can create rsvps" on rsvps;
+create policy "Members can create rsvps"  on rsvps for insert to authenticated with check (user_id = auth.uid()::text);
 
 drop policy if exists "Anyone can delete rsvps" on rsvps;
-create policy "Anyone can delete rsvps"  on rsvps for delete using (true);
+drop policy if exists "Members can delete own rsvps" on rsvps;
+create policy "Members can delete own rsvps"  on rsvps for delete to authenticated using (user_id = auth.uid()::text);
 
 -- Comments
 drop policy if exists "Anyone can read comments" on comments;
 create policy "Anyone can read comments"    on comments for select using (true);
 
 drop policy if exists "Anyone can create comments" on comments;
-create policy "Anyone can create comments"  on comments for insert with check (true);
+drop policy if exists "Members can create comments" on comments;
+create policy "Members can create comments"  on comments for insert to authenticated with check (user_id = auth.uid());
 
 -- ── Enable Realtime ──
 do $$
