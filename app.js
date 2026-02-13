@@ -350,6 +350,9 @@
                     input.value = '';
                 });
             });
+
+            postFeed.querySelectorAll('.delete-btn').forEach(btn =>
+                btn.addEventListener('click', () => handleDeletePost(btn.dataset.id)));
         }
     }
 
@@ -383,6 +386,7 @@
         const isOwner = state.user && state.user.id === post.user_id;
         const deleteBtn = isOwner ?
             `<button class="action-btn delete-btn" data-id="${post.id}" title="Delete Post">🗑️</button>` : '';
+        const timeAgo = formatTimeAgo(post.createdAt);
 
         return `
             <div class="post-card">
@@ -411,8 +415,8 @@
                 <div class="comments-section" data-comments="${post.id}">
                     <div class="comment-list">${commentsHtml}</div>
                     <div class="comment-form" data-id="${post.id}">
-                        <input type="text" placeholder="Write a comment..." />
-                        <button>Post</button>
+                        <input type="text" class="comment-input-${post.id}" placeholder="Write a comment..." />
+                        <button data-id="${post.id}">Post</button>
                     </div>
                 </div>
             </div>
