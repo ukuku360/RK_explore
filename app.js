@@ -13,6 +13,7 @@
     let currentCategory = 'all';
     let currentFeedFilter = 'all'; // 'all' | 'confirmed' | 'scheduled'
     let currentSearch = '';
+    let supportsPostStatus = true;
     let dataLoaded = false;
 
     // ── DOM Refs ──
@@ -333,7 +334,20 @@
             status: 'proposed'
         };
 
-        const { error } = await supabaseClient.from('posts').insert(postPayload);
+        if (supportsPostStatus) {
+            postPayload.status = 'proposed';
+        }
+
+        let { error } = await supabaseClient.from('posts').insert(postPayload);
+
+        if (error && isMissingStatusColumnError(error) && supportsPostStatus) {
+            supportsPostStatus = false;
+            delete postPayload.status;
+            ({ error } = await supabaseClient.from('posts').insert(postPayload));
+            if (!error) {
+                showToast('Post added! (status feature disabled until DB migration)');
+            }
+        }
 
         if (error) {
             console.error('Post error:', error);
@@ -418,6 +432,11 @@
     }
 
     function handleFeedFilter(type) {
+        if (type === 'confirmed' && !supportsPostStatus) {
+            showToast('Confirmed filter is unavailable until DB migration is applied.');
+            return;
+        }
+
         currentFeedFilter = type;
 
         filterBtns.forEach(btn => {
@@ -600,9 +619,18 @@
 
     async function handleConfirmPost(postId) {
         if (!state.user) return showToast('Please log in first.');
+        if (!supportsPostStatus) return showToast('Trip status is unavailable until DB migration is applied.');
 
         const post = state.posts.find(item => item.id === postId);
         if (!post || post.user_id !== state.user.id) return showToast('Only the post owner can confirm this plan.');
+
+        let { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
+
+        if (error && isMissingStatusColumnError(error)) {
+            supportsPostStatus = false;
+            showToast('Trip status is unavailable until DB migration is applied.');
+            return;
+        }
 
         const { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
         if (error) {
@@ -660,6 +688,10 @@
 
     function normalizeStatus(status) {
         return status === 'confirmed' ? 'confirmed' : 'proposed';
+    }
+
+    function isMissingStatusColumnError(error) {
+        return error && error.code === 'PGRST204' && String(error.message || '').includes("'status' column");
     }
 
     function formatDate(str) {
