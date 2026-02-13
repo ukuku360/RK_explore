@@ -9,8 +9,10 @@
         user: null // { id: string, email: string, label: string, createdAt?: string }
     };
     const CATEGORIES = ['Sports', 'Culture', 'Eatout', 'Travel', 'Study', 'Extra'];
-    let currentSort = 'votes'; // 'votes' | 'newest'
+    let currentSort = 'votes'; // 'votes' | 'newest' | 'soonest'
     let currentCategory = 'all';
+    let currentFeedFilter = 'all'; // 'all' | 'confirmed' | 'scheduled'
+    let currentSearch = '';
     let dataLoaded = false;
 
     // ── DOM Refs ──
@@ -49,6 +51,8 @@
     const postFeed = document.getElementById('post-feed');
     const sortBtns = document.querySelectorAll('.sort-btn');
     const categoryBtns = document.querySelectorAll('.category-btn');
+    const filterBtns = document.querySelectorAll('.filter-btn');
+    const searchInput = document.getElementById('search-input');
     const toastContainer = document.getElementById('toast-container');
 
     // ── Init ──
@@ -94,6 +98,10 @@
         categoryBtns.forEach(btn => {
             btn.addEventListener('click', () => handleCategoryFilter(btn.dataset.category));
         });
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => handleFeedFilter(btn.dataset.filter));
+        });
+        searchInput.addEventListener('input', handleSearch);
     }
 
     async function handleMemberLogin() {
@@ -266,6 +274,7 @@
                 createdAt: p.created_at,
                 proposedDate: p.proposed_date,
                 category: normalizeCategory(p.category),
+                status: normalizeStatus(p.status),
                 votes: (votesByPost[p.id] || []).map(v => v.user_id),
                 rsvps: (rsvpsByPost[p.id] || []).map(r => r.user_id),
                 comments: (commentsByPost[p.id] || []).map(c => ({
@@ -320,7 +329,8 @@
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
             proposed_date: dateInput.value || null,
-            category: normalizeCategory(categoryInput.value)
+            category: normalizeCategory(categoryInput.value),
+            status: 'proposed'
         };
 
         const { error } = await supabaseClient.from('posts').insert(postPayload);
@@ -407,18 +417,57 @@
         render();
     }
 
+    function handleFeedFilter(type) {
+        currentFeedFilter = type;
+
+        filterBtns.forEach(btn => {
+            if (btn.dataset.filter === type) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+
+        render();
+    }
+
+    function handleSearch() {
+        currentSearch = searchInput.value.trim().toLowerCase();
+        render();
+    }
+
     // ── Render ──
     function render() {
-        const filteredPosts = currentCategory === 'all'
+        let filteredPosts = currentCategory === 'all'
             ? state.posts
             : state.posts.filter(post => post.category === currentCategory);
+
+        if (currentFeedFilter === 'confirmed') {
+            filteredPosts = filteredPosts.filter(post => post.status === 'confirmed');
+        } else if (currentFeedFilter === 'scheduled') {
+            filteredPosts = filteredPosts.filter(post => Boolean(post.proposedDate));
+        }
+
+        if (currentSearch) {
+            filteredPosts = filteredPosts.filter(post => {
+                const commentsText = post.comments.map(c => c.text).join(' ');
+                return `${post.location} ${post.author} ${commentsText}`.toLowerCase().includes(currentSearch);
+            });
+        }
 
         // Sort
         const sorted = [...filteredPosts];
         if (currentSort === 'votes') {
             sorted.sort((a, b) => b.votes.length - a.votes.length);
-        } else {
+        } else if (currentSort === 'newest') {
             sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        } else {
+            sorted.sort((a, b) => {
+                if (!a.proposedDate && !b.proposedDate) return 0;
+                if (!a.proposedDate) return 1;
+                if (!b.proposedDate) return -1;
+                return new Date(a.proposedDate) - new Date(b.proposedDate);
+            });
         }
 
         if (sorted.length === 0) {
@@ -455,6 +504,9 @@
 
             postFeed.querySelectorAll('.delete-btn').forEach(btn =>
                 btn.addEventListener('click', () => handleDeletePost(btn.dataset.id)));
+
+            postFeed.querySelectorAll('.btn-confirm').forEach(btn =>
+                btn.addEventListener('click', () => handleConfirmPost(btn.dataset.id)));
         }
     }
 
@@ -488,9 +540,14 @@
         `).join('');
 
         const isOwner = state.user && state.user.id === post.user_id;
+        const canConfirm = isOwner && post.status !== 'confirmed';
         const deleteBtn = isOwner ?
             `<button class="action-btn delete-btn" data-id="${post.id}" title="Delete Post">🗑️</button>` : '';
+        const confirmBtn = canConfirm
+            ? `<button class="btn-confirm" data-id="${post.id}" title="Confirm plan">Confirm</button>`
+            : '';
         const timeAgo = formatTimeAgo(post.createdAt);
+        const statusLabel = post.status === 'confirmed' ? '✅ Confirmed' : '🕓 Proposed';
 
         return `
             <div class="post-card">
@@ -507,10 +564,12 @@
                             <span class="meta-item">👤 ${escapeHtml(post.author)}</span>
                             <span class="meta-item">🕐 ${timeAgo}</span>
                         </div>
+                        <div class="post-status ${post.status}">${statusLabel}</div>
                         ${scheduleHtml}
                     </div>
                 </div>
                 <div class="post-actions">
+                    ${confirmBtn}
                     ${deleteBtn}
                     <button class="action-btn comment-toggle" data-id="${post.id}">
                         💬 ${commentCount > 0 ? commentCount + ' comment' + (commentCount === 1 ? '' : 's') : 'Comment'}
@@ -536,6 +595,21 @@
             showToast('Failed to delete. ' + error.message);
         } else {
             showToast('Post deleted.');
+        }
+    }
+
+    async function handleConfirmPost(postId) {
+        if (!state.user) return showToast('Please log in first.');
+
+        const post = state.posts.find(item => item.id === postId);
+        if (!post || post.user_id !== state.user.id) return showToast('Only the post owner can confirm this plan.');
+
+        const { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
+        if (error) {
+            console.error('Confirm error:', error);
+            showToast('Failed to confirm. ' + error.message);
+        } else {
+            showToast('Trip confirmed!');
         }
     }
 
@@ -582,6 +656,10 @@
 
     function normalizeCategory(category) {
         return CATEGORIES.includes(category) ? category : 'Travel';
+    }
+
+    function normalizeStatus(status) {
+        return status === 'confirmed' ? 'confirmed' : 'proposed';
     }
 
     function formatDate(str) {
