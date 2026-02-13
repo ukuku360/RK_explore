@@ -11,7 +11,6 @@
     const CATEGORIES = ['Sports', 'Culture', 'Eatout', 'Travel', 'Study', 'Extra'];
     let currentSort = 'votes'; // 'votes' | 'newest'
     let currentCategory = 'all';
-    let supportsPostCategory = true;
     let dataLoaded = false;
 
     // ── DOM Refs ──
@@ -264,24 +263,9 @@
             location: location,
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
-            proposed_date: dateInput.value || null
-        };
-
-        if (supportsPostCategory) {
-            postPayload.category = normalizeCategory(categoryInput.value);
-        }
-
-        let successMessage = 'Post added!';
-        let { error } = await supabaseClient.from('posts').insert(postPayload);
-
-        if (error && isMissingCategoryColumnError(error) && supportsPostCategory) {
-            supportsPostCategory = false;
-            delete postPayload.category;
-            ({ error } = await supabaseClient.from('posts').insert(postPayload));
-            if (!error) {
-                successMessage = 'Posted! (Category storage disabled until DB migration)';
-            }
-        }
+            proposed_date: dateInput.value || null,
+            category: normalizeCategory(categoryInput.value)
+        });
 
         if (error) {
             console.error('Post error:', error);
@@ -291,7 +275,7 @@
             dateInput.value = '';
             categoryInput.value = 'Travel';
             updatePreview();
-            showToast(successMessage);
+            showToast('Post added!');
         }
     }
 
@@ -540,11 +524,6 @@
 
     function normalizeCategory(category) {
         return CATEGORIES.includes(category) ? category : 'Travel';
-    }
-
-    function isMissingCategoryColumnError(error) {
-        const message = (error?.message || '').toLowerCase();
-        return error?.code === 'PGRST204' && message.includes('category');
     }
 
     function formatDate(str) {
