@@ -271,6 +271,7 @@
             postPayload.category = normalizeCategory(categoryInput.value);
         }
 
+        let successMessage = 'Post added!';
         let { error } = await supabaseClient.from('posts').insert(postPayload);
 
         if (error && isMissingCategoryColumnError(error) && supportsPostCategory) {
@@ -278,7 +279,7 @@
             delete postPayload.category;
             ({ error } = await supabaseClient.from('posts').insert(postPayload));
             if (!error) {
-                showToast('Posted! (Category storage disabled until DB migration)');
+                successMessage = 'Posted! (Category storage disabled until DB migration)';
             }
         }
 
@@ -290,9 +291,7 @@
             dateInput.value = '';
             categoryInput.value = 'Travel';
             updatePreview();
-            if (supportsPostCategory) {
-                showToast('Post added!');
-            }
+            showToast(successMessage);
         }
     }
 
