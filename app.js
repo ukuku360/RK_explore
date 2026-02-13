@@ -1,17 +1,12 @@
-// ── RoomingKos Explores — App Logic (Dual Auth) ──
+// ── RoomingKos Explores — App Logic (Email Auth Only) ──
 
 (() => {
     'use strict';
 
-    // ── Constants ──
-    const GUEST_SESSION_KEY = 'roomingkos_guest_session';
-    const GUEST_ID_KEY = 'roomingkos_guest_id';
-    const GUEST_PASSCODE = '13';
-
     // ── State ──
     let state = {
         posts: [],
-        user: null // { role: 'guest'|'member', id: string, email?: string }
+        user: null // { id: string, email: string, label: string }
     };
     let currentSort = 'votes'; // 'votes' | 'newest'
     let dataLoaded = false;
@@ -19,15 +14,7 @@
     // ── DOM Refs ──
     // Auth Screen
     const loginScreen = document.getElementById('login-screen');
-    const btnShowGuest = document.getElementById('btn-show-guest');
-    const btnShowMember = document.getElementById('btn-show-member');
-    const formGuest = document.getElementById('form-guest');
-    const formMember = document.getElementById('form-member');
-
     // Auth Inputs
-    const guestInput = document.getElementById('guest-code-input');
-    const guestNicknameInput = document.getElementById('guest-nickname');
-    const guestBtn = document.getElementById('guest-login-btn');
     const emailInput = document.getElementById('member-email');
     const passwordInput = document.getElementById('member-password');
     const memberLoginBtn = document.getElementById('member-login-btn');
@@ -63,16 +50,6 @@
         if (session) {
             setMemberState(session.user);
             showApp();
-        } else {
-            // Check for Guest Session
-            if (sessionStorage.getItem(GUEST_SESSION_KEY) === 'true') {
-                setGuestState();
-                showApp();
-            } else {
-                // Pre-fill nickname if exists
-                const savedName = localStorage.getItem('roomingkos_guest_name');
-                if (savedName) guestNicknameInput.value = savedName;
-            }
         }
 
         // Initialize Data & Realtime
@@ -81,20 +58,13 @@
 
     // ── Auth Logic ──
     function bindEvents() {
-        // Toggle Auth Forms
-        btnShowGuest.addEventListener('click', () => toggleAuthMode('guest'));
-        btnShowMember.addEventListener('click', () => toggleAuthMode('member'));
-
-        // Guest Login
-        guestBtn.addEventListener('click', handleGuestLogin);
-        guestInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleGuestLogin();
-        });
-        guestNicknameInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleGuestLogin();
-        });
-
         // Member Login/Signup
+        emailInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleMemberLogin();
+        });
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleMemberLogin();
+        });
         memberLoginBtn.addEventListener('click', handleMemberLogin);
         memberSignupBtn.addEventListener('click', handleMemberSignup);
 
@@ -109,43 +79,6 @@
         });
     }
 
-    function toggleAuthMode(mode) {
-        if (mode === 'guest') {
-            btnShowGuest.classList.add('active');
-            btnShowMember.classList.remove('active');
-            formGuest.classList.add('active');
-            formMember.classList.remove('active');
-        } else {
-            btnShowGuest.classList.remove('active');
-            btnShowMember.classList.add('active');
-            formGuest.classList.remove('active');
-            formMember.classList.add('active');
-        }
-        loginError.textContent = '';
-    }
-
-    function handleGuestLogin() {
-        const code = guestInput.value.trim();
-        const nickname = guestNicknameInput.value.trim();
-
-        if (!nickname) {
-            showLoginError('Please enter a nickname.');
-            guestNicknameInput.focus();
-            return;
-        }
-
-        if (code === GUEST_PASSCODE) {
-            sessionStorage.setItem(GUEST_SESSION_KEY, 'true');
-            localStorage.setItem('roomingkos_guest_name', nickname);
-            setGuestState();
-            showApp();
-        } else {
-            showLoginError('Incorrect passcode.');
-            guestInput.classList.add('shake');
-            setTimeout(() => guestInput.classList.remove('shake'), 500);
-        }
-    }
-
     async function handleMemberLogin() {
         const email = emailInput.value.trim();
         const password = passwordInput.value.trim();
@@ -154,6 +87,9 @@
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
             showLoginError(error.message);
+        } else if (!data.user?.email_confirmed_at) {
+            showLoginError('Please verify your email before logging in.');
+            await supabaseClient.auth.signOut();
         } else {
             setMemberState(data.user);
             showApp();
@@ -173,19 +109,8 @@
         }
     }
 
-    function setGuestState() {
-        const name = localStorage.getItem('roomingkos_guest_name') || 'Guest';
-        state.user = {
-            role: 'guest',
-            id: getOrCreateGuestId(),
-            label: name
-        };
-        updateUIForUser();
-    }
-
     function setMemberState(user) {
         state.user = {
-            role: 'member',
             id: user.id, // Supabase Auth ID
             email: user.email,
             label: user.email.split('@')[0]
@@ -195,27 +120,17 @@
 
     function updateUIForUser() {
         if (!state.user) return;
-
-        // Hide/Show "Suggest Trip" based on role
-        if (state.user.role === 'member') {
-            newSuggestionSection.style.display = 'block';
-        } else {
-            newSuggestionSection.style.display = 'none';
-        }
+        newSuggestionSection.style.display = 'block';
     }
 
     function handleLogout() {
-        if (state.user?.role === 'member') {
-            supabaseClient.auth.signOut();
-        }
-        sessionStorage.removeItem(GUEST_SESSION_KEY);
+        supabaseClient.auth.signOut();
         state.user = null;
 
         appEl.classList.remove('active');
         loginScreen.style.display = 'flex';
 
         // Reset forms
-        guestInput.value = '';
         emailInput.value = '';
         passwordInput.value = '';
         loginError.textContent = '';
@@ -316,7 +231,7 @@
 
     // ── Actions ──
     async function handleSubmitPost() {
-        if (state.user.role !== 'member') return; // Gate on client
+        if (!state.user) return showToast('Please log in first.');
 
         const location = locationInput.value.trim();
         if (!location) return;
@@ -340,7 +255,7 @@
     }
 
     async function handleVote(postId) {
-        if (!state.user) return;
+        if (!state.user) return showToast('Please log in first.');
         const userId = state.user.id;
 
         // Optimistic UI could go here, but let's rely on realtime for simplicity first
@@ -356,7 +271,7 @@
     }
 
     async function handleRsvp(postId) {
-        if (!state.user) return;
+        if (!state.user) return showToast('Please log in first.');
         const userId = state.user.id;
         const hasRsvpd = state.posts.find(p => p.id === postId)?.rsvps.includes(userId);
 
@@ -368,11 +283,13 @@
     }
 
     async function handleComment(postId, text) {
-        if (!state.user || !text.trim()) return;
+        if (!state.user) return showToast('Please log in first.');
+        if (!text.trim()) return;
 
         await supabaseClient.from('comments').insert({
             post_id: postId,
-            author: state.user.label || 'Guest',
+            user_id: state.user.id,
+            author: state.user.label,
             text: text.trim()
         });
     }
@@ -515,15 +432,6 @@
     }
 
     // ── Helpers ──
-    function getOrCreateGuestId() {
-        let id = localStorage.getItem(GUEST_ID_KEY);
-        if (!id) {
-            id = 'guest_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 6);
-            localStorage.setItem(GUEST_ID_KEY, id);
-        }
-        return id;
-    }
-
     function updatePreview() {
         const val = locationInput.value.trim();
         previewText.innerHTML = val ?

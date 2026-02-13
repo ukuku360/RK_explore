@@ -18,31 +18,8 @@
             <div class="login-logo">RoomingKos <span>Explores</span></div>
             <p class="login-tagline">Community Trips & Experiences</p>
 
-            <!-- Toggle Buttons -->
-            <div class="auth-toggle">
-                <button id="btn-show-guest" class="auth-toggle-btn active">Guest Pass</button>
-                <button id="btn-show-member" class="auth-toggle-btn">Member Login</button>
-            </div>
-
-            <!-- GUEST LOGIN FORM -->
-            <div id="form-guest" class="auth-form active">
-                <div class="login-question">
-                    <strong>Quick Check</strong>
-                    How many floors in this building + how many ping pong tables?
-                </div>
-                <!-- Nickname Input -->
-                <input type="text" id="guest-nickname" placeholder="Your Nickname (e.g. Kai)" maxlength="15"
-                    autocomplete="off" />
-
-                <div class="login-input-group">
-                    <input type="text" id="guest-code-input" placeholder="Answer (Number)" autocomplete="off" />
-                    <button id="guest-login-btn">Enter</button>
-                </div>
-                <p class="auth-note">Read-only & Voting access.</p>
-            </div>
-
-            <!-- MEMBER LOGIN FORM -->
-            <div id="form-member" class="auth-form">
+            <!-- EMAIL AUTH FORM -->
+            <div id="form-member" class="auth-form active">
                 <div class="login-input-group vertical">
                     <input type="email" id="member-email" placeholder="Email" autocomplete="email" />
                     <input type="password" id="member-password" placeholder="Password"
@@ -52,7 +29,7 @@
                     <button id="member-login-btn" class="btn-primary">Log In</button>
                     <button id="member-signup-btn" class="btn-secondary">Sign Up</button>
                 </div>
-                <p class="auth-note">Post & Organize trips.</p>
+                <p class="auth-note">Email-verified members can post, vote, RSVP, and comment.</p>
             </div>
 
             <div id="login-error" class="login-error"></div>
