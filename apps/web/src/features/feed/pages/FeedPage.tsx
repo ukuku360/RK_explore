@@ -34,7 +34,6 @@ import {
   validateStep1,
   type OptionalErrors,
   type PostFormState,
-  type PostFormStep,
   type Step1Field,
 } from '../lib/postForm'
 import {
@@ -249,7 +248,6 @@ export function FeedPage() {
   const hasTrackedStep1ValidRef = useRef(false)
 
   const [form, setForm] = useState<PostFormState>(getInitialFormState)
-  const [postFormStep, setPostFormStep] = useState<PostFormStep>(1)
   const [step1Touched, setStep1Touched] = useState<Record<Step1Field, boolean>>(getInitialStep1TouchedState)
   const [showStep1Errors, setShowStep1Errors] = useState(false)
   const [optionalErrors, setOptionalErrors] = useState<OptionalErrors>({})
@@ -417,7 +415,6 @@ export function FeedPage() {
     if (!draft) return
 
     setForm(draft.form)
-    setPostFormStep(draft.step)
     setShowStep1Errors(false)
     setStep1Touched(getInitialStep1TouchedState())
     setOptionalErrors({})
@@ -434,13 +431,13 @@ export function FeedPage() {
     }
 
     const timeoutId = window.setTimeout(() => {
-      saveDraft(user.id, form, postFormStep)
+      saveDraft(user.id, form, 1)
     }, POST_DRAFT_SAVE_DELAY_MS)
 
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [form, postFormStep, user])
+  }, [form, user])
 
   useEffect(() => {
     setOptimisticRsvpByPostId({})
@@ -522,7 +519,7 @@ export function FeedPage() {
       return
     }
 
-    saveDraft(user.id, form, postFormStep)
+    saveDraft(user.id, form, 1)
   }
 
   function revealStep1Errors() {
@@ -557,7 +554,7 @@ export function FeedPage() {
     setForm((previous) => ({ ...previous, [key]: value }))
   }
 
-  async function submitPost(skipOptional: boolean) {
+  async function submitPost() {
     if (!user) {
       setStatusTone('error')
       setStatusMessage('Please log in first.')
@@ -570,28 +567,11 @@ export function FeedPage() {
     }
     trackPostStep1ValidOnce()
 
-    if (skipOptional) {
-      trackEvent('post_step2_skipped', {
-        user_id: user.id,
-        role: user.isAdmin ? 'admin' : 'member',
-        surface: 'post_form',
-      })
-    }
-
-    const optionalValidation = skipOptional
-      ? {
-          errors: {},
-          values: {
-            estimatedCost: null,
-            rsvpDeadline: null,
-          },
-        }
-      : validateOptionalFields(form)
+    const optionalValidation = validateOptionalFields(form)
 
     setOptionalErrors(optionalValidation.errors)
 
-    if (!skipOptional && Object.keys(optionalValidation.errors).length > 0) {
-      setPostFormStep(2)
+    if (Object.keys(optionalValidation.errors).length > 0) {
       return
     }
 
@@ -610,11 +590,11 @@ export function FeedPage() {
         category: form.category,
         proposed_date: form.proposedDate,
         capacity,
-        meetup_place: skipOptional ? null : form.meetupPlace.trim() || null,
-        meeting_time: skipOptional ? null : form.meetupTime.trim() || null,
-        estimated_cost: skipOptional ? null : optionalValidation.values.estimatedCost,
-        prep_notes: skipOptional ? null : form.prepNotes.trim() || null,
-        rsvp_deadline: skipOptional ? null : optionalValidation.values.rsvpDeadline,
+        meetup_place: form.meetupPlace.trim() || null,
+        meeting_time: form.meetupTime.trim() || null,
+        estimated_cost: optionalValidation.values.estimatedCost,
+        prep_notes: form.prepNotes.trim() || null,
+        rsvp_deadline: optionalValidation.values.rsvpDeadline,
         status: 'proposed',
       })
 
@@ -623,7 +603,6 @@ export function FeedPage() {
 
       clearDraft(user.id)
       setForm(getInitialFormState())
-      setPostFormStep(1)
       setStep1Touched(getInitialStep1TouchedState())
       setOptionalErrors({})
       setShowStep1Errors(false)
@@ -653,26 +632,7 @@ export function FeedPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (postFormStep === 1) {
-      revealStep1Errors()
-      if (!isStep1Complete) return
-      trackPostStep1ValidOnce()
-      setPostFormStep(2)
-      persistDraftNow()
-      return
-    }
-
-    void submitPost(false)
-  }
-
-  function moveToStep2() {
-    revealStep1Errors()
-    if (!isStep1Complete) return
-
-    trackPostStep1ValidOnce()
-    setPostFormStep(2)
-    persistDraftNow()
+    void submitPost()
   }
 
   function applyFeedFilter(nextFilter: FeedFilter) {
@@ -752,7 +712,6 @@ export function FeedPage() {
       setFeedFilter('all')
       setSelectedCategory('Travel')
     } else {
-      setPostFormStep(1)
       formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
 
@@ -769,12 +728,10 @@ export function FeedPage() {
     updateField('location', locationText)
     updateField('proposedDate', getSuggestedDate(7))
     updateField('capacity', '8')
-    setPostFormStep(1)
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function handleMobileFabClick() {
-    setPostFormStep(1)
     formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     if (!user) return
 
@@ -947,126 +904,97 @@ export function FeedPage() {
           </label>
         </div>
 
-        {postFormStep === 1 ? (
-          <div className="rk-post-step-actions">
-            <button type="button" className="rk-button rk-button-secondary" onClick={moveToStep2} disabled={isSubmitting}>
-              Continue to step 2
-            </button>
-            <button type="button" className="rk-button" onClick={() => void submitPost(true)} disabled={isSubmitting}>
-              {isSubmitting ? 'Publishing...' : 'Skip optional and publish'}
-            </button>
+        <div className="rk-post-optional">
+          <div className="rk-post-grid rk-post-grid-2">
+            <label className="rk-auth-label">
+              Category
+              <select
+                className="rk-auth-input"
+                value={form.category}
+                onChange={(event) => updateField('category', event.target.value as Category)}
+                onBlur={persistDraftNow}
+                disabled={isSubmitting}
+              >
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {getCategoryLabel(category)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="rk-auth-label">
+              Meet-up place
+              <input
+                className="rk-auth-input"
+                value={form.meetupPlace}
+                onChange={(event) => updateField('meetupPlace', event.target.value)}
+                onBlur={persistDraftNow}
+                disabled={isSubmitting}
+              />
+            </label>
           </div>
-        ) : (
-          <>
-            <div className="rk-post-optional">
-              <div className="rk-post-grid rk-post-grid-2">
-                <label className="rk-auth-label">
-                  Category
-                  <select
-                    className="rk-auth-input"
-                    value={form.category}
-                    onChange={(event) => updateField('category', event.target.value as Category)}
-                    onBlur={persistDraftNow}
-                    disabled={isSubmitting}
-                  >
-                    {CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {getCategoryLabel(category)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
 
-                <label className="rk-auth-label">
-                  Meet-up place
-                  <input
-                    className="rk-auth-input"
-                    value={form.meetupPlace}
-                    onChange={(event) => updateField('meetupPlace', event.target.value)}
-                    onBlur={persistDraftNow}
-                    disabled={isSubmitting}
-                  />
-                </label>
-              </div>
-
-              <div className="rk-post-grid rk-post-grid-2">
-                <label className="rk-auth-label">
-                  Meet-up time
-                  <input
-                    className="rk-auth-input"
-                    type="time"
-                    value={form.meetupTime}
-                    onChange={(event) => updateField('meetupTime', event.target.value)}
-                    onBlur={persistDraftNow}
-                    disabled={isSubmitting}
-                  />
-                </label>
-
-                <label className="rk-auth-label">
-                  Estimated cost
-                  <input
-                    className="rk-auth-input"
-                    type="number"
-                    min={0}
-                    value={form.estimatedCost}
-                    onChange={(event) => updateField('estimatedCost', event.target.value)}
-                    onBlur={() => handleOptionalFieldBlur('estimatedCost')}
-                    disabled={isSubmitting}
-                  />
-                  <span className="rk-field-error">{optionalErrors.estimatedCost}</span>
-                </label>
-              </div>
-
-              <div className="rk-post-grid rk-post-grid-2">
-                <label className="rk-auth-label">
-                  RSVP deadline
-                  <input
-                    className="rk-auth-input"
-                    type="datetime-local"
-                    value={form.rsvpDeadline}
-                    onChange={(event) => updateField('rsvpDeadline', event.target.value)}
-                    onBlur={() => handleOptionalFieldBlur('rsvpDeadline')}
-                    disabled={isSubmitting}
-                  />
-                  <span className="rk-field-error">{optionalErrors.rsvpDeadline}</span>
-                </label>
-
-                <label className="rk-auth-label">
-                  Preparation notes
-                  <textarea
-                    className="rk-auth-input rk-textarea"
-                    value={form.prepNotes}
-                    onChange={(event) => updateField('prepNotes', event.target.value)}
-                    onBlur={persistDraftNow}
-                    disabled={isSubmitting}
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div className="rk-post-step-actions">
-              <button
-                type="button"
-                className="rk-button rk-button-secondary"
-                onClick={() => setPostFormStep(1)}
+          <div className="rk-post-grid rk-post-grid-2">
+            <label className="rk-auth-label">
+              Meet-up time
+              <input
+                className="rk-auth-input"
+                type="time"
+                value={form.meetupTime}
+                onChange={(event) => updateField('meetupTime', event.target.value)}
+                onBlur={persistDraftNow}
                 disabled={isSubmitting}
-              >
-                Back to step 1
-              </button>
-              <button
-                type="button"
-                className="rk-button rk-button-secondary"
-                onClick={() => void submitPost(true)}
+              />
+            </label>
+
+            <label className="rk-auth-label">
+              Estimated cost
+              <input
+                className="rk-auth-input"
+                type="number"
+                min={0}
+                value={form.estimatedCost}
+                onChange={(event) => updateField('estimatedCost', event.target.value)}
+                onBlur={() => handleOptionalFieldBlur('estimatedCost')}
                 disabled={isSubmitting}
-              >
-                Skip optional
-              </button>
-              <button className="rk-button" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Publish trip idea'}
-              </button>
-            </div>
-          </>
-        )}
+              />
+              <span className="rk-field-error">{optionalErrors.estimatedCost}</span>
+            </label>
+          </div>
+
+          <div className="rk-post-grid rk-post-grid-2">
+            <label className="rk-auth-label">
+              RSVP deadline
+              <input
+                className="rk-auth-input"
+                type="datetime-local"
+                value={form.rsvpDeadline}
+                onChange={(event) => updateField('rsvpDeadline', event.target.value)}
+                onBlur={() => handleOptionalFieldBlur('rsvpDeadline')}
+                disabled={isSubmitting}
+              />
+              <span className="rk-field-error">{optionalErrors.rsvpDeadline}</span>
+            </label>
+
+            <label className="rk-auth-label">
+              Preparation notes
+              <textarea
+                className="rk-auth-input rk-textarea"
+                value={form.prepNotes}
+                onChange={(event) => updateField('prepNotes', event.target.value)}
+                onBlur={persistDraftNow}
+                disabled={isSubmitting}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="rk-post-step-actions">
+          <button className="rk-button" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Publishing...' : 'Publish trip idea'}
+          </button>
+        </div>
       </form>
 
       {statusMessage ? (
