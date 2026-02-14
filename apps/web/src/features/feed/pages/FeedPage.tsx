@@ -26,6 +26,11 @@ import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
 
 const DEFAULT_CAPACITY = 10
 const MAX_CAPACITY = 200
+const FEED_FILTERS = ['all', 'confirmed', 'scheduled'] as const
+const SORT_OPTIONS = ['votes', 'newest', 'soonest'] as const
+
+type FeedFilter = (typeof FEED_FILTERS)[number]
+type SortOption = (typeof SORT_OPTIONS)[number]
 
 type PostFormState = {
   location: string
@@ -141,6 +146,11 @@ export function FeedPage() {
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
+  const [selectedCategory, setSelectedCategory] = useState<'all' | Category>('all')
+  const [feedFilter, setFeedFilter] = useState<FeedFilter>('all')
+  const [sortOption, setSortOption] = useState<SortOption>('votes')
+  const [searchText, setSearchText] = useState('')
+  const [showHiddenPosts, setShowHiddenPosts] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const viewerUserId = user?.id ?? ''
@@ -149,11 +159,65 @@ export function FeedPage() {
     if (!postsQuery.data || !user) return []
 
     return postsQuery.data.filter((post) => {
+      if (user.isAdmin) {
+        return showHiddenPosts ? true : !post.is_hidden
+      }
+
       if (!post.is_hidden) return true
-      if (post.user_id === user.id) return true
-      return user.isAdmin
+      return post.user_id === user.id
     })
-  }, [postsQuery.data, user])
+  }, [postsQuery.data, showHiddenPosts, user])
+
+  const displayPosts = useMemo(() => {
+    const normalizedSearch = searchText.trim().toLowerCase()
+
+    let nextPosts = selectedCategory === 'all'
+      ? visiblePosts
+      : visiblePosts.filter((post) => post.category === selectedCategory)
+
+    if (feedFilter === 'confirmed') {
+      nextPosts = nextPosts.filter((post) => post.status === 'confirmed')
+    } else if (feedFilter === 'scheduled') {
+      nextPosts = nextPosts.filter((post) => Boolean(post.proposed_date))
+    }
+
+    if (normalizedSearch) {
+      nextPosts = nextPosts.filter((post) => {
+        const commentsText = post.comments.map((comment) => comment.text).join(' ')
+        const haystack = [
+          post.location,
+          post.author,
+          post.meetup_place ?? '',
+          post.prep_notes ?? '',
+          commentsText,
+        ]
+          .join(' ')
+          .toLowerCase()
+
+        return haystack.includes(normalizedSearch)
+      })
+    }
+
+    const sorted = [...nextPosts]
+
+    if (sortOption === 'votes') {
+      sorted.sort((a, b) => b.votes.length - a.votes.length)
+      return sorted
+    }
+
+    if (sortOption === 'newest') {
+      sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      return sorted
+    }
+
+    sorted.sort((a, b) => {
+      if (!a.proposed_date && !b.proposed_date) return 0
+      if (!a.proposed_date) return 1
+      if (!b.proposed_date) return -1
+      return new Date(a.proposed_date).getTime() - new Date(b.proposed_date).getTime()
+    })
+    return sorted
+  }, [feedFilter, searchText, selectedCategory, sortOption, visiblePosts])
 
   const previewText = useMemo(() => {
     const location = form.location.trim()
@@ -473,17 +537,94 @@ export function FeedPage() {
       <section className="rk-feed-section">
         <h2>Community Feed</h2>
 
+        <div className="rk-discovery">
+          <input
+            className="rk-post-input"
+            placeholder="Search destination, author, or comment..."
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+          <div className="rk-discovery-group">
+            <span>Filter</span>
+            {FEED_FILTERS.map((nextFilter) => (
+              <button
+                key={nextFilter}
+                type="button"
+                className={`rk-chip ${feedFilter === nextFilter ? 'rk-chip-active' : ''}`}
+                onClick={() => setFeedFilter(nextFilter)}
+              >
+                {nextFilter === 'all'
+                  ? 'All'
+                  : nextFilter === 'confirmed'
+                    ? 'Confirmed'
+                    : 'With Date'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="rk-discovery rk-discovery-wrap">
+          <div className="rk-discovery-group">
+            <span>Category</span>
+            <button
+              type="button"
+              className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
+              onClick={() => setSelectedCategory('all')}
+            >
+              All
+            </button>
+            {CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <div className="rk-discovery-group">
+            <span>Sort</span>
+            {SORT_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                onClick={() => setSortOption(option)}
+              >
+                {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+              </button>
+            ))}
+          </div>
+
+          {user?.isAdmin ? (
+            <button
+              type="button"
+              className="rk-chip"
+              onClick={() => setShowHiddenPosts((previous) => !previous)}
+            >
+              {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
+            </button>
+          ) : null}
+        </div>
+
         {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
 
-        {!postsQuery.isLoading && visiblePosts.length === 0 ? (
+        {!postsQuery.isLoading && displayPosts.length === 0 ? (
           <div className="rk-empty-state">
-            <strong>No posts to show</strong>
-            <p>Try another account or be the first to post.</p>
+            <strong>{searchText.trim() ? 'No matches found' : 'No posts to show'}</strong>
+            <p>
+              {user?.isAdmin && !showHiddenPosts
+                ? 'Try "Show Hidden Posts" to review moderated content.'
+                : 'Try another filter or be the first to post.'}
+            </p>
           </div>
         ) : null}
 
         <div className="rk-feed-list">
-          {visiblePosts.map((post) => {
+          {displayPosts.map((post) => {
             const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
             const rsvpSummary = getRsvpSummary(post, viewerUserId)
             const isClosed = isRsvpClosed(post)

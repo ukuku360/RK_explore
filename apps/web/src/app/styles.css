@@ -307,6 +307,45 @@
   font-size: 1.2rem;
 }
 
+.rk-discovery {
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.rk-discovery-wrap {
+  flex-wrap: wrap;
+}
+
+.rk-discovery-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rk-discovery-group span {
+  font-size: 0.82rem;
+  color: var(--rk-muted);
+}
+
+.rk-chip {
+  border: 1px solid #c9d6e7;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #fff;
+  color: #30435f;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.rk-chip-active {
+  background: #e9f6fc;
+  border-color: #8bbad4;
+  color: #0f4d63;
+}
+
 .rk-feed-note {
   color: var(--rk-muted);
 }
