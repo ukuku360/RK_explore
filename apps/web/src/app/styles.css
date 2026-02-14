@@ -259,6 +259,45 @@
   color: #0f7a2a;
 }
 
+.rk-post-form {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.rk-post-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rk-post-input {
+  flex: 1;
+  min-width: 220px;
+  border: 1px solid var(--rk-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.rk-post-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.rk-post-grid-3 {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.rk-post-grid-2 {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.rk-textarea {
+  min-height: 84px;
+  resize: vertical;
+}
+
 @media (max-width: 760px) {
   .rk-header-inner {
     align-items: flex-start;
