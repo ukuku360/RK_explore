@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   invalidateAfterCommentMutation,
   invalidateAfterPostMutation,
+  invalidateAfterRsvpMutation,
   invalidateAfterVoteMutation,
   invalidateForRealtimeTable,
 } from '../../../lib/queryInvalidation'
@@ -16,8 +17,10 @@ import {
 } from '../../../lib/formatters'
 import { createComment } from '../../../services/comments/comments.service'
 import { createPost } from '../../../services/posts/posts.service'
+import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
+import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
-import { CATEGORIES, type Category } from '../../../types/domain'
+import { CATEGORIES, type Category, type Post } from '../../../types/domain'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
 
@@ -78,6 +81,54 @@ function getStatusLabel(status: 'proposed' | 'confirmed'): string {
   return status === 'confirmed' ? '✅ Confirmed' : '🕓 Proposed'
 }
 
+type RsvpSummary = {
+  capacity: number
+  goingCount: number
+  waitlistCount: number
+  isFull: boolean
+  isGoing: boolean
+  isWaitlisted: boolean
+  hasRsvpd: boolean
+  waitlistPosition: number
+}
+
+function isRsvpClosed(post: Post): boolean {
+  if (!post.rsvp_deadline) return false
+  return new Date(post.rsvp_deadline).getTime() < Date.now()
+}
+
+function getRsvpSummary(post: Post, viewerUserId: string): RsvpSummary {
+  const sortedEntries = [...post.rsvps].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+  const uniqueEntries = []
+  const seenUserIds = new Set<string>()
+
+  for (const entry of sortedEntries) {
+    if (!entry?.user_id) continue
+    if (seenUserIds.has(entry.user_id)) continue
+    seenUserIds.add(entry.user_id)
+    uniqueEntries.push(entry)
+  }
+
+  const goingEntries = uniqueEntries.slice(0, post.capacity)
+  const waitlistEntries = uniqueEntries.slice(post.capacity)
+  const goingIds = goingEntries.map((entry) => entry.user_id)
+  const waitlistIds = waitlistEntries.map((entry) => entry.user_id)
+
+  const isGoing = goingIds.includes(viewerUserId)
+  const isWaitlisted = waitlistIds.includes(viewerUserId)
+
+  return {
+    capacity: post.capacity,
+    goingCount: goingIds.length,
+    waitlistCount: waitlistIds.length,
+    isFull: goingIds.length >= post.capacity,
+    isGoing,
+    isWaitlisted,
+    hasRsvpd: isGoing || isWaitlisted,
+    waitlistPosition: isWaitlisted ? waitlistIds.indexOf(viewerUserId) + 1 : 0,
+  }
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -86,6 +137,7 @@ export function FeedPage() {
   const [form, setForm] = useState<PostFormState>(getInitialFormState)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
+  const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
@@ -219,6 +271,45 @@ export function FeedPage() {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to update vote.')
     } finally {
       setIsVotePendingByPostId((previous) => ({ ...previous, [postId]: false }))
+    }
+  }
+
+  async function handleRsvp(post: Post) {
+    if (!user) return
+
+    const summary = getRsvpSummary(post, user.id)
+
+    if (!summary.hasRsvpd && isRsvpClosed(post)) {
+      setStatusTone('error')
+      setStatusMessage('RSVP is closed for this trip.')
+      return
+    }
+
+    setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      if (summary.hasRsvpd) {
+        await removeRsvp(post.id, user.id)
+        await invalidateAfterRsvpMutation(queryClient)
+        setStatusTone('success')
+        setStatusMessage('RSVP removed.')
+        return
+      }
+
+      await addRsvp(post.id, user.id)
+      await invalidateAfterRsvpMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage(summary.isFull ? 'Trip is full. You joined the waitlist.' : 'RSVP confirmed!')
+    } catch (error) {
+      if (error instanceof SupabaseServiceError && error.code === '23505') {
+        setStatusTone('error')
+        setStatusMessage("You have already RSVP'd to this trip.")
+      } else {
+        setStatusTone('error')
+        setStatusMessage(error instanceof Error ? error.message : 'Failed to update RSVP.')
+      }
+    } finally {
+      setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
     }
   }
 
@@ -394,6 +485,20 @@ export function FeedPage() {
         <div className="rk-feed-list">
           {visiblePosts.map((post) => {
             const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
+            const rsvpSummary = getRsvpSummary(post, viewerUserId)
+            const isClosed = isRsvpClosed(post)
+            const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
+
+            let rsvpButtonLabel = "I'm in"
+            if (rsvpSummary.isGoing) {
+              rsvpButtonLabel = 'Leave'
+            } else if (rsvpSummary.isWaitlisted) {
+              rsvpButtonLabel = 'Leave Waitlist'
+            } else if (isRsvpClosedForJoin) {
+              rsvpButtonLabel = 'RSVP Closed'
+            } else if (rsvpSummary.isFull) {
+              rsvpButtonLabel = 'Join Waitlist'
+            }
 
             return (
             <article key={post.id} className="rk-post-card">
@@ -424,7 +529,10 @@ export function FeedPage() {
               <div className="rk-post-details">
                 <span>▲ {post.votes.length} votes</span>
                 <span>💬 {post.comments.length} comments</span>
-                <span>👥 {post.rsvps.length}/{post.capacity} joined</span>
+                <span>
+                  👥 {rsvpSummary.goingCount}/{rsvpSummary.capacity} going
+                </span>
+                {rsvpSummary.waitlistCount > 0 ? <span>⏳ {rsvpSummary.waitlistCount} waitlist</span> : null}
                 {post.meetup_place ? <span>Meet-up: {post.meetup_place}</span> : null}
                 {post.meeting_time ? <span>Time: {formatMeetingTime(post.meeting_time)}</span> : null}
                 {post.estimated_cost !== null ? <span>Cost: {formatCurrency(post.estimated_cost)}</span> : null}
@@ -433,6 +541,14 @@ export function FeedPage() {
               </div>
 
               <div className="rk-post-actions">
+                <button
+                  type="button"
+                  className={`rk-action-button ${rsvpSummary.isGoing ? 'rk-action-active' : ''}`}
+                  onClick={() => void handleRsvp(post)}
+                  disabled={isRsvpPendingByPostId[post.id] || isRsvpClosedForJoin}
+                >
+                  {rsvpButtonLabel}
+                </button>
                 <button
                   type="button"
                   className={`rk-action-button ${hasVoted ? 'rk-action-active' : ''}`}
@@ -449,6 +565,11 @@ export function FeedPage() {
                   💬 {post.comments.length}
                 </button>
               </div>
+
+              {rsvpSummary.waitlistPosition > 0 ? (
+                <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
+              ) : null}
+              {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
 
               {commentsOpenByPostId[post.id] ? (
                 <div className="rk-comments">

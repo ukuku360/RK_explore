@@ -440,6 +440,12 @@
   padding-top: 10px;
 }
 
+.rk-note {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: #5b4a24;
+}
+
 .rk-comment-list {
   display: grid;
   gap: 8px;
