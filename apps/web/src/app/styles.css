@@ -1215,6 +1215,14 @@
 }
 
 @media (max-width: 760px) {
+  .rk-shell::before {
+    width: 170px;
+    height: 170px;
+    right: -26px;
+    bottom: -34px;
+    opacity: 0.06;
+  }
+
   .rk-header {
     padding: 10px 10px 0;
   }
@@ -1231,7 +1239,7 @@
   }
 
   .rk-main {
-    padding: 12px 10px 38px;
+    padding: 12px 10px calc(92px + env(safe-area-inset-bottom));
   }
 
   .rk-page {
@@ -1254,8 +1262,47 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .rk-post-input {
+    min-width: 0;
+  }
+
   .rk-filter-toolbar {
-    top: 70px;
+    top: 66px;
+  }
+
+  .rk-discovery {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .rk-discovery-group {
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .rk-discovery-group span,
+  .rk-chip {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .rk-post-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .rk-action-stack {
+    min-width: 0;
+  }
+
+  .rk-post-actions .rk-action-button {
+    width: 100%;
+    padding: 10px 8px;
   }
 
   .rk-mobile-fab {
@@ -1288,6 +1335,9 @@
 
   .rk-session-group {
     width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .rk-session {
@@ -1295,12 +1345,26 @@
     width: 100%;
   }
 
+  .rk-connection {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .rk-session-group .rk-button,
+  .rk-session-group .rk-nav-link {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
   .rk-profile-grid {
     grid-template-columns: 1fr;
   }
 
-  .rk-button,
-  .rk-action-button {
+  .rk-post-step-actions .rk-button,
+  .rk-auth-actions .rk-button,
+  .rk-comment-form .rk-button,
+  .rk-empty-state .rk-button {
     width: 100%;
     justify-content: center;
   }
@@ -1317,12 +1381,26 @@
     flex-direction: column;
   }
 
+  .rk-filter-toolbar {
+    position: static;
+    top: auto;
+  }
+
   .rk-post-card {
     padding: 14px;
   }
 
+  .rk-post-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .rk-post-header h3 {
     font-size: 1.18rem;
+  }
+
+  .rk-status-cluster {
+    justify-content: flex-start;
   }
 
   .rk-card-core {
@@ -1331,7 +1409,13 @@
   }
 
   .rk-post-actions {
+    grid-template-columns: 1fr;
     gap: 8px;
+  }
+
+  .rk-comment-meta {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .rk-card-more-list {
@@ -1341,5 +1425,39 @@
   .rk-role-callout {
     flex-direction: column;
     align-items: stretch;
+  }
+}
+
+@media (max-width: 420px) {
+  .rk-header {
+    padding: 8px 8px 0;
+  }
+
+  .rk-header-inner {
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .rk-main {
+    padding: 10px 8px calc(90px + env(safe-area-inset-bottom));
+  }
+
+  .rk-page {
+    border-radius: 18px;
+    padding: 16px 14px;
+  }
+
+  .rk-profile-panel {
+    border-radius: 18px;
+    padding: 14px 12px;
+  }
+
+  .rk-brand-logo {
+    width: 130px;
+  }
+
+  .rk-mobile-fab {
+    right: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
   }
 }
