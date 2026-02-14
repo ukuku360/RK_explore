@@ -23,6 +23,7 @@ import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category, type Post } from '../../../types/domain'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
+import { getRsvpSummary, isRsvpClosed } from '../lib/rsvp'
 
 const DEFAULT_CAPACITY = 10
 const MAX_CAPACITY = 200
@@ -84,54 +85,6 @@ function parseRsvpDeadlineIso(rawValue: string): string | null {
 
 function getStatusLabel(status: 'proposed' | 'confirmed'): string {
   return status === 'confirmed' ? '✅ Confirmed' : '🕓 Proposed'
-}
-
-type RsvpSummary = {
-  capacity: number
-  goingCount: number
-  waitlistCount: number
-  isFull: boolean
-  isGoing: boolean
-  isWaitlisted: boolean
-  hasRsvpd: boolean
-  waitlistPosition: number
-}
-
-function isRsvpClosed(post: Post): boolean {
-  if (!post.rsvp_deadline) return false
-  return new Date(post.rsvp_deadline).getTime() < Date.now()
-}
-
-function getRsvpSummary(post: Post, viewerUserId: string): RsvpSummary {
-  const sortedEntries = [...post.rsvps].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-  const uniqueEntries = []
-  const seenUserIds = new Set<string>()
-
-  for (const entry of sortedEntries) {
-    if (!entry?.user_id) continue
-    if (seenUserIds.has(entry.user_id)) continue
-    seenUserIds.add(entry.user_id)
-    uniqueEntries.push(entry)
-  }
-
-  const goingEntries = uniqueEntries.slice(0, post.capacity)
-  const waitlistEntries = uniqueEntries.slice(post.capacity)
-  const goingIds = goingEntries.map((entry) => entry.user_id)
-  const waitlistIds = waitlistEntries.map((entry) => entry.user_id)
-
-  const isGoing = goingIds.includes(viewerUserId)
-  const isWaitlisted = waitlistIds.includes(viewerUserId)
-
-  return {
-    capacity: post.capacity,
-    goingCount: goingIds.length,
-    waitlistCount: waitlistIds.length,
-    isFull: goingIds.length >= post.capacity,
-    isGoing,
-    isWaitlisted,
-    hasRsvpd: isGoing || isWaitlisted,
-    waitlistPosition: isWaitlisted ? waitlistIds.indexOf(viewerUserId) + 1 : 0,
-  }
 }
 
 export function FeedPage() {
