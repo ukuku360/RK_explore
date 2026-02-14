@@ -1465,6 +1465,13 @@ export function FeedPage() {
             const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
             const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
             const detailItems = [
+              `Category ${post.category}`,
+              `Author ${post.author}`,
+              `Posted ${formatTimeAgo(post.created_at)}`,
+              `Votes ${post.votes.length}`,
+              `Status ${rsvpStateLabel}`,
+              `Going ${rsvpSummary.goingCount}/${rsvpSummary.capacity}`,
+              recommendationReason ? `Recommended because: ${recommendationReason}` : null,
               post.meetup_place ? `Meet-up ${post.meetup_place}` : null,
               post.meeting_time ? `Time ${formatMeetingTime(post.meeting_time)}` : null,
               post.estimated_cost !== null ? `Cost ${formatCurrency(post.estimated_cost)}` : null,
@@ -1484,7 +1491,6 @@ export function FeedPage() {
                     <h3>
                       <span className="rk-location">{post.location}</span>
                     </h3>
-                    {recommendationReason ? <p className="rk-recommend-reason">{recommendationReason}</p> : null}
                   </div>
                   <div className="rk-status-cluster">
                     <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
@@ -1510,17 +1516,6 @@ export function FeedPage() {
                     <span>Seats left</span>
                     <strong>{remainingSeats}</strong>
                   </div>
-                </div>
-
-                <div className="rk-card-support">
-                  <span>Category {post.category}</span>
-                  <span>Author {post.author}</span>
-                  <span>Posted {formatTimeAgo(post.created_at)}</span>
-                  <span>Votes {post.votes.length}</span>
-                  <span>Status {rsvpStateLabel}</span>
-                  <span>
-                    Going {rsvpSummary.goingCount}/{rsvpSummary.capacity}
-                  </span>
                 </div>
 
                 <details className="rk-card-more">
@@ -1554,7 +1549,9 @@ export function FeedPage() {
                     >
                       {rsvpAction.label}
                     </button>
-                    <span className="rk-action-help">{rsvpAction.helperText}</span>
+                    {rsvpAction.helperText !== 'Spots available' ? (
+                      <span className="rk-action-help">{rsvpAction.helperText}</span>
+                    ) : null}
                   </div>
                   <div className="rk-action-stack">
                     <button
