@@ -183,6 +183,11 @@
   margin-bottom: 8px;
 }
 
+.rk-panel h2 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+}
+
 .rk-panel ul {
   margin: 0;
   padding-left: 18px;
@@ -512,6 +517,76 @@
   margin-top: 10px;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rk-admin-page {
+  display: grid;
+  gap: 12px;
+}
+
+.rk-admin-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rk-admin-stats {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rk-admin-stat {
+  border: 1px solid var(--rk-line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  min-width: 130px;
+}
+
+.rk-admin-stat span {
+  font-size: 0.78rem;
+  color: var(--rk-muted);
+}
+
+.rk-admin-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 10px;
+}
+
+.rk-admin-list {
+  display: grid;
+  gap: 8px;
+}
+
+.rk-admin-item {
+  border: 1px solid #dbe5f2;
+  border-radius: 10px;
+  background: #fff;
+  padding: 9px 10px;
+}
+
+.rk-admin-item span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--rk-muted);
+  margin-top: 3px;
+}
+
+.rk-admin-item p {
+  margin: 6px 0 0;
+}
+
+.rk-admin-actions {
+  margin-top: 8px;
+  display: inline-flex;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
