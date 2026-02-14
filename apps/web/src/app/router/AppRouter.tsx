@@ -30,7 +30,7 @@ function AdminRoute() {
   }
 
   if (!isAdmin) {
-    return <Navigate to="/" replace />
+    return <Navigate to="/" replace state={{ accessDenied: 'admin_workspace' }} />
   }
 
   return (

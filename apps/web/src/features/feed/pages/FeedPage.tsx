@@ -1,6 +1,9 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useLocation, useNavigate } from 'react-router-dom'
 
+import { useAuthSession } from '../../../app/providers/auth-session-context'
+import { trackEvent } from '../../../lib/analytics'
 import {
   invalidateAfterCommentMutation,
   invalidateAfterPostMutation,
@@ -21,78 +24,269 @@ import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
 import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category, type Post } from '../../../types/domain'
-import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
-import { getRsvpSummary, isRsvpClosed } from '../lib/rsvp'
+import {
+  classifyOnboardingUserType,
+  getLatestCoreActionAtMs,
+  loadOnboardingState,
+  markOnboardingCompleted,
+  markOnboardingShown,
+  markOnboardingSkipped,
+  saveOnboardingState,
+  shouldShowOnboarding,
+  type OnboardingState,
+  type OnboardingUserType,
+} from '../lib/onboarding'
+import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
+import {
+  STEP_COUNT,
+  getInitialFormState,
+  getInitialStep1TouchedState,
+  isStep1Valid,
+  validateOptionalFields,
+  validateStep1,
+  type OptionalErrors,
+  type PostFormState,
+  type PostFormStep,
+  type Step1Field,
+} from '../lib/postForm'
+import {
+  getMyActivityPosts,
+  hasPersonalizationData,
+  rankRecommendedPosts,
+  type FeedTab,
+} from '../lib/personalization'
+import { getRsvpSummary, isRsvpClosed, type RsvpSummary } from '../lib/rsvp'
 
-const DEFAULT_CAPACITY = 10
-const MAX_CAPACITY = 200
 const FEED_FILTERS = ['all', 'confirmed', 'scheduled'] as const
 const SORT_OPTIONS = ['votes', 'newest', 'soonest'] as const
 
 type FeedFilter = (typeof FEED_FILTERS)[number]
 type SortOption = (typeof SORT_OPTIONS)[number]
 
-type PostFormState = {
-  location: string
-  category: Category
-  proposedDate: string
-  capacity: string
-  meetupPlace: string
-  meetupTime: string
-  estimatedCost: string
-  rsvpDeadline: string
-  prepNotes: string
+type OnboardingCompletionAction = 'vote' | 'rsvp_join' | 'post_create_success'
+
+type OnboardingStep = {
+  id: number
+  copy: string
+  cta: string
 }
 
-function getInitialFormState(): PostFormState {
-  return {
-    location: '',
-    category: 'Travel',
-    proposedDate: '',
-    capacity: String(DEFAULT_CAPACITY),
-    meetupPlace: '',
-    meetupTime: '',
-    estimatedCost: '',
-    rsvpDeadline: '',
-    prepNotes: '',
-  }
-}
+const ONBOARDING_STEPS: readonly OnboardingStep[] = [
+  {
+    id: 1,
+    copy: 'Explore the feed for 10 seconds to scan what is active now.',
+    cta: 'Explore feed',
+  },
+  {
+    id: 2,
+    copy: 'Vote on one trip idea to raise its priority.',
+    cta: 'Go vote',
+  },
+  {
+    id: 3,
+    copy: 'Leave an RSVP or publish your own trip idea.',
+    cta: 'Participate now',
+  },
+] as const
 
-function parseEstimatedCost(rawValue: string): number | null {
-  const value = rawValue.trim()
-  if (!value) return null
-
-  const parsed = Number.parseInt(value, 10)
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error('Estimated cost must be 0 or higher.')
-  }
-
-  return parsed
-}
-
-function parseRsvpDeadlineIso(rawValue: string): string | null {
-  const value = rawValue.trim()
-  if (!value) return null
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    throw new Error('Please provide a valid RSVP deadline.')
-  }
-
-  return date.toISOString()
-}
+const QUICK_TRIP_TEMPLATES = [
+  { label: 'Weekend Beach', location: 'Bondi Beach' },
+  { label: 'City Culture', location: 'Sydney CBD Museum Day' },
+  { label: 'Food Tour', location: 'Inner West Food Walk' },
+] as const
 
 function getStatusLabel(status: 'proposed' | 'confirmed'): string {
   return status === 'confirmed' ? 'Confirmed' : 'Proposed'
 }
 
+function getSuggestedDate(daysFromNow: number): string {
+  const date = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getOnboardingTypeLabel(userType: OnboardingUserType): string {
+  if (userType === 'new') return 'New user'
+  if (userType === 'active') return 'Active user'
+  return 'Returning without recent activity'
+}
+
+function getRsvpActionState(summary: RsvpSummary, isJoinClosed: boolean): {
+  label: string
+  helperText: string
+  disabled: boolean
+  isActive: boolean
+} {
+  if (summary.isGoing) {
+    return {
+      label: 'Cancel Join',
+      helperText: 'Joined',
+      disabled: false,
+      isActive: true,
+    }
+  }
+
+  if (summary.isWaitlisted) {
+    return {
+      label: 'Leave Waitlist',
+      helperText: `Your waitlist spot #${summary.waitlistPosition}`,
+      disabled: false,
+      isActive: true,
+    }
+  }
+
+  if (isJoinClosed) {
+    return {
+      label: 'Closed',
+      helperText: 'Participation unavailable',
+      disabled: true,
+      isActive: false,
+    }
+  }
+
+  if (summary.isFull) {
+    return {
+      label: 'Join Waitlist',
+      helperText: `Current waitlist ${summary.waitlistCount}`,
+      disabled: false,
+      isActive: false,
+    }
+  }
+
+  return {
+    label: 'Join Trip',
+    helperText: 'Spots available',
+    disabled: false,
+    isActive: false,
+  }
+}
+
+type RsvpAction = 'join' | 'leave'
+
+type InlineMessageTone = 'info' | 'success' | 'error'
+
+type InlineMessage = {
+  tone: InlineMessageTone
+  text: string
+}
+
+type EmptyStateType = 'no_data' | 'search_empty' | 'filter_overload'
+
+type EmptyStateConfig = {
+  type: EmptyStateType
+  title: string
+  description: string
+  ctaLabel: string
+}
+
+function getRsvpStateLabel(summary: RsvpSummary, isJoinClosed: boolean): string {
+  if (summary.isGoing) return 'Joined'
+  if (summary.isWaitlisted) return `Waitlist #${summary.waitlistPosition}`
+  if (isJoinClosed) return 'Closed'
+  if (summary.isFull) return 'Waitlist open'
+  return 'Available'
+}
+
+function buildOptimisticRsvpSummary(summary: RsvpSummary, action: RsvpAction): RsvpSummary {
+  if (action === 'join') {
+    if (summary.isFull) {
+      const nextWaitlistCount = summary.waitlistCount + 1
+      return {
+        ...summary,
+        waitlistCount: nextWaitlistCount,
+        isGoing: false,
+        isWaitlisted: true,
+        hasRsvpd: true,
+        waitlistPosition: nextWaitlistCount,
+      }
+    }
+
+    const nextGoingCount = Math.min(summary.capacity, summary.goingCount + 1)
+    return {
+      ...summary,
+      goingCount: nextGoingCount,
+      isFull: nextGoingCount >= summary.capacity,
+      isGoing: true,
+      isWaitlisted: false,
+      hasRsvpd: true,
+      waitlistPosition: 0,
+    }
+  }
+
+  if (summary.isWaitlisted) {
+    return {
+      ...summary,
+      waitlistCount: Math.max(summary.waitlistCount - 1, 0),
+      isWaitlisted: false,
+      hasRsvpd: false,
+      waitlistPosition: 0,
+    }
+  }
+
+  if (summary.isGoing) {
+    return {
+      ...summary,
+      goingCount: Math.max(summary.goingCount - 1, 0),
+      isFull: false,
+      isGoing: false,
+      hasRsvpd: false,
+      waitlistPosition: 0,
+    }
+  }
+
+  return summary
+}
+
+function getEmptyStateConfig(params: {
+  hasAnyVisiblePost: boolean
+  hasSearchText: boolean
+  hasActiveFilters: boolean
+}): EmptyStateConfig {
+  if (!params.hasAnyVisiblePost) {
+    return {
+      type: 'no_data',
+      title: 'No trips posted yet',
+      description: 'Get the board moving with your first trip suggestion.',
+      ctaLabel: 'Create first suggestion',
+    }
+  }
+
+  if (params.hasSearchText) {
+    return {
+      type: 'search_empty',
+      title: 'No results for this search',
+      description: 'Try simpler keywords or switch to suggested filters.',
+      ctaLabel: 'Use suggested filters',
+    }
+  }
+
+  return {
+    type: 'filter_overload',
+    title: 'Filters are too narrow',
+    description: 'Reset active filters to see more options.',
+    ctaLabel: 'Reset filters',
+  }
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const location = useLocation()
   const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
+  const feedSectionRef = useRef<HTMLElement | null>(null)
+  const formRef = useRef<HTMLFormElement | null>(null)
+  const hasTrackedPostCreateStartRef = useRef(false)
+  const hasTrackedStep1ValidRef = useRef(false)
 
   const [form, setForm] = useState<PostFormState>(getInitialFormState)
+  const [postFormStep, setPostFormStep] = useState<PostFormStep>(1)
+  const [step1Touched, setStep1Touched] = useState<Record<Step1Field, boolean>>(getInitialStep1TouchedState)
+  const [showStep1Errors, setShowStep1Errors] = useState(false)
+  const [optionalErrors, setOptionalErrors] = useState<OptionalErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
   const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
@@ -102,10 +296,18 @@ export function FeedPage() {
   const [selectedCategory, setSelectedCategory] = useState<'all' | Category>('all')
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all')
   const [sortOption, setSortOption] = useState<SortOption>('votes')
+  const [feedTab, setFeedTab] = useState<FeedTab>('recommended')
   const [searchText, setSearchText] = useState('')
   const [showHiddenPosts, setShowHiddenPosts] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
+  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null)
+  const [isOnboardingVisible, setIsOnboardingVisible] = useState(false)
+  const [isOnboardingReplay, setIsOnboardingReplay] = useState(false)
+  const [optimisticRsvpByPostId, setOptimisticRsvpByPostId] = useState<Record<string, RsvpSummary>>({})
+  const [inlineRsvpMessageByPostId, setInlineRsvpMessageByPostId] = useState<Record<string, InlineMessage>>({})
+  const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
+  const [isMobileFabCompact, setIsMobileFabCompact] = useState(false)
   const viewerUserId = user?.id ?? ''
 
   const visiblePosts = useMemo(() => {
@@ -121,12 +323,42 @@ export function FeedPage() {
     })
   }, [postsQuery.data, showHiddenPosts, user])
 
+  const hasUserSignals = useMemo(() => {
+    if (!user) return false
+    return hasPersonalizationData(visiblePosts, user.id)
+  }, [visiblePosts, user])
+
+  const recommendedFeed = useMemo(() => {
+    if (!user || user.isAdmin) {
+      return {
+        rankedPosts: visiblePosts,
+        metaByPostId: {} as Record<string, { score: number; reason: string }>,
+      }
+    }
+
+    return rankRecommendedPosts(visiblePosts, user.id, hasUserSignals)
+  }, [hasUserSignals, user, visiblePosts])
+
+  const tabBasePosts = useMemo(() => {
+    if (!user) return visiblePosts
+    if (user.isAdmin) return visiblePosts
+
+    if (feedTab === 'my_activity') {
+      return getMyActivityPosts(visiblePosts, user.id)
+    }
+
+    if (feedTab === 'recommended') {
+      return recommendedFeed.rankedPosts
+    }
+
+    return visiblePosts
+  }, [feedTab, recommendedFeed.rankedPosts, user, visiblePosts])
+
   const displayPosts = useMemo(() => {
     const normalizedSearch = searchText.trim().toLowerCase()
 
-    let nextPosts = selectedCategory === 'all'
-      ? visiblePosts
-      : visiblePosts.filter((post) => post.category === selectedCategory)
+    let nextPosts =
+      selectedCategory === 'all' ? tabBasePosts : tabBasePosts.filter((post) => post.category === selectedCategory)
 
     if (feedFilter === 'confirmed') {
       nextPosts = nextPosts.filter((post) => post.status === 'confirmed')
@@ -151,6 +383,10 @@ export function FeedPage() {
       })
     }
 
+    if (feedTab === 'recommended' && !user?.isAdmin) {
+      return nextPosts
+    }
+
     const sorted = [...nextPosts]
 
     if (sortOption === 'votes') {
@@ -170,70 +406,324 @@ export function FeedPage() {
       return new Date(a.proposed_date).getTime() - new Date(b.proposed_date).getTime()
     })
     return sorted
-  }, [feedFilter, searchText, selectedCategory, sortOption, visiblePosts])
+  }, [feedFilter, feedTab, searchText, selectedCategory, sortOption, tabBasePosts, user?.isAdmin])
+
+  const latestCoreActionAtMs = useMemo(() => {
+    if (!user || !postsQuery.data) return null
+    return getLatestCoreActionAtMs(postsQuery.data, user.id)
+  }, [postsQuery.data, user])
+
+  const hasCoreAction = latestCoreActionAtMs !== null
+
+  const onboardingUserType = useMemo(() => {
+    if (!user) return 'returning_idle'
+    return classifyOnboardingUserType(user.createdAt, latestCoreActionAtMs)
+  }, [latestCoreActionAtMs, user])
 
   const previewText = useMemo(() => {
     const location = form.location.trim()
-    const capacity = Number.parseInt(form.capacity, 10)
-    const safeCapacity =
-      Number.isFinite(capacity) && capacity >= 1 && capacity <= MAX_CAPACITY ? capacity : DEFAULT_CAPACITY
+    const capacity = Number(form.capacity)
+    const safeCapacity = Number.isInteger(capacity) && capacity >= 1 ? capacity : 10
 
     if (!location) return 'Plan your next trip.'
     return `Trip idea: ${location} (${safeCapacity} spots)`
   }, [form.capacity, form.location])
 
+  const step1Errors = useMemo(() => validateStep1(form), [form])
+  const isStep1Complete = isStep1Valid(step1Errors)
+  const hasActiveSort = (feedTab !== 'recommended' || Boolean(user?.isAdmin)) && sortOption !== 'votes'
+  const hasActiveFilters =
+    searchText.trim().length > 0 || selectedCategory !== 'all' || feedFilter !== 'all' || hasActiveSort
+  const feedTabLabel = feedTab === 'recommended' ? 'Recommended' : feedTab === 'my_activity' ? 'My activity' : 'All'
+  const feedResultLabel = selectedCategory === 'all' ? `${feedTabLabel} ${displayPosts.length}` : `${selectedCategory} ${displayPosts.length}`
+  const emptyStateConfig = getEmptyStateConfig({
+    hasAnyVisiblePost: visiblePosts.length > 0,
+    hasSearchText: searchText.trim().length > 0,
+    hasActiveFilters,
+  })
+
+  useEffect(() => {
+    if (!user) {
+      setOnboardingState(null)
+      setIsOnboardingVisible(false)
+      setIsOnboardingReplay(false)
+      return
+    }
+
+    if (postsQuery.isLoading) return
+
+    const storedState = loadOnboardingState(user.id)
+    setOnboardingState(storedState)
+    setIsOnboardingReplay(false)
+
+    const decision = shouldShowOnboarding(onboardingUserType, hasCoreAction, storedState)
+    if (!decision.shouldShow) {
+      setIsOnboardingVisible(false)
+      return
+    }
+
+    const nowIso = new Date().toISOString()
+    const nextState = markOnboardingShown(storedState, nowIso, decision.isReshow)
+    saveOnboardingState(user.id, nextState)
+    setOnboardingState(nextState)
+    setIsOnboardingVisible(true)
+
+    trackEvent('onboarding_viewed', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      user_type: onboardingUserType,
+      source: decision.isReshow ? 'auto_reshow' : 'auto_first_login',
+      surface: 'feed',
+    })
+  }, [hasCoreAction, onboardingUserType, postsQuery.isLoading, user])
+
+  useEffect(() => {
+    if (!user?.isAdmin) return
+    setFeedTab('all')
+  }, [user?.isAdmin])
+
+  useEffect(() => {
+    const navigationState = (location.state as { accessDenied?: string } | null) ?? null
+    if (navigationState?.accessDenied !== 'admin_workspace') return
+
+    setStatusTone('error')
+    setStatusMessage('Admin workspace is restricted to admin accounts.')
+    navigate(location.pathname, { replace: true })
+  }, [location.pathname, location.state, navigate])
+
+  useEffect(() => {
+    if (!user) return
+
+    const draft = loadDraft(user.id)
+    if (!draft) return
+
+    setForm(draft.form)
+    setPostFormStep(draft.step)
+    setShowStep1Errors(false)
+    setStep1Touched(getInitialStep1TouchedState())
+    setOptionalErrors({})
+    setStatusTone('success')
+    setStatusMessage('Restored your draft from a previous session.')
+  }, [user])
+
+  useEffect(() => {
+    if (!user) return
+
+    if (!hasDraftContent(form)) {
+      clearDraft(user.id)
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      saveDraft(user.id, form, postFormStep)
+    }, POST_DRAFT_SAVE_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [form, postFormStep, user])
+
+  useEffect(() => {
+    setOptimisticRsvpByPostId({})
+  }, [postsQuery.data])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    let lastScrollY = window.scrollY
+    const handleScroll = () => {
+      const nextScrollY = window.scrollY
+      const delta = nextScrollY - lastScrollY
+
+      if (delta > 10) {
+        setIsMobileFabCompact(true)
+      } else if (delta < -10) {
+        setIsMobileFabCompact(false)
+      }
+
+      lastScrollY = nextScrollY
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+
+    let baseHeight = window.innerHeight
+    const viewport = window.visualViewport
+
+    const handleResize = () => {
+      if (window.innerHeight > baseHeight) {
+        baseHeight = window.innerHeight
+      }
+
+      const keyboardHeight = baseHeight - viewport.height
+      setIsKeyboardOpen(keyboardHeight > 140)
+    }
+
+    viewport.addEventListener('resize', handleResize)
+    handleResize()
+
+    return () => {
+      viewport.removeEventListener('resize', handleResize)
+    }
+  }, [])
+
+  function trackPostCreateStartOnce() {
+    if (!user || hasTrackedPostCreateStartRef.current) return
+
+    hasTrackedPostCreateStartRef.current = true
+    trackEvent('post_create_start', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      surface: 'post_form',
+    })
+  }
+
+  function trackPostStep1ValidOnce() {
+    if (!user || hasTrackedStep1ValidRef.current) return
+
+    hasTrackedStep1ValidRef.current = true
+    trackEvent('post_step1_valid', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      surface: 'post_form',
+    })
+  }
+
+  function persistDraftNow() {
+    if (!user) return
+
+    if (!hasDraftContent(form)) {
+      clearDraft(user.id)
+      return
+    }
+
+    saveDraft(user.id, form, postFormStep)
+  }
+
+  function markOnboardingDone(action: OnboardingCompletionAction) {
+    if (!user || onboardingState?.completedAt) return
+
+    const nowIso = new Date().toISOString()
+    const nextState = markOnboardingCompleted(onboardingState, nowIso)
+    saveOnboardingState(user.id, nextState)
+    setOnboardingState(nextState)
+    setIsOnboardingVisible(false)
+    setIsOnboardingReplay(false)
+
+    trackEvent('onboarding_completed', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      action,
+      surface: 'feed',
+    })
+  }
+
+  function closeOnboarding(reason: 'skip' | 'close') {
+    if (!user) return
+
+    const nowIso = new Date().toISOString()
+    const nextState = markOnboardingSkipped(onboardingState, nowIso)
+    saveOnboardingState(user.id, nextState)
+    setOnboardingState(nextState)
+    setIsOnboardingVisible(false)
+    setIsOnboardingReplay(false)
+
+    trackEvent('onboarding_skipped', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      reason,
+      surface: 'feed',
+    })
+  }
+
+  function handleReplayOnboarding() {
+    if (!user) return
+
+    setIsOnboardingReplay(true)
+    setIsOnboardingVisible(true)
+    trackEvent('onboarding_viewed', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      user_type: onboardingUserType,
+      source: 'manual_replay',
+      surface: 'feed',
+    })
+  }
+
+  function revealStep1Errors() {
+    setShowStep1Errors(true)
+    setStep1Touched({
+      location: true,
+      proposedDate: true,
+      capacity: true,
+    })
+  }
+
+  function handleStep1Blur(field: Step1Field) {
+    setStep1Touched((previous) => ({ ...previous, [field]: true }))
+    persistDraftNow()
+  }
+
+  function handleOptionalFieldBlur(field: keyof OptionalErrors) {
+    const optionalValidation = validateOptionalFields(form)
+    setOptionalErrors((previous) => ({ ...previous, [field]: optionalValidation.errors[field] }))
+    persistDraftNow()
+  }
+
   function updateField<Key extends keyof PostFormState>(key: Key, value: PostFormState[Key]) {
+    if (key === 'location' || key === 'proposedDate' || key === 'capacity') {
+      trackPostCreateStartOnce()
+    }
+
+    if (key === 'estimatedCost' || key === 'rsvpDeadline') {
+      setOptionalErrors((previous) => ({ ...previous, [key]: undefined }))
+    }
+
     setForm((previous) => ({ ...previous, [key]: value }))
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
+  async function submitPost(skipOptional: boolean) {
     if (!user) {
       setStatusTone('error')
       setStatusMessage('Please log in first.')
       return
     }
 
-    const location = form.location.trim()
-    if (!location) {
-      setStatusTone('error')
-      setStatusMessage('Please enter a destination.')
+    revealStep1Errors()
+    if (!isStep1Complete) {
       return
     }
+    trackPostStep1ValidOnce()
 
-    const capacity = Number.parseInt(form.capacity, 10)
-    if (!Number.isFinite(capacity) || capacity < 1 || capacity > MAX_CAPACITY) {
-      setStatusTone('error')
-      setStatusMessage(`Capacity must be between 1 and ${MAX_CAPACITY}.`)
-      return
+    if (skipOptional) {
+      trackEvent('post_step2_skipped', {
+        user_id: user.id,
+        role: user.isAdmin ? 'admin' : 'member',
+        surface: 'post_form',
+      })
     }
 
-    let estimatedCost: number | null
-    let rsvpDeadline: string | null
+    const optionalValidation = skipOptional
+      ? {
+          errors: {},
+          values: {
+            estimatedCost: null,
+            rsvpDeadline: null,
+          },
+        }
+      : validateOptionalFields(form)
 
-    try {
-      estimatedCost = parseEstimatedCost(form.estimatedCost)
-      rsvpDeadline = parseRsvpDeadlineIso(form.rsvpDeadline)
-    } catch (error) {
-      setStatusTone('error')
-      setStatusMessage(error instanceof Error ? error.message : 'Please check form inputs.')
+    setOptionalErrors(optionalValidation.errors)
+
+    if (!skipOptional && Object.keys(optionalValidation.errors).length > 0) {
+      setPostFormStep(2)
       return
-    }
-
-    if (rsvpDeadline && new Date(rsvpDeadline).getTime() < Date.now()) {
-      setStatusTone('error')
-      setStatusMessage('RSVP deadline must be in the future.')
-      return
-    }
-
-    if (rsvpDeadline && form.proposedDate) {
-      const latestAllowed = new Date(`${form.proposedDate}T23:59:59`)
-      if (new Date(rsvpDeadline) > latestAllowed) {
-        setStatusTone('error')
-        setStatusMessage('RSVP deadline should be before the trip date.')
-        return
-      }
     }
 
     setIsSubmitting(true)
@@ -241,32 +731,215 @@ export function FeedPage() {
     setStatusMessage('')
 
     try {
+      const location = form.location.trim()
+      const capacity = Number(form.capacity)
+
       await createPost({
         location,
         author: user.label,
         user_id: user.id,
         category: form.category,
-        proposed_date: form.proposedDate || null,
+        proposed_date: form.proposedDate,
         capacity,
-        meetup_place: form.meetupPlace.trim() || null,
-        meeting_time: form.meetupTime.trim() || null,
-        estimated_cost: estimatedCost,
-        prep_notes: form.prepNotes.trim() || null,
-        rsvp_deadline: rsvpDeadline,
+        meetup_place: skipOptional ? null : form.meetupPlace.trim() || null,
+        meeting_time: skipOptional ? null : form.meetupTime.trim() || null,
+        estimated_cost: skipOptional ? null : optionalValidation.values.estimatedCost,
+        prep_notes: skipOptional ? null : form.prepNotes.trim() || null,
+        rsvp_deadline: skipOptional ? null : optionalValidation.values.rsvpDeadline,
         status: 'proposed',
       })
 
       await invalidateAfterPostMutation(queryClient)
       await invalidateForRealtimeTable(queryClient, 'posts')
+
+      clearDraft(user.id)
       setForm(getInitialFormState())
+      setPostFormStep(1)
+      setStep1Touched(getInitialStep1TouchedState())
+      setOptionalErrors({})
+      setShowStep1Errors(false)
       setStatusTone('success')
       setStatusMessage('Post added!')
+      hasTrackedPostCreateStartRef.current = false
+      hasTrackedStep1ValidRef.current = false
+
+      trackEvent('post_create_success', {
+        user_id: user.id,
+        role: user.isAdmin ? 'admin' : 'member',
+        surface: 'post_form',
+      })
+      markOnboardingDone('post_create_success')
     } catch (error) {
+      trackEvent('post_create_fail', {
+        user_id: user.id,
+        role: user.isAdmin ? 'admin' : 'member',
+        reason: error instanceof Error ? error.message : 'unknown',
+        surface: 'post_form',
+      })
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to post. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    if (postFormStep === 1) {
+      revealStep1Errors()
+      if (!isStep1Complete) return
+      trackPostStep1ValidOnce()
+      setPostFormStep(2)
+      persistDraftNow()
+      return
+    }
+
+    void submitPost(false)
+  }
+
+  function moveToStep2() {
+    revealStep1Errors()
+    if (!isStep1Complete) return
+
+    trackPostStep1ValidOnce()
+    setPostFormStep(2)
+    persistDraftNow()
+  }
+
+  function jumpToOnboardingStep(stepId: number) {
+    if (!user) return
+
+    trackEvent('onboarding_step_clicked', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      step: stepId,
+      source: isOnboardingReplay ? 'manual_replay' : 'auto',
+      surface: 'feed',
+    })
+
+    if (stepId === 1 || stepId === 2) {
+      feedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    if (displayPosts.length > 0) {
+      feedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
+    setPostFormStep(1)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function applyFeedFilter(nextFilter: FeedFilter) {
+    setFeedFilter(nextFilter)
+    if (!user) return
+    trackEvent('filter_applied', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      filter: 'feed_filter',
+      value: nextFilter,
+      surface: 'feed',
+    })
+  }
+
+  function applyCategoryFilter(nextCategory: 'all' | Category) {
+    setSelectedCategory(nextCategory)
+    if (!user) return
+    trackEvent('filter_applied', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      filter: 'category',
+      value: nextCategory,
+      surface: 'feed',
+    })
+  }
+
+  function applySortOption(nextSort: SortOption) {
+    setSortOption(nextSort)
+    if (!user) return
+    trackEvent('filter_applied', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      filter: 'sort',
+      value: nextSort,
+      surface: 'feed',
+    })
+  }
+
+  function resetDiscoveryFilters() {
+    setSearchText('')
+    setSelectedCategory('all')
+    setFeedFilter('all')
+    setSortOption('votes')
+
+    if (!user) return
+    trackEvent('filter_cleared', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      surface: 'feed',
+    })
+  }
+
+  function applyFeedTab(nextTab: FeedTab) {
+    setFeedTab(nextTab)
+    if (nextTab === 'recommended') {
+      setSortOption('votes')
+    }
+    if (!user) return
+
+    trackEvent('personalized_tab_viewed', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      tab: nextTab,
+      surface: 'feed',
+    })
+  }
+
+  function setInlineRsvpMessage(postId: string, message: InlineMessage) {
+    setInlineRsvpMessageByPostId((previous) => ({ ...previous, [postId]: message }))
+  }
+
+  function handleEmptyStateCta() {
+    if (emptyStateConfig.type === 'filter_overload') {
+      resetDiscoveryFilters()
+    } else if (emptyStateConfig.type === 'search_empty') {
+      setSearchText('')
+      setFeedFilter('all')
+      setSelectedCategory('Travel')
+    } else {
+      setPostFormStep(1)
+      formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+
+    if (!user) return
+    trackEvent('empty_state_cta_clicked', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      type: emptyStateConfig.type,
+      surface: 'feed',
+    })
+  }
+
+  function applyQuickTemplate(locationText: string) {
+    updateField('location', locationText)
+    updateField('proposedDate', getSuggestedDate(7))
+    updateField('capacity', '8')
+    setPostFormStep(1)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+
+  function handleMobileFabClick() {
+    setPostFormStep(1)
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (!user) return
+
+    trackEvent('mobile_create_start', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      surface: 'mobile_fab',
+    })
   }
 
   async function handleVote(postId: string, hasVoted: boolean) {
@@ -283,6 +956,9 @@ export function FeedPage() {
       await invalidateAfterVoteMutation(queryClient)
       setStatusTone('success')
       setStatusMessage(hasVoted ? 'Vote removed.' : 'Vote added.')
+      if (!hasVoted) {
+        markOnboardingDone('vote')
+      }
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to update vote.')
@@ -294,36 +970,52 @@ export function FeedPage() {
   async function handleRsvp(post: Post) {
     if (!user) return
 
-    const summary = getRsvpSummary(post, user.id)
+    const serverSummary = getRsvpSummary(post, user.id)
+    const summary = optimisticRsvpByPostId[post.id] ?? serverSummary
 
     if (!summary.hasRsvpd && isRsvpClosed(post)) {
-      setStatusTone('error')
-      setStatusMessage('RSVP is closed for this trip.')
+      setInlineRsvpMessage(post.id, { tone: 'error', text: 'RSVP is closed for this trip.' })
       return
     }
+
+    const action: RsvpAction = summary.hasRsvpd ? 'leave' : 'join'
+    setOptimisticRsvpByPostId((previous) => ({
+      ...previous,
+      [post.id]: buildOptimisticRsvpSummary(summary, action),
+    }))
+    setInlineRsvpMessage(post.id, { tone: 'info', text: 'Updating status...' })
 
     setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
 
     try {
-      if (summary.hasRsvpd) {
+      if (action === 'leave') {
         await removeRsvp(post.id, user.id)
         await invalidateAfterRsvpMutation(queryClient)
-        setStatusTone('success')
-        setStatusMessage('RSVP removed.')
+        setInlineRsvpMessage(post.id, { tone: 'success', text: 'Participation canceled.' })
         return
       }
 
       await addRsvp(post.id, user.id)
       await invalidateAfterRsvpMutation(queryClient)
-      setStatusTone('success')
-      setStatusMessage(summary.isFull ? 'Trip is full. You joined the waitlist.' : 'RSVP confirmed!')
+      setInlineRsvpMessage(post.id, {
+        tone: 'success',
+        text: summary.isFull ? 'Trip is full. You joined the waitlist.' : 'RSVP confirmed.',
+      })
+      markOnboardingDone('rsvp_join')
     } catch (error) {
+      setOptimisticRsvpByPostId((previous) => {
+        const next = { ...previous }
+        delete next[post.id]
+        return next
+      })
+
       if (error instanceof SupabaseServiceError && error.code === '23505') {
-        setStatusTone('error')
-        setStatusMessage("You have already RSVP'd to this trip.")
+        setInlineRsvpMessage(post.id, { tone: 'error', text: "You have already RSVP'd to this trip." })
       } else {
-        setStatusTone('error')
-        setStatusMessage(error instanceof Error ? error.message : 'Failed to update RSVP.')
+        setInlineRsvpMessage(post.id, {
+          tone: 'error',
+          text: error instanceof Error ? error.message : 'Failed to update RSVP.',
+        })
       }
     } finally {
       setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
@@ -363,49 +1055,87 @@ export function FeedPage() {
 
   return (
     <section className="rk-page">
-      <h1>Create a Trip Idea</h1>
-      <p>{previewText}</p>
-
-      <form className="rk-post-form" onSubmit={handleSubmit}>
-        <div className="rk-post-row">
-          <input
-            className="rk-post-input"
-            placeholder="Type a destination..."
-            value={form.location}
-            onChange={(event) => updateField('location', event.target.value)}
-            disabled={isSubmitting}
-          />
-          <button className="rk-button" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Creating...' : 'Create'}
+      <div className="rk-page-top">
+        <div>
+          <h1>Create a Trip Idea</h1>
+          <p>{previewText}</p>
+        </div>
+        {!isOnboardingVisible ? (
+          <button type="button" className="rk-chip" onClick={handleReplayOnboarding}>
+            Replay onboarding
           </button>
+        ) : null}
+      </div>
+
+      {isOnboardingVisible ? (
+        <section className="rk-onboarding">
+          <div className="rk-onboarding-top">
+            <div>
+              <strong>Start in 3 steps</strong>
+              <p>Complete one action in this session: vote, RSVP, or publish a trip idea.</p>
+              <span className="rk-onboarding-meta">User type: {getOnboardingTypeLabel(onboardingUserType)}</span>
+            </div>
+            <button type="button" className="rk-chip" onClick={() => closeOnboarding('close')}>
+              Close
+            </button>
+          </div>
+          <div className="rk-onboarding-list">
+            {ONBOARDING_STEPS.map((step) => (
+              <div key={step.id} className="rk-onboarding-item">
+                <p>{step.copy}</p>
+                <button type="button" className="rk-button rk-button-small" onClick={() => jumpToOnboardingStep(step.id)}>
+                  {step.cta}
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="rk-onboarding-actions">
+            <button
+              type="button"
+              className="rk-button rk-button-secondary rk-button-small"
+              onClick={() => closeOnboarding('skip')}
+            >
+              Skip for now
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
+        <div className="rk-step-indicator">
+          <strong>
+            {postFormStep}/{STEP_COUNT}
+          </strong>
+          <span>{postFormStep === 1 ? 'Step 1. Basic info' : 'Step 2. Optional details'}</span>
         </div>
 
         <div className="rk-post-grid rk-post-grid-3">
           <label className="rk-auth-label">
-            Category
-            <select
+            Destination
+            <input
               className="rk-auth-input"
-              value={form.category}
-              onChange={(event) => updateField('category', event.target.value as Category)}
+              placeholder="Type a destination..."
+              value={form.location}
+              onChange={(event) => updateField('location', event.target.value)}
+              onBlur={() => handleStep1Blur('location')}
               disabled={isSubmitting}
-            >
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+            />
+            {showStep1Errors || step1Touched.location ? <span className="rk-field-error">{step1Errors.location}</span> : null}
           </label>
 
           <label className="rk-auth-label">
-            Proposed date
+            Date
             <input
               className="rk-auth-input"
               type="date"
               value={form.proposedDate}
               onChange={(event) => updateField('proposedDate', event.target.value)}
+              onBlur={() => handleStep1Blur('proposedDate')}
               disabled={isSubmitting}
             />
+            {showStep1Errors || step1Touched.proposedDate ? (
+              <span className="rk-field-error">{step1Errors.proposedDate}</span>
+            ) : null}
           </label>
 
           <label className="rk-auth-label">
@@ -414,71 +1144,136 @@ export function FeedPage() {
               className="rk-auth-input"
               type="number"
               min={1}
-              max={MAX_CAPACITY}
+              max={200}
               value={form.capacity}
               onChange={(event) => updateField('capacity', event.target.value)}
+              onBlur={() => handleStep1Blur('capacity')}
               disabled={isSubmitting}
             />
+            {showStep1Errors || step1Touched.capacity ? <span className="rk-field-error">{step1Errors.capacity}</span> : null}
           </label>
         </div>
 
-        <div className="rk-post-grid rk-post-grid-2">
-          <label className="rk-auth-label">
-            Meet-up place
-            <input
-              className="rk-auth-input"
-              value={form.meetupPlace}
-              onChange={(event) => updateField('meetupPlace', event.target.value)}
-              disabled={isSubmitting}
-            />
-          </label>
+        {postFormStep === 1 ? (
+          <div className="rk-post-step-actions">
+            <button type="button" className="rk-button rk-button-secondary" onClick={moveToStep2} disabled={isSubmitting}>
+              Continue to step 2
+            </button>
+            <button type="button" className="rk-button" onClick={() => void submitPost(true)} disabled={isSubmitting}>
+              {isSubmitting ? 'Publishing...' : 'Skip optional and publish'}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="rk-post-optional">
+              <div className="rk-post-grid rk-post-grid-2">
+                <label className="rk-auth-label">
+                  Category
+                  <select
+                    className="rk-auth-input"
+                    value={form.category}
+                    onChange={(event) => updateField('category', event.target.value as Category)}
+                    onBlur={persistDraftNow}
+                    disabled={isSubmitting}
+                  >
+                    {CATEGORIES.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-          <label className="rk-auth-label">
-            Meet-up time
-            <input
-              className="rk-auth-input"
-              type="time"
-              value={form.meetupTime}
-              onChange={(event) => updateField('meetupTime', event.target.value)}
-              disabled={isSubmitting}
-            />
-          </label>
-        </div>
+                <label className="rk-auth-label">
+                  Meet-up place
+                  <input
+                    className="rk-auth-input"
+                    value={form.meetupPlace}
+                    onChange={(event) => updateField('meetupPlace', event.target.value)}
+                    onBlur={persistDraftNow}
+                    disabled={isSubmitting}
+                  />
+                </label>
+              </div>
 
-        <div className="rk-post-grid rk-post-grid-2">
-          <label className="rk-auth-label">
-            Estimated cost
-            <input
-              className="rk-auth-input"
-              type="number"
-              min={0}
-              value={form.estimatedCost}
-              onChange={(event) => updateField('estimatedCost', event.target.value)}
-              disabled={isSubmitting}
-            />
-          </label>
+              <div className="rk-post-grid rk-post-grid-2">
+                <label className="rk-auth-label">
+                  Meet-up time
+                  <input
+                    className="rk-auth-input"
+                    type="time"
+                    value={form.meetupTime}
+                    onChange={(event) => updateField('meetupTime', event.target.value)}
+                    onBlur={persistDraftNow}
+                    disabled={isSubmitting}
+                  />
+                </label>
 
-          <label className="rk-auth-label">
-            RSVP deadline
-            <input
-              className="rk-auth-input"
-              type="datetime-local"
-              value={form.rsvpDeadline}
-              onChange={(event) => updateField('rsvpDeadline', event.target.value)}
-              disabled={isSubmitting}
-            />
-          </label>
-        </div>
+                <label className="rk-auth-label">
+                  Estimated cost
+                  <input
+                    className="rk-auth-input"
+                    type="number"
+                    min={0}
+                    value={form.estimatedCost}
+                    onChange={(event) => updateField('estimatedCost', event.target.value)}
+                    onBlur={() => handleOptionalFieldBlur('estimatedCost')}
+                    disabled={isSubmitting}
+                  />
+                  <span className="rk-field-error">{optionalErrors.estimatedCost}</span>
+                </label>
+              </div>
 
-        <label className="rk-auth-label">
-          Preparation notes
-          <textarea
-            className="rk-auth-input rk-textarea"
-            value={form.prepNotes}
-            onChange={(event) => updateField('prepNotes', event.target.value)}
-            disabled={isSubmitting}
-          />
-        </label>
+              <div className="rk-post-grid rk-post-grid-2">
+                <label className="rk-auth-label">
+                  RSVP deadline
+                  <input
+                    className="rk-auth-input"
+                    type="datetime-local"
+                    value={form.rsvpDeadline}
+                    onChange={(event) => updateField('rsvpDeadline', event.target.value)}
+                    onBlur={() => handleOptionalFieldBlur('rsvpDeadline')}
+                    disabled={isSubmitting}
+                  />
+                  <span className="rk-field-error">{optionalErrors.rsvpDeadline}</span>
+                </label>
+
+                <label className="rk-auth-label">
+                  Preparation notes
+                  <textarea
+                    className="rk-auth-input rk-textarea"
+                    value={form.prepNotes}
+                    onChange={(event) => updateField('prepNotes', event.target.value)}
+                    onBlur={persistDraftNow}
+                    disabled={isSubmitting}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <div className="rk-post-step-actions">
+              <button
+                type="button"
+                className="rk-button rk-button-secondary"
+                onClick={() => setPostFormStep(1)}
+                disabled={isSubmitting}
+              >
+                Back to step 1
+              </button>
+              <button
+                type="button"
+                className="rk-button rk-button-secondary"
+                onClick={() => void submitPost(true)}
+                disabled={isSubmitting}
+              >
+                Skip optional
+              </button>
+              <button className="rk-button" type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating...' : 'Publish trip idea'}
+              </button>
+            </div>
+          </>
+        )}
       </form>
 
       {statusMessage ? (
@@ -487,231 +1282,370 @@ export function FeedPage() {
         </p>
       ) : null}
 
-      <section className="rk-feed-section">
+      <section className="rk-feed-section" ref={feedSectionRef}>
         <h2>Community Board</h2>
-
-        <div className="rk-discovery">
-          <input
-            className="rk-post-input"
-            placeholder="Search destination, author, or comment..."
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-          <div className="rk-discovery-group">
-            <span>Filter</span>
-            {FEED_FILTERS.map((nextFilter) => (
-              <button
-                key={nextFilter}
-                type="button"
-                className={`rk-chip ${feedFilter === nextFilter ? 'rk-chip-active' : ''}`}
-                onClick={() => setFeedFilter(nextFilter)}
-              >
-                {nextFilter === 'all'
-                  ? 'All'
-                  : nextFilter === 'confirmed'
-                    ? 'Confirmed'
-                    : 'With Date'}
-              </button>
-            ))}
+        {user?.isAdmin ? (
+          <div className="rk-role-callout">
+            <strong>Admin view is separated.</strong>
+            <span>Use Admin workspace for moderation actions.</span>
+            <button type="button" className="rk-chip" onClick={() => navigate('/admin')}>
+              Open Admin workspace
+            </button>
           </div>
-        </div>
-
-        <div className="rk-discovery rk-discovery-wrap">
-          <div className="rk-discovery-group">
-            <span>Category</span>
+        ) : (
+          <div className="rk-feed-tabs" role="tablist" aria-label="Feed tabs">
             <button
               type="button"
-              className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
-              onClick={() => setSelectedCategory('all')}
+              role="tab"
+              aria-selected={feedTab === 'recommended'}
+              className={`rk-chip ${feedTab === 'recommended' ? 'rk-chip-active' : ''}`}
+              onClick={() => applyFeedTab('recommended')}
+            >
+              Recommended
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={feedTab === 'my_activity'}
+              className={`rk-chip ${feedTab === 'my_activity' ? 'rk-chip-active' : ''}`}
+              onClick={() => applyFeedTab('my_activity')}
+            >
+              My Activity
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={feedTab === 'all'}
+              className={`rk-chip ${feedTab === 'all' ? 'rk-chip-active' : ''}`}
+              onClick={() => applyFeedTab('all')}
             >
               All
             </button>
-            {CATEGORIES.map((category) => (
-              <button
-                key={category}
-                type="button"
-                className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
-                onClick={() => setSelectedCategory(category)}
-              >
-                {category}
-              </button>
-            ))}
+          </div>
+        )}
+        <p className="rk-feed-count">{feedResultLabel} posts</p>
+
+        <div className="rk-filter-toolbar">
+          <div className="rk-discovery">
+            <input
+              className="rk-post-input"
+              placeholder="Search destination, author, or comment..."
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+            />
+            <div className="rk-discovery-group">
+              <span>Filter</span>
+              {FEED_FILTERS.map((nextFilter) => (
+                <button
+                  key={nextFilter}
+                  type="button"
+                  className={`rk-chip ${feedFilter === nextFilter ? 'rk-chip-active' : ''}`}
+                  onClick={() => applyFeedFilter(nextFilter)}
+                >
+                  {nextFilter === 'all' ? 'All' : nextFilter === 'confirmed' ? 'Confirmed' : 'With Date'}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div className="rk-discovery-group">
-            <span>Sort</span>
-            {SORT_OPTIONS.map((option) => (
+          <div className="rk-discovery rk-discovery-wrap">
+            <div className="rk-discovery-group">
+              <span>Category</span>
               <button
-                key={option}
                 type="button"
-                className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
-                onClick={() => setSortOption(option)}
+                className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
+                onClick={() => applyCategoryFilter('all')}
               >
-                {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+                All
               </button>
-            ))}
-          </div>
+              {CATEGORIES.map((category) => (
+                <button
+                  key={category}
+                  type="button"
+                  className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
+                  onClick={() => applyCategoryFilter(category)}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
 
-          {user?.isAdmin ? (
-            <button
-              type="button"
-              className="rk-chip"
-              onClick={() => setShowHiddenPosts((previous) => !previous)}
-            >
-              {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
-            </button>
-          ) : null}
+            {feedTab !== 'recommended' || user?.isAdmin ? (
+              <div className="rk-discovery-group">
+                <span>Sort</span>
+                {SORT_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                    onClick={() => applySortOption(option)}
+                  >
+                    {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rk-discovery-group">
+                <span>Sort</span>
+                <span className="rk-feed-note">Recommended ranking is active</span>
+              </div>
+            )}
+
+            {hasActiveFilters ? (
+              <button
+                type="button"
+                className="rk-chip rk-chip-active"
+                onClick={resetDiscoveryFilters}
+              >
+                Reset filters
+              </button>
+            ) : null}
+
+            {user?.isAdmin ? (
+              <button type="button" className="rk-chip" onClick={() => setShowHiddenPosts((previous) => !previous)}>
+                {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
 
         {!postsQuery.isLoading && displayPosts.length === 0 ? (
           <div className="rk-empty-state">
-            <strong>{searchText.trim() ? 'No matches found' : 'No posts to show'}</strong>
-            <p>
-              {user?.isAdmin && !showHiddenPosts
-                ? 'Try "Show Hidden Posts" to review moderated content.'
-                : 'Try another filter or be the first to post.'}
-            </p>
+            <strong>{emptyStateConfig.title}</strong>
+            <p>{emptyStateConfig.description}</p>
+            {user?.isAdmin && !showHiddenPosts ? (
+              <button
+                type="button"
+                className="rk-button rk-button-secondary rk-button-small"
+                onClick={() => setShowHiddenPosts(true)}
+              >
+                Show hidden posts
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="rk-button rk-button-small"
+                onClick={handleEmptyStateCta}
+              >
+                {emptyStateConfig.ctaLabel}
+              </button>
+            )}
+
+            {emptyStateConfig.type === 'no_data' ? (
+              <div className="rk-empty-templates">
+                {QUICK_TRIP_TEMPLATES.map((template) => (
+                  <button
+                    key={template.label}
+                    type="button"
+                    className="rk-chip"
+                    onClick={() => applyQuickTemplate(template.location)}
+                  >
+                    {template.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
         ) : null}
 
         <div className="rk-feed-list">
           {displayPosts.map((post) => {
             const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
-            const rsvpSummary = getRsvpSummary(post, viewerUserId)
+            const baseRsvpSummary = getRsvpSummary(post, viewerUserId)
+            const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
             const isClosed = isRsvpClosed(post)
             const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
-
-            let rsvpButtonLabel = "I'm in"
-            if (rsvpSummary.isGoing) {
-              rsvpButtonLabel = 'Leave'
-            } else if (rsvpSummary.isWaitlisted) {
-              rsvpButtonLabel = 'Leave Waitlist'
-            } else if (isRsvpClosedForJoin) {
-              rsvpButtonLabel = 'RSVP Closed'
-            } else if (rsvpSummary.isFull) {
-              rsvpButtonLabel = 'Join Waitlist'
-            }
+            const rsvpAction = getRsvpActionState(rsvpSummary, isRsvpClosedForJoin)
+            const rsvpStateLabel = getRsvpStateLabel(rsvpSummary, isRsvpClosedForJoin)
+            const recommendationReason =
+              feedTab === 'recommended' && !user?.isAdmin ? recommendedFeed.metaByPostId[post.id]?.reason : ''
+            const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
+            const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
+            const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
+            const detailItems = [
+              post.meetup_place ? `Meet-up ${post.meetup_place}` : null,
+              post.meeting_time ? `Time ${formatMeetingTime(post.meeting_time)}` : null,
+              post.estimated_cost !== null ? `Cost ${formatCurrency(post.estimated_cost)}` : null,
+              post.prep_notes ? `Prep ${post.prep_notes}` : null,
+              rsvpSummary.waitlistCount > 0 ? `Waitlist ${rsvpSummary.waitlistCount}` : null,
+              `Comments ${post.comments.length}`,
+            ].filter((item): item is string => Boolean(item))
 
             return (
-            <article key={post.id} className="rk-post-card">
-              {post.is_hidden ? (
-                <div className="rk-hidden-note">
-                  Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}
-                </div>
-              ) : null}
+              <article key={post.id} className="rk-post-card">
+                {post.is_hidden ? (
+                  <div className="rk-hidden-note">Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}</div>
+                ) : null}
 
-              <header className="rk-post-header">
-                <div>
-                  <h3><span className="rk-location">{post.location}</span></h3>
-                  <div className="rk-post-meta">
-                    <span>Author {post.author}</span>
-                    <span>Posted {formatTimeAgo(post.created_at)}</span>
+                <header className="rk-post-header">
+                  <div className="rk-post-header-main">
+                    <h3>
+                      <span className="rk-location">{post.location}</span>
+                    </h3>
+                    {recommendationReason ? <p className="rk-recommend-reason">{recommendationReason}</p> : null}
+                  </div>
+                  <div className="rk-status-cluster">
+                    <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
+                    {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
+                    {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
+                  </div>
+                </header>
+
+                <div className="rk-card-core">
+                  <div className="rk-card-core-item">
+                    <span>Place</span>
+                    <strong>{post.location}</strong>
+                  </div>
+                  <div className="rk-card-core-item">
+                    <span>Date</span>
+                    <strong>{post.proposed_date ? formatDate(post.proposed_date) : 'Not scheduled'}</strong>
+                  </div>
+                  <div className="rk-card-core-item">
+                    <span>Deadline</span>
+                    <strong>{post.rsvp_deadline ? formatDateTime(post.rsvp_deadline) : 'Open'}</strong>
+                  </div>
+                  <div className="rk-card-core-item">
+                    <span>Seats left</span>
+                    <strong>{remainingSeats}</strong>
                   </div>
                 </div>
-                <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
-              </header>
 
-              <div className="rk-badges">
-                <span className="rk-badge">{post.category}</span>
-                {post.proposed_date ? <span className="rk-badge">{formatDate(post.proposed_date)}</span> : null}
-              </div>
+                <div className="rk-card-support">
+                  <span>Category {post.category}</span>
+                  <span>Author {post.author}</span>
+                  <span>Posted {formatTimeAgo(post.created_at)}</span>
+                  <span>Votes {post.votes.length}</span>
+                  <span>Status {rsvpStateLabel}</span>
+                  <span>
+                    Going {rsvpSummary.goingCount}/{rsvpSummary.capacity}
+                  </span>
+                </div>
 
-              <div className="rk-post-details">
-                <span>Votes {post.votes.length}</span>
-                <span>Comments {post.comments.length}</span>
-                <span>Going {rsvpSummary.goingCount}/{rsvpSummary.capacity}</span>
-                {rsvpSummary.waitlistCount > 0 ? <span>Waitlist {rsvpSummary.waitlistCount}</span> : null}
-                {post.meetup_place ? <span>Meet-up {post.meetup_place}</span> : null}
-                {post.meeting_time ? <span>Time {formatMeetingTime(post.meeting_time)}</span> : null}
-                {post.estimated_cost !== null ? <span>Cost {formatCurrency(post.estimated_cost)}</span> : null}
-                {post.rsvp_deadline ? <span>Deadline {formatDateTime(post.rsvp_deadline)}</span> : null}
-                {post.prep_notes ? <span>Prep {post.prep_notes}</span> : null}
-              </div>
-
-              <div className="rk-post-actions">
-                <button
-                  type="button"
-                  className={`rk-action-button ${rsvpSummary.isGoing ? 'rk-action-active' : ''}`}
-                  onClick={() => void handleRsvp(post)}
-                  disabled={isRsvpPendingByPostId[post.id] || isRsvpClosedForJoin}
-                >
-                  {rsvpButtonLabel}
-                </button>
-                <button
-                  type="button"
-                  className={`rk-action-button ${hasVoted ? 'rk-action-active' : ''}`}
-                  onClick={() => void handleVote(post.id, hasVoted)}
-                  disabled={isVotePendingByPostId[post.id]}
-                >
-                  Vote {post.votes.length}
-                </button>
-                <button
-                  type="button"
-                  className="rk-action-button"
-                  onClick={() => toggleComments(post.id)}
-                >
-                  Comments {post.comments.length}
-                </button>
-              </div>
-
-              {rsvpSummary.waitlistPosition > 0 ? (
-                <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
-              ) : null}
-              {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
-
-              {commentsOpenByPostId[post.id] ? (
-                <div className="rk-comments">
-                  <div className="rk-comment-list">
-                    {post.comments.length === 0 ? (
-                      <p className="rk-feed-note">No comments yet.</p>
-                    ) : (
-                      post.comments.map((comment) => (
-                        <div key={comment.id} className="rk-comment-item">
-                          <div className="rk-comment-meta">
-                            <strong>{comment.author}</strong>
-                            <span>{formatTimeAgo(comment.created_at)}</span>
-                          </div>
-                          <p>{comment.text}</p>
-                        </div>
-                      ))
-                    )}
+                <details className="rk-card-more">
+                  <summary
+                    onClick={() => {
+                      if (!user) return
+                      trackEvent('post_open', {
+                        user_id: user.id,
+                        role: user.isAdmin ? 'admin' : 'member',
+                        post_id: post.id,
+                        surface: 'feed_card',
+                      })
+                    }}
+                  >
+                    View details
+                  </summary>
+                  <div className="rk-card-more-list">
+                    {detailItems.map((item) => (
+                      <span key={`${post.id}:${item}`}>{item}</span>
+                    ))}
                   </div>
-                  <div className="rk-comment-form">
-                    <input
-                      className="rk-post-input"
-                      placeholder="Write a comment..."
-                      value={commentDraftByPostId[post.id] ?? ''}
-                      onChange={(event) =>
-                        setCommentDraftByPostId((previous) => ({
-                          ...previous,
-                          [post.id]: event.target.value,
-                        }))
-                      }
-                      onKeyDown={(event) => {
-                        if (event.key !== 'Enter') return
-                        event.preventDefault()
-                        void submitComment(post.id)
-                      }}
-                      disabled={isCommentPendingByPostId[post.id]}
-                    />
+                </details>
+
+                <div className="rk-post-actions">
+                  <div className="rk-action-stack">
                     <button
                       type="button"
-                      className="rk-button rk-button-small"
-                      onClick={() => void submitComment(post.id)}
-                      disabled={isCommentPendingByPostId[post.id]}
+                      className={`rk-action-button ${rsvpAction.isActive ? 'rk-action-active' : ''}`}
+                      onClick={() => void handleRsvp(post)}
+                      disabled={isRsvpPendingByPostId[post.id] || rsvpAction.disabled}
                     >
-                      Post
+                      {rsvpAction.label}
+                    </button>
+                    <span className="rk-action-help">{rsvpAction.helperText}</span>
+                  </div>
+                  <div className="rk-action-stack">
+                    <button
+                      type="button"
+                      className={`rk-action-button ${hasVoted ? 'rk-action-active' : ''}`}
+                      onClick={() => void handleVote(post.id, hasVoted)}
+                      disabled={isVotePendingByPostId[post.id]}
+                    >
+                      Vote {post.votes.length}
+                    </button>
+                  </div>
+                  <div className="rk-action-stack">
+                    <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>
+                      Comment {post.comments.length}
                     </button>
                   </div>
                 </div>
-              ) : null}
-            </article>
+
+                {rsvpSummary.waitlistPosition > 0 ? (
+                  <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
+                ) : null}
+                {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
+                {inlineRsvpMessageByPostId[post.id] ? (
+                  <div className={`rk-inline-message rk-inline-${inlineRsvpMessageByPostId[post.id].tone}`}>
+                    {inlineRsvpMessageByPostId[post.id].text}
+                  </div>
+                ) : null}
+
+                {commentsOpenByPostId[post.id] ? (
+                  <div className="rk-comments">
+                    <div className="rk-comment-list">
+                      {post.comments.length === 0 ? (
+                        <p className="rk-feed-note">No comments yet.</p>
+                      ) : (
+                        post.comments.map((comment) => (
+                          <div key={comment.id} className="rk-comment-item">
+                            <div className="rk-comment-meta">
+                              <strong>{comment.author}</strong>
+                              <span>{formatTimeAgo(comment.created_at)}</span>
+                            </div>
+                            <p>{comment.text}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="rk-comment-form">
+                      <input
+                        className="rk-post-input"
+                        placeholder="Write a comment..."
+                        value={commentDraftByPostId[post.id] ?? ''}
+                        onChange={(event) =>
+                          setCommentDraftByPostId((previous) => ({
+                            ...previous,
+                            [post.id]: event.target.value,
+                          }))
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return
+                          event.preventDefault()
+                          void submitComment(post.id)
+                        }}
+                        disabled={isCommentPendingByPostId[post.id]}
+                      />
+                      <button
+                        type="button"
+                        className="rk-button rk-button-small"
+                        onClick={() => void submitComment(post.id)}
+                        disabled={isCommentPendingByPostId[post.id]}
+                      >
+                        Post
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </article>
             )
           })}
         </div>
       </section>
+
+      {!isKeyboardOpen ? (
+        <button
+          type="button"
+          className={`rk-mobile-fab ${isMobileFabCompact ? 'rk-mobile-fab-compact' : ''}`}
+          onClick={handleMobileFabClick}
+          aria-label="Create trip suggestion"
+        >
+          <span className="rk-mobile-fab-icon">+</span>
+          <span className="rk-mobile-fab-text">New Trip</span>
+        </button>
+      ) : null}
     </section>
   )
 }
