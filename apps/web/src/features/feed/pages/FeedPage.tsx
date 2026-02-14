@@ -27,7 +27,6 @@ import { CATEGORIES, type Category, type Post } from '../../../types/domain'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
 import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
 import {
-  STEP_COUNT,
   getInitialFormState,
   getInitialStep1TouchedState,
   isStep1Valid,
@@ -903,13 +902,6 @@ export function FeedPage() {
       </div>
 
       <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
-        <div className="rk-step-indicator">
-          <strong>
-            {postFormStep}/{STEP_COUNT}
-          </strong>
-          <span>{postFormStep === 1 ? 'Step 1. Basic info' : 'Step 2. Optional details'}</span>
-        </div>
-
         <div className="rk-post-grid rk-post-grid-3">
           <label className="rk-auth-label">
             Destination

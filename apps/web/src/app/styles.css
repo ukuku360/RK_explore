@@ -450,33 +450,6 @@
   gap: 11px;
 }
 
-.rk-step-indicator {
-  border: 1px solid #ead7de;
-  border-radius: 14px;
-  background: #fff8f9;
-  padding: 10px 12px;
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-}
-
-.rk-step-indicator strong {
-  border-radius: 999px;
-  background: #ffe7ed;
-  color: #ad2143;
-  font-size: 0.78rem;
-  line-height: 1;
-  padding: 5px 8px;
-}
-
-.rk-step-indicator span {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #775f69;
-}
-
 .rk-post-row {
   display: flex;
   gap: 8px;
@@ -1275,10 +1248,6 @@
 
   .rk-brand-explores {
     font-size: 1.06rem;
-  }
-
-  .rk-step-indicator {
-    width: 100%;
   }
 
   .rk-card-core {
