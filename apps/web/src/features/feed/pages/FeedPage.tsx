@@ -2,7 +2,9 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import {
+  invalidateAfterCommentMutation,
   invalidateAfterPostMutation,
+  invalidateAfterVoteMutation,
   invalidateForRealtimeTable,
 } from '../../../lib/queryInvalidation'
 import {
@@ -12,7 +14,9 @@ import {
   formatMeetingTime,
   formatTimeAgo,
 } from '../../../lib/formatters'
+import { createComment } from '../../../services/comments/comments.service'
 import { createPost } from '../../../services/posts/posts.service'
+import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category } from '../../../types/domain'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
@@ -81,8 +85,13 @@ export function FeedPage() {
 
   const [form, setForm] = useState<PostFormState>(getInitialFormState)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
+  const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
+  const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
+  const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
+  const viewerUserId = user?.id ?? ''
 
   const visiblePosts = useMemo(() => {
     if (!postsQuery.data || !user) return []
@@ -188,6 +197,59 @@ export function FeedPage() {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to post. Please try again.')
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  async function handleVote(postId: string, hasVoted: boolean) {
+    if (!user) return
+
+    setIsVotePendingByPostId((previous) => ({ ...previous, [postId]: true }))
+
+    try {
+      if (hasVoted) {
+        await removeVote(postId, user.id)
+      } else {
+        await addVote(postId, user.id)
+      }
+      await invalidateAfterVoteMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage(hasVoted ? 'Vote removed.' : 'Vote added.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update vote.')
+    } finally {
+      setIsVotePendingByPostId((previous) => ({ ...previous, [postId]: false }))
+    }
+  }
+
+  function toggleComments(postId: string) {
+    setCommentsOpenByPostId((previous) => ({ ...previous, [postId]: !previous[postId] }))
+  }
+
+  async function submitComment(postId: string) {
+    if (!user) return
+
+    const draft = commentDraftByPostId[postId]?.trim() ?? ''
+    if (!draft) return
+
+    setIsCommentPendingByPostId((previous) => ({ ...previous, [postId]: true }))
+
+    try {
+      await createComment({
+        post_id: postId,
+        user_id: user.id,
+        author: user.label,
+        text: draft,
+      })
+      await invalidateAfterCommentMutation(queryClient)
+      setCommentDraftByPostId((previous) => ({ ...previous, [postId]: '' }))
+      setStatusTone('success')
+      setStatusMessage('Comment added.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to add comment.')
+    } finally {
+      setIsCommentPendingByPostId((previous) => ({ ...previous, [postId]: false }))
     }
   }
 
@@ -330,7 +392,10 @@ export function FeedPage() {
         ) : null}
 
         <div className="rk-feed-list">
-          {visiblePosts.map((post) => (
+          {visiblePosts.map((post) => {
+            const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
+
+            return (
             <article key={post.id} className="rk-post-card">
               {post.is_hidden ? (
                 <div className="rk-hidden-note">
@@ -366,8 +431,74 @@ export function FeedPage() {
                 {post.rsvp_deadline ? <span>Deadline: {formatDateTime(post.rsvp_deadline)}</span> : null}
                 {post.prep_notes ? <span>Prep: {post.prep_notes}</span> : null}
               </div>
+
+              <div className="rk-post-actions">
+                <button
+                  type="button"
+                  className={`rk-action-button ${hasVoted ? 'rk-action-active' : ''}`}
+                  onClick={() => void handleVote(post.id, hasVoted)}
+                  disabled={isVotePendingByPostId[post.id]}
+                >
+                  ▲ {post.votes.length}
+                </button>
+                <button
+                  type="button"
+                  className="rk-action-button"
+                  onClick={() => toggleComments(post.id)}
+                >
+                  💬 {post.comments.length}
+                </button>
+              </div>
+
+              {commentsOpenByPostId[post.id] ? (
+                <div className="rk-comments">
+                  <div className="rk-comment-list">
+                    {post.comments.length === 0 ? (
+                      <p className="rk-feed-note">No comments yet.</p>
+                    ) : (
+                      post.comments.map((comment) => (
+                        <div key={comment.id} className="rk-comment-item">
+                          <div className="rk-comment-meta">
+                            <strong>{comment.author}</strong>
+                            <span>{formatTimeAgo(comment.created_at)}</span>
+                          </div>
+                          <p>{comment.text}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  <div className="rk-comment-form">
+                    <input
+                      className="rk-post-input"
+                      placeholder="Write a comment..."
+                      value={commentDraftByPostId[post.id] ?? ''}
+                      onChange={(event) =>
+                        setCommentDraftByPostId((previous) => ({
+                          ...previous,
+                          [post.id]: event.target.value,
+                        }))
+                      }
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return
+                        event.preventDefault()
+                        void submitComment(post.id)
+                      }}
+                      disabled={isCommentPendingByPostId[post.id]}
+                    />
+                    <button
+                      type="button"
+                      className="rk-button rk-button-small"
+                      onClick={() => void submitComment(post.id)}
+                      disabled={isCommentPendingByPostId[post.id]}
+                    >
+                      Post
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </article>
-          ))}
+            )
+          })}
         </div>
       </section>
     </section>
