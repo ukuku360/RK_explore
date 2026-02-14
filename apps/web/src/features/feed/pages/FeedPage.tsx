@@ -182,14 +182,6 @@ type EmptyStateConfig = {
   ctaLabel: string
 }
 
-function getRsvpStateLabel(summary: RsvpSummary, isJoinClosed: boolean): string {
-  if (summary.isGoing) return 'Joined'
-  if (summary.isWaitlisted) return `Waitlist #${summary.waitlistPosition}`
-  if (isJoinClosed) return 'Closed'
-  if (summary.isFull) return 'Waitlist open'
-  return 'Available'
-}
-
 function buildOptimisticRsvpSummary(summary: RsvpSummary, action: RsvpAction): RsvpSummary {
   if (action === 'join') {
     if (summary.isFull) {
@@ -1458,27 +1450,22 @@ export function FeedPage() {
             const isClosed = isRsvpClosed(post)
             const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
             const rsvpAction = getRsvpActionState(rsvpSummary, isRsvpClosedForJoin)
-            const rsvpStateLabel = getRsvpStateLabel(rsvpSummary, isRsvpClosedForJoin)
             const recommendationReason =
               feedTab === 'recommended' && !user?.isAdmin ? recommendedFeed.metaByPostId[post.id]?.reason : ''
             const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
             const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
             const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
             const detailItems = [
-              `Category ${post.category}`,
-              `Author ${post.author}`,
-              `Posted ${formatTimeAgo(post.created_at)}`,
-              `Votes ${post.votes.length}`,
-              `Status ${rsvpStateLabel}`,
-              `Going ${rsvpSummary.goingCount}/${rsvpSummary.capacity}`,
-              recommendationReason ? `Recommended because: ${recommendationReason}` : null,
-              post.meetup_place ? `Meet-up ${post.meetup_place}` : null,
-              post.meeting_time ? `Time ${formatMeetingTime(post.meeting_time)}` : null,
-              post.estimated_cost !== null ? `Cost ${formatCurrency(post.estimated_cost)}` : null,
-              post.prep_notes ? `Prep ${post.prep_notes}` : null,
-              rsvpSummary.waitlistCount > 0 ? `Waitlist ${rsvpSummary.waitlistCount}` : null,
-              `Comments ${post.comments.length}`,
-            ].filter((item): item is string => Boolean(item))
+              { label: 'Category', value: post.category },
+              { label: 'Author', value: post.author },
+              { label: 'Posted', value: formatTimeAgo(post.created_at) },
+              recommendationReason ? { label: 'Recommended', value: recommendationReason } : null,
+              post.meetup_place ? { label: 'Meet-up', value: post.meetup_place } : null,
+              post.meeting_time ? { label: 'Time', value: formatMeetingTime(post.meeting_time) } : null,
+              post.estimated_cost !== null ? { label: 'Cost', value: formatCurrency(post.estimated_cost) } : null,
+              post.prep_notes ? { label: 'Prep', value: post.prep_notes } : null,
+              rsvpSummary.waitlistCount > 0 ? { label: 'Waitlist', value: String(rsvpSummary.waitlistCount) } : null,
+            ].filter((item): item is { label: string; value: string } => Boolean(item))
 
             return (
               <article key={post.id} className="rk-post-card">
@@ -1534,7 +1521,10 @@ export function FeedPage() {
                   </summary>
                   <div className="rk-card-more-list">
                     {detailItems.map((item) => (
-                      <span key={`${post.id}:${item}`}>{item}</span>
+                      <div key={`${post.id}:${item.label}`} className="rk-detail-item">
+                        <span className="rk-detail-label">{item.label}</span>
+                        <strong className="rk-detail-value">{item.value}</strong>
+                      </div>
                     ))}
                   </div>
                 </details>

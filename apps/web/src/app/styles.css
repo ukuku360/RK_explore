@@ -876,10 +876,14 @@
 }
 
 .rk-card-more summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   font-size: 0.84rem;
   font-weight: 700;
-  color: #6a535d;
+  color: #6f5761;
+  padding: 2px 0;
   list-style: none;
 }
 
@@ -889,7 +893,8 @@
 
 .rk-card-more summary::before {
   content: '▸';
-  margin-right: 6px;
+  margin-right: 0;
+  color: #9b8390;
 }
 
 .rk-card-more[open] summary::before {
@@ -897,26 +902,43 @@
 }
 
 .rk-card-more[open] {
-  border: 1px solid #e9dce1;
+  border: 1px solid #eadde2;
   border-radius: 13px;
-  background: #ffffff;
-  padding: 9px;
+  background: #fffdfd;
+  padding: 10px;
 }
 
 .rk-card-more-list {
-  margin-top: 9px;
+  margin-top: 10px;
   display: grid;
-  gap: 6px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px;
 }
 
-.rk-card-more-list span {
-  border-radius: 11px;
-  border: 1px solid #ece0e4;
-  background: #fff9fb;
+.rk-detail-item {
+  border-radius: 10px;
+  border: 1px solid #efe3e7;
+  background: #ffffff;
   padding: 8px 9px;
-  font-size: 0.81rem;
-  font-weight: 600;
-  color: #5b4a52;
+  display: grid;
+  gap: 3px;
+}
+
+.rk-detail-label {
+  font-size: 0.69rem;
+  font-weight: 700;
+  color: #8c7480;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rk-detail-value {
+  margin: 0;
+  font-size: 0.84rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #47363d;
+  word-break: break-word;
 }
 
 .rk-badges {
@@ -1386,6 +1408,10 @@
 
   .rk-post-actions {
     gap: 8px;
+  }
+
+  .rk-card-more-list {
+    grid-template-columns: 1fr;
   }
 
   .rk-role-callout {
