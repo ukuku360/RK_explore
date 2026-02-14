@@ -100,6 +100,20 @@ function getStatusLabel(status: 'proposed' | 'confirmed'): string {
   return status === 'confirmed' ? 'Confirmed' : 'Proposed'
 }
 
+function getCategoryEmoji(category: Category): string {
+  if (category === 'Sports') return '🏀'
+  if (category === 'Culture') return '🎭'
+  if (category === 'Eatout') return '🍽️'
+  if (category === 'Travel') return '✈️'
+  if (category === 'Study') return '📚'
+  return '✨'
+}
+
+function getCategoryLabel(category: Category | 'all'): string {
+  if (category === 'all') return 'All'
+  return `${getCategoryEmoji(category)} ${category}`
+}
+
 function getSuggestedDate(daysFromNow: number): string {
   const date = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000)
   const year = date.getFullYear()
@@ -427,7 +441,10 @@ export function FeedPage() {
   const hasActiveFilters =
     searchText.trim().length > 0 || selectedCategory !== 'all' || feedFilter !== 'all' || hasActiveSort
   const feedTabLabel = feedTab === 'recommended' ? 'Recommended' : feedTab === 'my_activity' ? 'My activity' : 'All'
-  const feedResultLabel = selectedCategory === 'all' ? `${feedTabLabel} ${displayPosts.length}` : `${selectedCategory} ${displayPosts.length}`
+  const feedResultLabel =
+    selectedCategory === 'all'
+      ? `${feedTabLabel} ${displayPosts.length}`
+      : `${getCategoryLabel(selectedCategory)} ${displayPosts.length}`
   const emptyStateConfig = getEmptyStateConfig({
     hasAnyVisiblePost: visiblePosts.length > 0,
     hasSearchText: searchText.trim().length > 0,
@@ -1170,7 +1187,7 @@ export function FeedPage() {
                   >
                     {CATEGORIES.map((category) => (
                       <option key={category} value={category}>
-                        {category}
+                        {getCategoryLabel(category)}
                       </option>
                     ))}
                   </select>
@@ -1357,7 +1374,7 @@ export function FeedPage() {
                   className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
                   onClick={() => applyCategoryFilter(category)}
                 >
-                  {category}
+                  {getCategoryLabel(category)}
                 </button>
               ))}
             </div>
@@ -1456,7 +1473,7 @@ export function FeedPage() {
             const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
             const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
             const detailItems = [
-              { label: 'Category', value: post.category },
+              { label: 'Category', value: getCategoryLabel(post.category) },
               { label: 'Author', value: post.author },
               { label: 'Posted', value: formatTimeAgo(post.created_at) },
               recommendationReason ? { label: 'Recommended', value: recommendationReason } : null,
