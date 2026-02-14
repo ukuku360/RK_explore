@@ -5,6 +5,13 @@ import {
   invalidateAfterPostMutation,
   invalidateForRealtimeTable,
 } from '../../../lib/queryInvalidation'
+import {
+  formatCurrency,
+  formatDate,
+  formatDateTime,
+  formatMeetingTime,
+  formatTimeAgo,
+} from '../../../lib/formatters'
 import { createPost } from '../../../services/posts/posts.service'
 import { CATEGORIES, type Category } from '../../../types/domain'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
@@ -63,6 +70,10 @@ function parseRsvpDeadlineIso(rawValue: string): string | null {
   return date.toISOString()
 }
 
+function getStatusLabel(status: 'proposed' | 'confirmed'): string {
+  return status === 'confirmed' ? '✅ Confirmed' : '🕓 Proposed'
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -72,6 +83,16 @@ export function FeedPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
+
+  const visiblePosts = useMemo(() => {
+    if (!postsQuery.data || !user) return []
+
+    return postsQuery.data.filter((post) => {
+      if (!post.is_hidden) return true
+      if (post.user_id === user.id) return true
+      return user.isAdmin
+    })
+  }, [postsQuery.data, user])
 
   const previewText = useMemo(() => {
     const location = form.location.trim()
@@ -296,10 +317,59 @@ export function FeedPage() {
         </p>
       ) : null}
 
-      <div className="rk-panel">
-        <strong>Feed migration progress</strong>
-        <p>{postsQuery.data?.length ?? 0} posts loaded. Card/action parity moves in RKM-016~RKM-019.</p>
-      </div>
+      <section className="rk-feed-section">
+        <h2>Community Feed</h2>
+
+        {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
+
+        {!postsQuery.isLoading && visiblePosts.length === 0 ? (
+          <div className="rk-empty-state">
+            <strong>No posts to show</strong>
+            <p>Try another account or be the first to post.</p>
+          </div>
+        ) : null}
+
+        <div className="rk-feed-list">
+          {visiblePosts.map((post) => (
+            <article key={post.id} className="rk-post-card">
+              {post.is_hidden ? (
+                <div className="rk-hidden-note">
+                  Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}
+                </div>
+              ) : null}
+
+              <header className="rk-post-header">
+                <div>
+                  <h3>
+                    Let&apos;s go to <span className="rk-location">{post.location}</span>!
+                  </h3>
+                  <div className="rk-post-meta">
+                    <span>👤 {post.author}</span>
+                    <span>🕐 {formatTimeAgo(post.created_at)}</span>
+                  </div>
+                </div>
+                <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
+              </header>
+
+              <div className="rk-badges">
+                <span className="rk-badge">{post.category}</span>
+                {post.proposed_date ? <span className="rk-badge">📅 {formatDate(post.proposed_date)}</span> : null}
+              </div>
+
+              <div className="rk-post-details">
+                <span>▲ {post.votes.length} votes</span>
+                <span>💬 {post.comments.length} comments</span>
+                <span>👥 {post.rsvps.length}/{post.capacity} joined</span>
+                {post.meetup_place ? <span>Meet-up: {post.meetup_place}</span> : null}
+                {post.meeting_time ? <span>Time: {formatMeetingTime(post.meeting_time)}</span> : null}
+                {post.estimated_cost !== null ? <span>Cost: {formatCurrency(post.estimated_cost)}</span> : null}
+                {post.rsvp_deadline ? <span>Deadline: {formatDateTime(post.rsvp_deadline)}</span> : null}
+                {post.prep_notes ? <span>Prep: {post.prep_notes}</span> : null}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </section>
   )
 }
