@@ -7,7 +7,11 @@ function navClassName({ isActive }: { isActive: boolean }) {
 }
 
 export function AppShell() {
-  const { isAdmin, isLoading, sessionEmail } = useAuthSession()
+  const { isAdmin, isLoading, sessionEmail, user, logout } = useAuthSession()
+
+  async function handleLogout() {
+    await logout()
+  }
 
   return (
     <div className="rk-shell">
@@ -30,8 +34,13 @@ export function AppShell() {
               </NavLink>
             ) : null}
           </nav>
-          <div className="rk-session">
-            {isLoading ? 'Session: checking' : `Session: ${sessionEmail ?? 'guest'}`}
+          <div className="rk-session-group">
+            <div className="rk-session">{isLoading ? 'Session: checking' : `Session: ${sessionEmail ?? 'guest'}`}</div>
+            {user ? (
+              <button type="button" className="rk-button rk-button-small" onClick={() => void handleLogout()}>
+                Log out
+              </button>
+            ) : null}
           </div>
         </div>
       </header>

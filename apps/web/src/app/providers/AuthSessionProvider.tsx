@@ -3,18 +3,46 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { env } from '../../lib/env'
 import { isAdminEmail } from '../../lib/guards'
 import { supabaseClient } from '../../services/supabase/client'
-import { AuthSessionContext, type AuthSessionContextValue } from './auth-session-context'
+import {
+  AuthSessionContext,
+  type AuthActionResult,
+  type AuthSessionContextValue,
+  type AuthUser,
+  type LoginInput,
+  type SignupInput,
+} from './auth-session-context'
 
 type AuthSessionProviderProps = {
   children: ReactNode
 }
 
 export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     let isMounted = true
+
+    function mapAuthUser(rawUser: {
+      id: string
+      email?: string | null
+      created_at?: string | null
+      user_metadata?: { nickname?: string | null } | null
+    }): AuthUser | null {
+      const email = rawUser.email?.trim().toLowerCase()
+      if (!email) return null
+
+      const nickname = rawUser.user_metadata?.nickname?.trim() ?? ''
+      const fallbackLabel = email.split('@')[0] || 'Tenant'
+
+      return {
+        id: rawUser.id,
+        email,
+        label: nickname.length > 0 ? nickname : fallbackLabel,
+        createdAt: rawUser.created_at ?? new Date().toISOString(),
+        isAdmin: isAdminEmail(email, env.adminEmail),
+      }
+    }
 
     async function restoreSession() {
       const { data, error } = await supabaseClient.auth.getSession()
@@ -23,12 +51,12 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
       if (error) {
         console.error('[auth] session restore failed', error)
-        setSessionEmail(null)
+        setUser(null)
         setIsLoading(false)
         return
       }
 
-      setSessionEmail(data.session?.user.email ?? null)
+      setUser(data.session?.user ? mapAuthUser(data.session.user) : null)
       setIsLoading(false)
     }
 
@@ -37,7 +65,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     const {
       data: { subscription },
     } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setSessionEmail(session?.user.email ?? null)
+      setUser(session?.user ? mapAuthUser(session.user) : null)
       setIsLoading(false)
     })
 
@@ -47,13 +75,72 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     }
   }, [])
 
+  async function login(input: LoginInput): Promise<AuthActionResult> {
+    const email = input.email.trim()
+    const password = input.password.trim()
+
+    if (!email || !password) {
+      return { ok: false, message: 'Please enter email and password.' }
+    }
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password })
+    if (error) {
+      return { ok: false, message: error.message }
+    }
+
+    if (!data.user?.email_confirmed_at) {
+      await supabaseClient.auth.signOut()
+      return { ok: false, message: 'Please verify your email before logging in.' }
+    }
+
+    return { ok: true }
+  }
+
+  async function signup(input: SignupInput): Promise<AuthActionResult> {
+    const email = input.email.trim()
+    const password = input.password.trim()
+    const nickname = input.nickname.trim().replace(/\s+/g, ' ').slice(0, 20)
+
+    if (!email || !password) {
+      return { ok: false, message: 'Please enter email and password.' }
+    }
+
+    if (nickname.length < 2) {
+      return { ok: false, message: 'Please choose a nickname (2-20 chars).' }
+    }
+
+    const { error } = await supabaseClient.auth.signUp({
+      email,
+      password,
+      options: { data: { nickname } },
+    })
+
+    if (error) {
+      return { ok: false, message: error.message }
+    }
+
+    return { ok: true, message: `Check your email for the confirmation link, ${nickname}!` }
+  }
+
+  async function logout(): Promise<AuthActionResult> {
+    const { error } = await supabaseClient.auth.signOut()
+    if (error) {
+      return { ok: false, message: error.message }
+    }
+    return { ok: true }
+  }
+
   const value = useMemo<AuthSessionContextValue>(() => {
     return {
-      sessionEmail,
-      isAdmin: isAdminEmail(sessionEmail, env.adminEmail),
+      user,
+      sessionEmail: user?.email ?? null,
+      isAdmin: user?.isAdmin ?? false,
       isLoading,
+      login,
+      signup,
+      logout,
     }
-  }, [isLoading, sessionEmail])
+  }, [isLoading, user])
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
 }

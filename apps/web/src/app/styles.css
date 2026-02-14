@@ -77,6 +77,12 @@
   color: var(--rk-muted);
 }
 
+.rk-session-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .rk-main {
   max-width: 1040px;
   margin: 0 auto;
@@ -119,6 +125,76 @@
   margin: 0;
   padding-left: 18px;
   color: var(--rk-muted);
+}
+
+.rk-button {
+  border: 1px solid #0f7c90;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: #0f7c90;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rk-button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.rk-button-secondary {
+  background: #fff;
+  color: #0f7c90;
+}
+
+.rk-button-small {
+  font-size: 0.82rem;
+  padding: 5px 10px;
+}
+
+.rk-auth-page {
+  max-width: 560px;
+}
+
+.rk-auth-fields {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.rk-auth-label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.88rem;
+  color: var(--rk-muted);
+  font-weight: 600;
+}
+
+.rk-auth-input {
+  width: 100%;
+  border: 1px solid var(--rk-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.rk-auth-actions {
+  margin-top: 14px;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.rk-auth-message {
+  margin-top: 12px;
+  font-size: 0.95rem;
+}
+
+.rk-auth-error {
+  color: #ba1a1a;
+}
+
+.rk-auth-success {
+  color: #0f7a2a;
 }
 
 @media (max-width: 760px) {

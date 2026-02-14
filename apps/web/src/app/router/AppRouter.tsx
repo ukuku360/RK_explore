@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import type { ReactElement } from 'react'
 
 import { AppShell } from '../layout/AppShell'
 import { useAuthSession } from '../providers/auth-session-context'
@@ -18,10 +19,14 @@ function RouteLoading({ label }: { label: string }) {
 }
 
 function AdminRoute() {
-  const { isAdmin, isLoading } = useAuthSession()
+  const { isAdmin, isLoading, user } = useAuthSession()
 
   if (isLoading) {
     return <RouteLoading label="Checking admin permissions..." />
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />
   }
 
   if (!isAdmin) {
@@ -35,12 +40,47 @@ function AdminRoute() {
   )
 }
 
+function ProtectedRoute({ children }: { children: ReactElement }) {
+  const { user, isLoading } = useAuthSession()
+
+  if (isLoading) {
+    return <RouteLoading label="Restoring your session..." />
+  }
+
+  if (!user) {
+    return <Navigate to="/auth" replace />
+  }
+
+  return children
+}
+
+function AuthRoute() {
+  const { user, isLoading } = useAuthSession()
+
+  if (isLoading) {
+    return <RouteLoading label="Restoring your session..." />
+  }
+
+  if (user) {
+    return <Navigate to="/" replace />
+  }
+
+  return <AuthPage />
+}
+
 export function AppRouter() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<FeedPage />} />
-        <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <FeedPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="/auth" element={<AuthRoute />} />
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
