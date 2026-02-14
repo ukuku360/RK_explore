@@ -225,12 +225,12 @@
 
 .rk-profile-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .rk-profile-item {
-  min-height: 92px;
+  min-height: 96px;
   display: grid;
   gap: 6px;
   align-content: start;
@@ -252,6 +252,8 @@
   font-size: 1.04rem;
   line-height: 1.25;
   color: var(--rk-text);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .rk-page {
@@ -1283,6 +1285,10 @@
 
   .rk-role-callout {
     align-items: flex-start;
+  }
+
+  .rk-profile-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
