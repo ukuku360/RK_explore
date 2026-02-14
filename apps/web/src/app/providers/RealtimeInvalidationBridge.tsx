@@ -1,9 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { invalidateForRealtimeTable } from '../../lib/queryInvalidation'
 import type { RealtimeTableName } from '../../lib/queryKeys'
 import { supabaseClient } from '../../services/supabase/client'
+import {
+  RealtimeSyncContext,
+  type RealtimeSyncStatus,
+} from './realtime-sync-context'
 
 const REALTIME_TABLES: readonly RealtimeTableName[] = [
   'posts',
@@ -14,8 +18,19 @@ const REALTIME_TABLES: readonly RealtimeTableName[] = [
   'admin_action_logs',
 ]
 
-export function RealtimeInvalidationBridge() {
+type RealtimeSyncProviderProps = {
+  children: ReactNode
+}
+
+function mapChannelStatus(status: string): RealtimeSyncStatus {
+  if (status === 'SUBSCRIBED') return 'live'
+  if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') return 'offline'
+  return 'connecting'
+}
+
+export function RealtimeSyncProvider({ children }: RealtimeSyncProviderProps) {
   const queryClient = useQueryClient()
+  const [status, setStatus] = useState<RealtimeSyncStatus>('connecting')
 
   useEffect(() => {
     const channel = supabaseClient.channel('rk-explores-react-sync')
@@ -30,12 +45,16 @@ export function RealtimeInvalidationBridge() {
       )
     })
 
-    channel.subscribe()
+    channel.subscribe((nextStatus) => {
+      setStatus(mapChannelStatus(nextStatus))
+    })
 
     return () => {
       void supabaseClient.removeChannel(channel)
     }
   }, [queryClient])
 
-  return null
+  const value = useMemo(() => ({ status }), [status])
+
+  return <RealtimeSyncContext.Provider value={value}>{children}</RealtimeSyncContext.Provider>
 }

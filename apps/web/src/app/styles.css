@@ -81,6 +81,68 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rk-connection {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  color: var(--rk-muted);
+}
+
+.rk-connection-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.rk-connection-connecting {
+  background: #c88b2c;
+}
+
+.rk-connection-live {
+  background: #289a4a;
+}
+
+.rk-connection-offline {
+  background: #b43a35;
+}
+
+.rk-profile-panel {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px 18px;
+}
+
+.rk-profile-panel h3 {
+  margin: 4px 0;
+}
+
+.rk-profile-subtext {
+  margin: 0 0 10px;
+  color: var(--rk-muted);
+}
+
+.rk-profile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.rk-profile-item {
+  border: 1px solid var(--rk-line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.rk-profile-label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--rk-muted);
+  margin-bottom: 4px;
 }
 
 .rk-main {
