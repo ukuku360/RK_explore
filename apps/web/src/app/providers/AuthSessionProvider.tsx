@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
-import { env } from '../../lib/env'
 import { isAdminEmail } from '../../lib/guards'
 import { supabaseClient } from '../../services/supabase/client'
 import {
@@ -40,7 +39,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         email,
         label: nickname.length > 0 ? nickname : fallbackLabel,
         createdAt: rawUser.created_at ?? new Date().toISOString(),
-        isAdmin: isAdminEmail(email, env.adminEmail),
+        isAdmin: isAdminEmail(email),
       }
     }
 

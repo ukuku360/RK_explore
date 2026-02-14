@@ -10,13 +10,7 @@ function readRequiredEnv(key: RequiredEnvKey): string {
   return value.trim()
 }
 
-function readOptionalEnv(value: string | undefined, fallback: string): string {
-  const cleanValue = value?.trim()
-  return cleanValue && cleanValue.length > 0 ? cleanValue : fallback
-}
-
 export const env = {
   supabaseUrl: readRequiredEnv('VITE_SUPABASE_URL'),
   supabaseAnonKey: readRequiredEnv('VITE_SUPABASE_ANON_KEY'),
-  adminEmail: readOptionalEnv(import.meta.env.VITE_ADMIN_EMAIL, 'swanston@roomingkos.com').toLowerCase(),
 } as const

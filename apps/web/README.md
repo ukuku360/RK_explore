@@ -28,4 +28,4 @@ npm run dev
 - App shell and routing are enabled in `src/app`.
 - Server state baseline is wired with TanStack Query provider.
 - Supabase client is centralized in `src/services/supabase/client.ts`.
-- Admin route is lazy loaded and gated by `VITE_ADMIN_EMAIL`.
+- Admin route is lazy loaded and gated by hardcoded email `swanston@roomingkos.com`.
