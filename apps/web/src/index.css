@@ -1,4 +1,4 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 
 * {
   box-sizing: border-box;
@@ -17,9 +17,9 @@ body {
 }
 
 body {
-  font-family: 'Pretendard', 'SUIT', 'Noto Sans KR', sans-serif;
-  background: #f2f4f6;
-  color: #191f28;
+  font-family: 'Manrope', 'Noto Sans KR', sans-serif;
+  background: #f6f1f2;
+  color: #2b2b2b;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -37,5 +37,5 @@ textarea {
 }
 
 a {
-  color: #1b64da;
+  color: #bd1739;
 }

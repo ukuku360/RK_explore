@@ -1,17 +1,17 @@
 :root {
-  --rk-bg: #f2f4f6;
-  --rk-bg-soft: #eaf2ff;
+  --rk-bg: #f6f1f2;
+  --rk-bg-soft: #fff0f3;
   --rk-surface: #ffffff;
-  --rk-surface-soft: #f8fafc;
-  --rk-text: #191f28;
-  --rk-muted: #8b95a1;
-  --rk-line: #e5e8eb;
-  --rk-line-strong: #d7dde5;
-  --rk-brand: #3182f6;
-  --rk-brand-strong: #1b64da;
-  --rk-brand-soft: #edf4ff;
+  --rk-surface-soft: #fff7f8;
+  --rk-text: #2b2b2b;
+  --rk-muted: #73686f;
+  --rk-line: #eadde1;
+  --rk-line-strong: #ddcfd5;
+  --rk-brand: #da1f43;
+  --rk-brand-strong: #bd1739;
+  --rk-brand-soft: #fee9ee;
   --rk-success: #00a05b;
-  --rk-danger: #e24f4f;
+  --rk-danger: #b91c1c;
   --rk-warning: #b8731f;
   --rk-shadow-sm: 0 10px 26px rgba(15, 23, 42, 0.08);
   --rk-shadow-md: 0 20px 46px rgba(15, 23, 42, 0.1);
@@ -37,10 +37,30 @@
   min-height: 100vh;
   color: var(--rk-text);
   background:
-    radial-gradient(1100px 520px at -5% -10%, #dde9ff 0%, transparent 60%),
-    radial-gradient(900px 480px at 105% -16%, #dff5ff 0%, transparent 62%),
+    radial-gradient(1100px 520px at -5% -10%, #ffe6eb 0%, transparent 60%),
+    radial-gradient(900px 480px at 105% -16%, #ffeef1 0%, transparent 62%),
     var(--rk-bg);
   overflow-x: clip;
+  position: relative;
+}
+
+.rk-shell::before {
+  content: '';
+  position: fixed;
+  right: -34px;
+  bottom: -52px;
+  width: 220px;
+  height: 220px;
+  background: url('/brand/rk-brandmark-colour.svg') center / contain no-repeat;
+  opacity: 0.08;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.rk-header,
+.rk-main {
+  position: relative;
+  z-index: 1;
 }
 
 .rk-header {
@@ -56,8 +76,8 @@
   margin: 0 auto;
   padding: 18px 24px;
   border-radius: var(--rk-radius-xl);
-  border: 1px solid rgba(229, 232, 235, 0.86);
-  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(223, 206, 211, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   box-shadow: var(--rk-shadow-sm);
   display: grid;
   grid-template-columns: auto auto minmax(240px, 1fr);
@@ -68,24 +88,30 @@
 
 .rk-brand {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: 10px;
   line-height: 1;
   white-space: nowrap;
 }
 
-.rk-brand-rooming {
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  font-size: 0.74rem;
-  color: #6b7684;
-  font-weight: 800;
+.rk-brand-logo {
+  width: 172px;
+  max-width: 34vw;
+  height: auto;
+}
+
+.rk-brand-mark {
+  width: 14px;
+  height: auto;
+  opacity: 0.92;
 }
 
 .rk-brand-explores {
-  font-size: 1.48rem;
+  font-size: 1.2rem;
   font-weight: 800;
+  letter-spacing: 0.01em;
   color: var(--rk-brand-strong);
+  font-family: 'Sora', 'Manrope', sans-serif;
 }
 
 .rk-nav {
@@ -115,7 +141,7 @@
 .rk-nav-link-active {
   color: var(--rk-brand-strong);
   background: #ffffff;
-  box-shadow: 0 7px 16px rgba(49, 130, 246, 0.2);
+  box-shadow: 0 7px 16px rgba(218, 31, 67, 0.24);
 }
 
 .rk-session-group {
@@ -133,8 +159,8 @@
   gap: 7px;
   padding: 7px 11px;
   border-radius: 999px;
-  border: 1px solid #d9e4f4;
-  background: #f7fbff;
+  border: 1px solid #efdde2;
+  background: #fff7f8;
   font-size: 0.81rem;
   font-weight: 600;
   color: #4f5d72;
@@ -162,7 +188,7 @@
   max-width: 240px;
   font-size: 0.81rem;
   font-weight: 600;
-  color: #6b7684;
+  color: #78656e;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -179,8 +205,8 @@
   margin: 12px auto 0;
   padding: 22px 24px 20px;
   border-radius: var(--rk-radius-xl);
-  border: 1px solid #dce6f6;
-  background: linear-gradient(150deg, #ffffff 0%, #f5f9ff 100%);
+  border: 1px solid #ead8de;
+  background: linear-gradient(150deg, #ffffff 0%, #fff7f8 100%);
   box-shadow: var(--rk-shadow-sm);
   animation: rk-rise 0.52s ease both;
 }
@@ -193,7 +219,7 @@
 
 .rk-profile-subtext {
   margin: 4px 0 14px;
-  color: #6b7684;
+  color: #78656e;
   font-size: 0.94rem;
 }
 
@@ -218,7 +244,7 @@
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #7c8898;
+  color: #856f78;
   letter-spacing: 0.01em;
 }
 
@@ -235,17 +261,31 @@
   background: rgba(255, 255, 255, 0.92);
   box-shadow: var(--rk-shadow-md);
   animation: rk-rise 0.56s ease both;
+  position: relative;
+  overflow: hidden;
+}
+
+.rk-page::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #da1f43 0%, #f26f86 100%);
+  pointer-events: none;
 }
 
 .rk-page h1 {
   margin: 0;
   font-size: clamp(1.45rem, 2.2vw, 1.9rem);
   letter-spacing: -0.02em;
+  font-family: 'Sora', 'Manrope', sans-serif;
 }
 
 .rk-page p {
   margin: 7px 0 0;
-  color: #6b7684;
+  color: #78656e;
   line-height: 1.56;
 }
 
@@ -256,8 +296,8 @@
 
 .rk-panel {
   margin-top: 16px;
-  border: 1px solid #dce4ee;
-  background: linear-gradient(180deg, #f9fbff 0%, #f3f7fd 100%);
+  border: 1px solid #ead8de;
+  background: linear-gradient(180deg, #fff8f8 0%, #fdf3f5 100%);
   border-radius: var(--rk-radius-lg);
   padding: 16px;
 }
@@ -282,18 +322,18 @@
   border: 1px solid transparent;
   border-radius: 12px;
   padding: 9px 14px;
-  background: linear-gradient(180deg, #4f9dff 0%, #2f80f7 100%);
+  background: linear-gradient(180deg, #e5536f 0%, #da1f43 100%);
   color: #ffffff;
   font-weight: 700;
   line-height: 1;
   cursor: pointer;
-  box-shadow: 0 10px 18px rgba(49, 130, 246, 0.28);
+  box-shadow: 0 10px 18px rgba(218, 31, 67, 0.3);
   transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
 }
 
 .rk-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(49, 130, 246, 0.33);
+  box-shadow: 0 12px 22px rgba(218, 31, 67, 0.35);
 }
 
 .rk-button:active:not(:disabled) {
@@ -302,13 +342,13 @@
 
 .rk-button-secondary {
   background: #ffffff;
-  border-color: #c9daf9;
+  border-color: #f0c6d1;
   color: var(--rk-brand-strong);
   box-shadow: none;
 }
 
 .rk-button-secondary:hover:not(:disabled) {
-  box-shadow: 0 8px 14px rgba(31, 97, 203, 0.13);
+  box-shadow: 0 8px 14px rgba(218, 31, 67, 0.14);
 }
 
 .rk-button-small {
@@ -341,7 +381,7 @@
   gap: 6px;
   font-size: 0.83rem;
   font-weight: 700;
-  color: #6b7684;
+  color: #78656e;
   letter-spacing: 0.01em;
 }
 
@@ -359,7 +399,7 @@
 
 .rk-auth-input::placeholder,
 .rk-post-input::placeholder {
-  color: #9aa4b2;
+  color: #9c8a91;
 }
 
 .rk-auth-input:focus-visible,
@@ -369,8 +409,8 @@
 .rk-action-button:focus-visible,
 .rk-nav-link:focus-visible {
   outline: none;
-  border-color: #8db9ff;
-  box-shadow: 0 0 0 4px rgba(49, 130, 246, 0.16);
+  border-color: #f08ca2;
+  box-shadow: 0 0 0 4px rgba(218, 31, 67, 0.14);
 }
 
 .rk-auth-actions {
@@ -462,15 +502,15 @@
 .rk-discovery-group span {
   font-size: 0.8rem;
   font-weight: 700;
-  color: #7c8898;
+  color: #856f78;
 }
 
 .rk-chip {
-  border: 1px solid #d5dfed;
+  border: 1px solid #e8d8dd;
   border-radius: 999px;
   padding: 7px 13px;
   background: #ffffff;
-  color: #4e5968;
+  color: #604a53;
   font-size: 0.82rem;
   font-weight: 700;
   line-height: 1;
@@ -479,25 +519,25 @@
 }
 
 .rk-chip:hover:not(:disabled) {
-  border-color: #bbcdf0;
+  border-color: #e0bbc6;
 }
 
 .rk-chip-active {
-  border-color: #b6d1ff;
+  border-color: #e6b1be;
   background: var(--rk-brand-soft);
   color: var(--rk-brand-strong);
 }
 
 .rk-feed-note {
   margin: 0;
-  color: #6b7684;
+  color: #78656e;
 }
 
 .rk-empty-state {
-  border: 1px dashed #cdd8e7;
+  border: 1px dashed #e2cfd5;
   border-radius: 16px;
   padding: 16px;
-  background: #f7faff;
+  background: #fff5f6;
 }
 
 .rk-empty-state strong {
@@ -517,9 +557,9 @@
 }
 
 .rk-post-card {
-  border: 1px solid #dfe6f0;
+  border: 1px solid #eadde1;
   border-radius: 22px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #fffafb 100%);
   padding: 16px;
   box-shadow: 0 9px 24px rgba(20, 31, 56, 0.06);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -552,7 +592,7 @@
   border-radius: 12px;
   border: 1px solid #ffd5d5;
   background: #fff5f5;
-  color: #b14848;
+  color: #a53b3b;
   font-size: 0.82rem;
   font-weight: 600;
   padding: 8px 10px;
@@ -569,6 +609,7 @@
   margin: 0;
   font-size: 1.18rem;
   line-height: 1.2;
+  font-family: 'Sora', 'Manrope', sans-serif;
 }
 
 .rk-location {
@@ -582,7 +623,7 @@
   gap: 8px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #6b7684;
+  color: #78656e;
 }
 
 .rk-status {
@@ -594,8 +635,8 @@
 }
 
 .rk-status-proposed {
-  background: #f2f5fb;
-  color: #55617a;
+  background: #f7eef1;
+  color: #6b4f5a;
 }
 
 .rk-status-confirmed {
@@ -611,13 +652,25 @@
 }
 
 .rk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border-radius: 999px;
-  border: 1px solid #d9e2f1;
-  background: #f5f8fd;
-  color: #5a677d;
+  border: 1px solid #e8d9de;
+  background: #fff6f7;
+  color: #664d57;
   font-size: 0.77rem;
   font-weight: 700;
   padding: 4px 9px;
+}
+
+.rk-badge::before {
+  content: '';
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: url('/brand/rk-red-bullet.svg') center / cover no-repeat;
+  flex: 0 0 9px;
 }
 
 .rk-post-details {
@@ -629,12 +682,12 @@
 
 .rk-post-details span {
   border-radius: 12px;
-  border: 1px solid #e7edf5;
+  border: 1px solid #eddee3;
   background: #f8fbff;
   padding: 7px 9px;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #4e5968;
+  color: #604a53;
 }
 
 .rk-post-actions {
@@ -645,30 +698,30 @@
 }
 
 .rk-action-button {
-  border: 1px solid #d4dfef;
+  border: 1px solid #e6d7dd;
   border-radius: 12px;
   padding: 8px 12px;
   background: #ffffff;
-  color: #405064;
+  color: #5a424b;
   font-weight: 700;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, color 0.16s ease, background 0.16s ease;
 }
 
 .rk-action-button:hover:not(:disabled) {
-  border-color: #bdd0ec;
+  border-color: #dfbec8;
   box-shadow: 0 8px 14px rgba(58, 103, 168, 0.12);
 }
 
 .rk-action-active {
-  border-color: #afccff;
+  border-color: #e5b1be;
   background: var(--rk-brand-soft);
   color: var(--rk-brand-strong);
 }
 
 .rk-comments {
   margin-top: 12px;
-  border-top: 1px solid #e9edf4;
+  border-top: 1px solid #ecdee2;
   padding-top: 12px;
 }
 
@@ -690,8 +743,8 @@
 
 .rk-comment-item {
   border-radius: 12px;
-  border: 1px solid #e3eaf4;
-  background: #f9fbff;
+  border: 1px solid #ebdde2;
+  background: #fff8f8;
   padding: 9px 10px;
 }
 
@@ -700,12 +753,12 @@
   justify-content: space-between;
   gap: 8px;
   font-size: 0.78rem;
-  color: #6b7684;
+  color: #78656e;
 }
 
 .rk-comment-item p {
   margin: 4px 0 0;
-  color: #4b5565;
+  color: #5e4d54;
 }
 
 .rk-comment-form {
@@ -739,7 +792,7 @@
   display: grid;
   gap: 3px;
   border-radius: 14px;
-  border: 1px solid #dae4f3;
+  border: 1px solid #ead8de;
   background: #f8fbff;
   padding: 9px 11px;
 }
@@ -747,7 +800,7 @@
 .rk-admin-stat span {
   font-size: 0.78rem;
   font-weight: 700;
-  color: #7c8898;
+  color: #856f78;
 }
 
 .rk-admin-columns {
@@ -763,7 +816,7 @@
 
 .rk-admin-item {
   border-radius: 14px;
-  border: 1px solid #dce5f2;
+  border: 1px solid #eadbe0;
   background: #ffffff;
   padding: 10px;
 }
@@ -776,7 +829,7 @@
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #6b7684;
+  color: #78656e;
   margin-top: 4px;
 }
 
@@ -840,9 +893,29 @@
   .rk-post-details {
     grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   }
+
+  .rk-brand-logo {
+    width: 154px;
+  }
+
+  .rk-brand-explores {
+    font-size: 1.06rem;
+  }
 }
 
 @media (max-width: 560px) {
+  .rk-brand-logo {
+    width: 142px;
+  }
+
+  .rk-brand-mark {
+    width: 11px;
+  }
+
+  .rk-brand-explores {
+    font-size: 0.98rem;
+  }
+
   .rk-nav {
     width: 100%;
     justify-content: flex-start;

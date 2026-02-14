@@ -58,7 +58,8 @@ export function AppShell() {
       <header className="rk-header">
         <div className="rk-header-inner">
           <div className="rk-brand">
-            <span className="rk-brand-rooming">RoomingKos</span>
+            <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
+            <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
             <span className="rk-brand-explores">Explores</span>
           </div>
           <nav className="rk-nav" aria-label="Primary">
