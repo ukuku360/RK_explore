@@ -25,18 +25,6 @@ import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category, type Post } from '../../../types/domain'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
-import {
-  classifyOnboardingUserType,
-  getLatestCoreActionAtMs,
-  loadOnboardingState,
-  markOnboardingCompleted,
-  markOnboardingShown,
-  markOnboardingSkipped,
-  saveOnboardingState,
-  shouldShowOnboarding,
-  type OnboardingState,
-  type OnboardingUserType,
-} from '../lib/onboarding'
 import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
 import {
   STEP_COUNT,
@@ -63,32 +51,6 @@ const SORT_OPTIONS = ['votes', 'newest', 'soonest'] as const
 
 type FeedFilter = (typeof FEED_FILTERS)[number]
 type SortOption = (typeof SORT_OPTIONS)[number]
-
-type OnboardingCompletionAction = 'vote' | 'rsvp_join' | 'post_create_success'
-
-type OnboardingStep = {
-  id: number
-  copy: string
-  cta: string
-}
-
-const ONBOARDING_STEPS: readonly OnboardingStep[] = [
-  {
-    id: 1,
-    copy: 'Explore the feed for 10 seconds to scan what is active now.',
-    cta: 'Explore feed',
-  },
-  {
-    id: 2,
-    copy: 'Vote on one trip idea to raise its priority.',
-    cta: 'Go vote',
-  },
-  {
-    id: 3,
-    copy: 'Leave an RSVP or publish your own trip idea.',
-    cta: 'Participate now',
-  },
-] as const
 
 const QUICK_TRIP_TEMPLATES = [
   { label: 'Weekend Beach', location: 'Bondi Beach' },
@@ -126,12 +88,6 @@ function getLetsGoTitle(location: string): string {
   const clean = location.trim()
   if (!clean) return "Let's go!"
   return `Let's go to ${clean}`
-}
-
-function getOnboardingTypeLabel(userType: OnboardingUserType): string {
-  if (userType === 'new') return 'New user'
-  if (userType === 'active') return 'Active user'
-  return 'Returning without recent activity'
 }
 
 function getRsvpActionState(summary: RsvpSummary, isJoinClosed: boolean): {
@@ -289,7 +245,6 @@ export function FeedPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
-  const feedSectionRef = useRef<HTMLElement | null>(null)
   const formRef = useRef<HTMLFormElement | null>(null)
   const hasTrackedPostCreateStartRef = useRef(false)
   const hasTrackedStep1ValidRef = useRef(false)
@@ -313,9 +268,6 @@ export function FeedPage() {
   const [showHiddenPosts, setShowHiddenPosts] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
-  const [onboardingState, setOnboardingState] = useState<OnboardingState | null>(null)
-  const [isOnboardingVisible, setIsOnboardingVisible] = useState(false)
-  const [isOnboardingReplay, setIsOnboardingReplay] = useState(false)
   const [optimisticRsvpByPostId, setOptimisticRsvpByPostId] = useState<Record<string, RsvpSummary>>({})
   const [inlineRsvpMessageByPostId, setInlineRsvpMessageByPostId] = useState<Record<string, InlineMessage>>({})
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
@@ -420,18 +372,6 @@ export function FeedPage() {
     return sorted
   }, [feedFilter, feedTab, searchText, selectedCategory, sortOption, tabBasePosts, user?.isAdmin])
 
-  const latestCoreActionAtMs = useMemo(() => {
-    if (!user || !postsQuery.data) return null
-    return getLatestCoreActionAtMs(postsQuery.data, user.id)
-  }, [postsQuery.data, user])
-
-  const hasCoreAction = latestCoreActionAtMs !== null
-
-  const onboardingUserType = useMemo(() => {
-    if (!user) return 'returning_idle'
-    return classifyOnboardingUserType(user.createdAt, latestCoreActionAtMs)
-  }, [latestCoreActionAtMs, user])
-
   const previewText = useMemo(() => {
     const location = form.location.trim()
     const capacity = Number(form.capacity)
@@ -456,41 +396,6 @@ export function FeedPage() {
     hasSearchText: searchText.trim().length > 0,
     hasActiveFilters,
   })
-
-  useEffect(() => {
-    if (!user) {
-      setOnboardingState(null)
-      setIsOnboardingVisible(false)
-      setIsOnboardingReplay(false)
-      return
-    }
-
-    if (postsQuery.isLoading) return
-
-    const storedState = loadOnboardingState(user.id)
-    setOnboardingState(storedState)
-    setIsOnboardingReplay(false)
-
-    const decision = shouldShowOnboarding(onboardingUserType, hasCoreAction, storedState)
-    if (!decision.shouldShow) {
-      setIsOnboardingVisible(false)
-      return
-    }
-
-    const nowIso = new Date().toISOString()
-    const nextState = markOnboardingShown(storedState, nowIso, decision.isReshow)
-    saveOnboardingState(user.id, nextState)
-    setOnboardingState(nextState)
-    setIsOnboardingVisible(true)
-
-    trackEvent('onboarding_viewed', {
-      user_id: user.id,
-      role: user.isAdmin ? 'admin' : 'member',
-      user_type: onboardingUserType,
-      source: decision.isReshow ? 'auto_reshow' : 'auto_first_login',
-      surface: 'feed',
-    })
-  }, [hasCoreAction, onboardingUserType, postsQuery.isLoading, user])
 
   useEffect(() => {
     if (!user?.isAdmin) return
@@ -621,56 +526,6 @@ export function FeedPage() {
     saveDraft(user.id, form, postFormStep)
   }
 
-  function markOnboardingDone(action: OnboardingCompletionAction) {
-    if (!user || onboardingState?.completedAt) return
-
-    const nowIso = new Date().toISOString()
-    const nextState = markOnboardingCompleted(onboardingState, nowIso)
-    saveOnboardingState(user.id, nextState)
-    setOnboardingState(nextState)
-    setIsOnboardingVisible(false)
-    setIsOnboardingReplay(false)
-
-    trackEvent('onboarding_completed', {
-      user_id: user.id,
-      role: user.isAdmin ? 'admin' : 'member',
-      action,
-      surface: 'feed',
-    })
-  }
-
-  function closeOnboarding(reason: 'skip' | 'close') {
-    if (!user) return
-
-    const nowIso = new Date().toISOString()
-    const nextState = markOnboardingSkipped(onboardingState, nowIso)
-    saveOnboardingState(user.id, nextState)
-    setOnboardingState(nextState)
-    setIsOnboardingVisible(false)
-    setIsOnboardingReplay(false)
-
-    trackEvent('onboarding_skipped', {
-      user_id: user.id,
-      role: user.isAdmin ? 'admin' : 'member',
-      reason,
-      surface: 'feed',
-    })
-  }
-
-  function handleReplayOnboarding() {
-    if (!user) return
-
-    setIsOnboardingReplay(true)
-    setIsOnboardingVisible(true)
-    trackEvent('onboarding_viewed', {
-      user_id: user.id,
-      role: user.isAdmin ? 'admin' : 'member',
-      user_type: onboardingUserType,
-      source: 'manual_replay',
-      surface: 'feed',
-    })
-  }
-
   function revealStep1Errors() {
     setShowStep1Errors(true)
     setStep1Touched({
@@ -783,7 +638,6 @@ export function FeedPage() {
         role: user.isAdmin ? 'admin' : 'member',
         surface: 'post_form',
       })
-      markOnboardingDone('post_create_success')
     } catch (error) {
       trackEvent('post_create_fail', {
         user_id: user.id,
@@ -820,31 +674,6 @@ export function FeedPage() {
     trackPostStep1ValidOnce()
     setPostFormStep(2)
     persistDraftNow()
-  }
-
-  function jumpToOnboardingStep(stepId: number) {
-    if (!user) return
-
-    trackEvent('onboarding_step_clicked', {
-      user_id: user.id,
-      role: user.isAdmin ? 'admin' : 'member',
-      step: stepId,
-      source: isOnboardingReplay ? 'manual_replay' : 'auto',
-      surface: 'feed',
-    })
-
-    if (stepId === 1 || stepId === 2) {
-      feedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
-    }
-
-    if (displayPosts.length > 0) {
-      feedSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      return
-    }
-
-    setPostFormStep(1)
-    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   function applyFeedFilter(nextFilter: FeedFilter) {
@@ -971,9 +800,6 @@ export function FeedPage() {
       await invalidateAfterVoteMutation(queryClient)
       setStatusTone('success')
       setStatusMessage(hasVoted ? 'Vote removed.' : 'Vote added.')
-      if (!hasVoted) {
-        markOnboardingDone('vote')
-      }
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to update vote.')
@@ -1016,7 +842,6 @@ export function FeedPage() {
         tone: 'success',
         text: summary.isFull ? 'Trip is full. You joined the waitlist.' : 'RSVP confirmed.',
       })
-      markOnboardingDone('rsvp_join')
     } catch (error) {
       setOptimisticRsvpByPostId((previous) => {
         const next = { ...previous }
@@ -1075,46 +900,7 @@ export function FeedPage() {
           <h1>Create a Trip Idea</h1>
           <p>{previewText}</p>
         </div>
-        {!isOnboardingVisible ? (
-          <button type="button" className="rk-chip" onClick={handleReplayOnboarding}>
-            Replay onboarding
-          </button>
-        ) : null}
       </div>
-
-      {isOnboardingVisible ? (
-        <section className="rk-onboarding">
-          <div className="rk-onboarding-top">
-            <div>
-              <strong>Start in 3 steps</strong>
-              <p>Complete one action in this session: vote, RSVP, or publish a trip idea.</p>
-              <span className="rk-onboarding-meta">User type: {getOnboardingTypeLabel(onboardingUserType)}</span>
-            </div>
-            <button type="button" className="rk-chip" onClick={() => closeOnboarding('close')}>
-              Close
-            </button>
-          </div>
-          <div className="rk-onboarding-list">
-            {ONBOARDING_STEPS.map((step) => (
-              <div key={step.id} className="rk-onboarding-item">
-                <p>{step.copy}</p>
-                <button type="button" className="rk-button rk-button-small" onClick={() => jumpToOnboardingStep(step.id)}>
-                  {step.cta}
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="rk-onboarding-actions">
-            <button
-              type="button"
-              className="rk-button rk-button-secondary rk-button-small"
-              onClick={() => closeOnboarding('skip')}
-            >
-              Skip for now
-            </button>
-          </div>
-        </section>
-      ) : null}
 
       <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
         <div className="rk-step-indicator">
@@ -1297,7 +1083,7 @@ export function FeedPage() {
         </p>
       ) : null}
 
-      <section className="rk-feed-section" ref={feedSectionRef}>
+      <section className="rk-feed-section">
         <h2>Community Board</h2>
         {user?.isAdmin ? (
           <div className="rk-role-callout">

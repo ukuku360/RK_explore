@@ -304,67 +304,6 @@
   flex-wrap: wrap;
 }
 
-.rk-onboarding {
-  margin-top: 14px;
-  border: 1px solid #eed7de;
-  border-radius: 18px;
-  background: linear-gradient(180deg, #fff9fa 0%, #fff3f5 100%);
-  padding: 14px;
-  display: grid;
-  gap: 12px;
-}
-
-.rk-onboarding-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.rk-onboarding-top strong {
-  display: block;
-  font-size: 1rem;
-}
-
-.rk-onboarding-top p {
-  margin: 4px 0 0;
-}
-
-.rk-onboarding-meta {
-  margin-top: 5px;
-  display: inline-block;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #876f79;
-}
-
-.rk-onboarding-list {
-  display: grid;
-  gap: 8px;
-}
-
-.rk-onboarding-item {
-  border: 1px solid #f1dfe4;
-  border-radius: 14px;
-  background: #ffffff;
-  padding: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.rk-onboarding-item p {
-  margin: 0;
-  flex: 1;
-  min-width: min(240px, 100%);
-}
-
-.rk-onboarding-actions {
-  display: inline-flex;
-}
-
 .rk-panel {
   margin-top: 16px;
   border: 1px solid #ead8de;
@@ -1291,10 +1230,6 @@
 
   .rk-page-top {
     align-items: stretch;
-  }
-
-  .rk-onboarding-item {
-    align-items: flex-start;
   }
 
   .rk-role-callout {
