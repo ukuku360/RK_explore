@@ -790,6 +790,20 @@
   color: #321f27;
 }
 
+.rk-post-category {
+  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  border: 1px solid #eadce1;
+  background: #fff8fa;
+  color: #6a535d;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 4px 10px;
+}
+
 .rk-post-meta {
   margin-top: 5px;
   display: flex;

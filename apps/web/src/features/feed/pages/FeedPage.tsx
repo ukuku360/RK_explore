@@ -122,6 +122,12 @@ function getSuggestedDate(daysFromNow: number): string {
   return `${year}-${month}-${day}`
 }
 
+function getLetsGoTitle(location: string): string {
+  const clean = location.trim()
+  if (!clean) return "Let's go!"
+  return `Let's go to ${clean}`
+}
+
 function getOnboardingTypeLabel(userType: OnboardingUserType): string {
   if (userType === 'new') return 'New user'
   if (userType === 'active') return 'Active user'
@@ -431,8 +437,8 @@ export function FeedPage() {
     const capacity = Number(form.capacity)
     const safeCapacity = Number.isInteger(capacity) && capacity >= 1 ? capacity : 10
 
-    if (!location) return 'Plan your next trip.'
-    return `Trip idea: ${location} (${safeCapacity} spots)`
+    if (!location) return "Where should we go next? Drop a destination and let's make a plan."
+    return `${getLetsGoTitle(location)}! ${safeCapacity} spots are open.`
   }, [form.capacity, form.location])
 
   const step1Errors = useMemo(() => validateStep1(form), [form])
@@ -1338,7 +1344,7 @@ export function FeedPage() {
           <div className="rk-discovery">
             <input
               className="rk-post-input"
-              placeholder="Search destination, author, or comment..."
+              placeholder="Where should we go next? Search destination, author, or comment..."
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
             />
@@ -1493,8 +1499,9 @@ export function FeedPage() {
                 <header className="rk-post-header">
                   <div className="rk-post-header-main">
                     <h3>
-                      <span className="rk-location">{post.location}</span>
+                      <span className="rk-location">{getLetsGoTitle(post.location)}</span>
                     </h3>
+                    <span className="rk-post-category">{getCategoryLabel(post.category)}</span>
                   </div>
                   <div className="rk-status-cluster">
                     <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
