@@ -15,6 +15,7 @@
     let currentSearch = '';
     let supportsPostStatus = true;
     let dataLoaded = false;
+    let latestFetchToken = 0;
 
     // ── DOM Refs ──
     // Auth Screen
@@ -55,19 +56,62 @@
     const filterBtns = document.querySelectorAll('.filter-btn');
     const searchInput = document.getElementById('search-input');
     const toastContainer = document.getElementById('toast-container');
+    const requiredElements = [
+        ['loginScreen', loginScreen],
+        ['emailInput', emailInput],
+        ['nicknameInput', nicknameInput],
+        ['passwordInput', passwordInput],
+        ['memberLoginBtn', memberLoginBtn],
+        ['memberSignupBtn', memberSignupBtn],
+        ['loginError', loginError],
+        ['appEl', appEl],
+        ['logoutBtn', logoutBtn],
+        ['profileToggleBtn', profileToggleBtn],
+        ['profilePanel', profilePanel],
+        ['profileName', profileName],
+        ['profileEmail', profileEmail],
+        ['profileJoined', profileJoined],
+        ['profilePostCount', profilePostCount],
+        ['profileVoteCount', profileVoteCount],
+        ['profileRsvpCount', profileRsvpCount],
+        ['connectionStatus', connectionStatus],
+        ['appContent', appContent],
+        ['loadingScreen', loadingScreen],
+        ['newSuggestionSection', newSuggestionSection],
+        ['locationInput', locationInput],
+        ['categoryInput', categoryInput],
+        ['dateInput', dateInput],
+        ['submitBtn', submitBtn],
+        ['previewText', previewText],
+        ['postFeed', postFeed],
+        ['searchInput', searchInput],
+        ['toastContainer', toastContainer]
+    ];
 
     // ── Init ──
     init();
 
     async function init() {
+        if (!hasRequiredElements()) return;
+        if (typeof supabaseClient === 'undefined') {
+            console.error('Supabase client is not configured.');
+            showLoginError('Configuration error: Supabase client is missing.');
+            return;
+        }
+
         bindEvents();
 
         // Check for existing Supabase Session (Member)
-        const { data: { session } } = await supabaseClient.auth.getSession();
-
-        if (session) {
-            setMemberState(session.user);
-            showApp();
+        try {
+            const { data: { session }, error } = await supabaseClient.auth.getSession();
+            if (error) throw error;
+            if (session) {
+                setMemberState(session.user);
+                showApp();
+            }
+        } catch (err) {
+            console.error('Session check error:', err);
+            showLoginError(getErrorMessage(err, 'Unable to restore your session.'));
         }
 
         // Initialize Data & Realtime
@@ -103,6 +147,69 @@
             btn.addEventListener('click', () => handleFeedFilter(btn.dataset.filter));
         });
         searchInput.addEventListener('input', handleSearch);
+        bindFeedEvents();
+    }
+
+    function bindFeedEvents() {
+        postFeed.addEventListener('click', async (event) => {
+            const clickTarget = event.target instanceof Element ? event.target : null;
+            const targetBtn = clickTarget ? clickTarget.closest('button') : null;
+            if (!targetBtn || !postFeed.contains(targetBtn)) return;
+
+            const postId = targetBtn.dataset.id;
+            if (!postId) return;
+
+            if (targetBtn.classList.contains('vote-btn')) {
+                await handleVote(postId);
+                return;
+            }
+
+            if (targetBtn.classList.contains('btn-rsvp')) {
+                await handleRsvp(postId);
+                return;
+            }
+
+            if (targetBtn.classList.contains('comment-toggle')) {
+                const section = postFeed.querySelector(`[data-comments="${postId}"]`);
+                if (section) section.classList.toggle('open');
+                return;
+            }
+
+            if (targetBtn.classList.contains('comment-submit')) {
+                const form = targetBtn.closest('.comment-form');
+                const input = form ? form.querySelector('.comment-input') : null;
+                if (input) await submitCommentFromInput(postId, input);
+                return;
+            }
+
+            if (targetBtn.classList.contains('delete-btn')) {
+                await handleDeletePost(postId);
+                return;
+            }
+
+            if (targetBtn.classList.contains('btn-confirm')) {
+                await handleConfirmPost(postId);
+            }
+        });
+
+        postFeed.addEventListener('keydown', async (event) => {
+            if (event.key !== 'Enter') return;
+
+            const input = event.target.closest('.comment-input');
+            if (!input || !postFeed.contains(input)) return;
+
+            const form = input.closest('.comment-form');
+            const postId = form?.dataset.id;
+            if (!postId) return;
+
+            event.preventDefault();
+            await submitCommentFromInput(postId, input);
+        });
+    }
+
+    async function submitCommentFromInput(postId, input) {
+        const posted = await handleComment(postId, input.value);
+        if (posted) input.value = '';
     }
 
     async function handleMemberLogin() {
@@ -110,15 +217,25 @@
         const password = passwordInput.value.trim();
         if (!email || !password) return showLoginError('Please enter email and password.');
 
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) {
-            showLoginError(error.message);
-        } else if (!data.user?.email_confirmed_at) {
-            showLoginError('Please verify your email before logging in.');
-            await supabaseClient.auth.signOut();
-        } else {
+        try {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+
+            if (!data.user?.email_confirmed_at) {
+                showLoginError('Please verify your email before logging in.');
+                const { error: signOutError } = await supabaseClient.auth.signOut();
+                if (signOutError) {
+                    console.error('Sign-out after unverified login failed:', signOutError);
+                }
+                return;
+            }
+
             setMemberState(data.user);
             showApp();
+            showLoginError('');
+        } catch (err) {
+            console.error('Login error:', err);
+            showLoginError(getErrorMessage(err, 'Unable to log in right now.'));
         }
     }
 
@@ -130,17 +247,20 @@
         const nickname = normalizeNickname(nicknameInput.value);
         if (nickname.length < 2) return showLoginError('Please choose a nickname (2-20 chars) for sign up.');
 
-        const { data, error } = await supabaseClient.auth.signUp({
-            email,
-            password,
-            options: {
-                data: { nickname }
-            }
-        });
-        if (error) {
-            showLoginError(error.message);
-        } else {
+        try {
+            const { error } = await supabaseClient.auth.signUp({
+                email,
+                password,
+                options: {
+                    data: { nickname }
+                }
+            });
+
+            if (error) throw error;
             showLoginError(`Check your email for the confirmation link, ${nickname}!`, true);
+        } catch (err) {
+            console.error('Signup error:', err);
+            showLoginError(getErrorMessage(err, 'Unable to sign up right now.'));
         }
     }
 
@@ -155,28 +275,43 @@
     }
 
     function updateUIForUser() {
-        if (!state.user) return;
+        if (!state.user) {
+            newSuggestionSection.style.display = 'none';
+            return;
+        }
+
         newSuggestionSection.style.display = 'block';
         updateProfilePanel();
     }
 
-    function handleLogout() {
-        supabaseClient.auth.signOut();
-        state.user = null;
+    async function handleLogout() {
+        try {
+            const { error } = await supabaseClient.auth.signOut();
+            if (error) throw error;
+        } catch (err) {
+            console.error('Logout error:', err);
+            showToast('Failed to log out. ' + getErrorMessage(err, 'Please try again.'));
+            return;
+        }
 
+        clearMemberState();
+    }
+
+    function clearMemberState() {
+        state.user = null;
         appEl.classList.remove('active');
         loginScreen.style.display = 'flex';
+        closeProfilePanel();
+        updateUIForUser();
 
-        // Reset forms
         emailInput.value = '';
         nicknameInput.value = '';
         passwordInput.value = '';
-        loginError.textContent = '';
-        closeProfilePanel();
+        showLoginError('');
     }
 
     function showLoginError(msg, isSuccess = false) {
-        loginError.textContent = msg;
+        loginError.textContent = msg || '';
         loginError.style.color = isSuccess ? 'green' : '';
     }
 
@@ -235,6 +370,8 @@
 
     // ── Supabase Data ──
     async function fetchAllPosts() {
+        const fetchToken = ++latestFetchToken;
+
         try {
             const { data: posts, error: postsErr } = await supabaseClient
                 .from('posts')
@@ -242,6 +379,7 @@
                 .order('created_at', { ascending: false });
 
             if (postsErr) throw postsErr;
+            if (fetchToken !== latestFetchToken) return;
 
             if (!posts || posts.length === 0) {
                 state.posts = [];
@@ -258,6 +396,11 @@
                 supabaseClient.from('rsvps').select('*').in('post_id', postIds),
                 supabaseClient.from('comments').select('*').in('post_id', postIds).order('created_at', { ascending: true })
             ]);
+
+            if (votesRes.error) throw votesRes.error;
+            if (rsvpsRes.error) throw rsvpsRes.error;
+            if (commentsRes.error) throw commentsRes.error;
+            if (fetchToken !== latestFetchToken) return;
 
             const votes = votesRes.data || [];
             const rsvps = rsvpsRes.data || [];
@@ -290,9 +433,10 @@
             updateProfilePanel();
             render();
         } catch (err) {
+            if (fetchToken !== latestFetchToken) return;
             console.error('Fetch error:', err);
             finishLoading();
-            postFeed.innerHTML = `<div class="empty-state">⚠️ Connect Error: ${err.message}</div>`;
+            postFeed.innerHTML = `<div class="empty-state">⚠️ Connect Error: ${escapeHtml(getErrorMessage(err, 'Unable to load posts.'))}</div>`;
         }
     }
 
@@ -308,10 +452,12 @@
             .subscribe(status => {
                 const dot = connectionStatus.querySelector('.status-dot');
                 const txt = connectionStatus.querySelector('.status-text');
+                if (!dot || !txt) return;
+
                 if (status === 'SUBSCRIBED') {
                     dot.className = 'status-dot online';
                     txt.textContent = 'Live';
-                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+                } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
                     dot.className = 'status-dot offline';
                     txt.textContent = 'Offline';
                 }
@@ -323,41 +469,42 @@
         if (!state.user) return showToast('Please log in first.');
 
         const location = locationInput.value.trim();
-        if (!location) return;
+        if (!location) return showToast('Please enter a destination.');
 
         const postPayload = {
             location: location,
             author: state.user.label, // Use email user-part
             user_id: state.user.id,   // Save owner ID
             proposed_date: dateInput.value || null,
-            category: normalizeCategory(categoryInput.value),
-            status: 'proposed'
+            category: normalizeCategory(categoryInput.value)
         };
 
         if (supportsPostStatus) {
             postPayload.status = 'proposed';
         }
 
-        let { error } = await supabaseClient.from('posts').insert(postPayload);
+        try {
+            let { error } = await supabaseClient.from('posts').insert(postPayload);
 
-        if (error && isMissingStatusColumnError(error) && supportsPostStatus) {
-            supportsPostStatus = false;
-            delete postPayload.status;
-            ({ error } = await supabaseClient.from('posts').insert(postPayload));
-            if (!error) {
-                showToast('Post added! (status feature disabled until DB migration)');
+            if (error && isMissingStatusColumnError(error) && supportsPostStatus) {
+                supportsPostStatus = false;
+                delete postPayload.status;
+                ({ error } = await supabaseClient.from('posts').insert(postPayload));
+                if (!error) {
+                    showToast('Post added! (status feature disabled until DB migration)');
+                }
             }
-        }
 
-        if (error) {
-            console.error('Post error:', error);
-            showToast('Failed to post. ' + error.message);
-        } else {
+            if (error) throw error;
+
             locationInput.value = '';
             dateInput.value = '';
             categoryInput.value = 'Travel';
             updatePreview();
             showToast('Post added!');
+        } catch (err) {
+            console.error('Post error:', err);
+            showToast('Failed to post. ' + getErrorMessage(err, 'Please try again.'));
         }
     }
 
@@ -365,87 +512,94 @@
         if (!state.user) return showToast('Please log in first.');
         const userId = state.user.id;
 
-        // Optimistic UI could go here, but let's rely on realtime for simplicity first
-        const hasVoted = state.posts.find(p => p.id === postId)?.votes.includes(userId);
+        const post = getPostById(postId);
+        if (!post) return showToast('Post not found.');
 
-        if (hasVoted) {
-            // Find vote ID to delete. 
-            // In a real app we'd track the ID, but here we can DELETE by match
-            await supabaseClient.from('votes').delete().match({ post_id: postId, user_id: userId });
-        } else {
-            await supabaseClient.from('votes').insert({ post_id: postId, user_id: userId });
+        const hasVoted = post.votes.includes(userId);
+
+        try {
+            if (hasVoted) {
+                const { error } = await supabaseClient.from('votes').delete().match({ post_id: postId, user_id: userId });
+                if (error) throw error;
+            } else {
+                const { error } = await supabaseClient.from('votes').insert({ post_id: postId, user_id: userId });
+                if (error) throw error;
+            }
+        } catch (err) {
+            console.error('Vote error:', err);
+            showToast('Failed to update vote. ' + getErrorMessage(err, 'Please try again.'));
         }
     }
 
     async function handleRsvp(postId) {
         if (!state.user) return showToast('Please log in first.');
         const userId = state.user.id;
-        const hasRsvpd = state.posts.find(p => p.id === postId)?.rsvps.includes(userId);
+        const post = getPostById(postId);
+        if (!post) return showToast('Post not found.');
 
-        if (hasRsvpd) {
-            await supabaseClient.from('rsvps').delete().match({ post_id: postId, user_id: userId });
-        } else {
-            await supabaseClient.from('rsvps').insert({ post_id: postId, user_id: userId });
+        const hasRsvpd = post.rsvps.includes(userId);
+
+        try {
+            if (hasRsvpd) {
+                const { error } = await supabaseClient.from('rsvps').delete().match({ post_id: postId, user_id: userId });
+                if (error) throw error;
+            } else {
+                const { error } = await supabaseClient.from('rsvps').insert({ post_id: postId, user_id: userId });
+                if (error) throw error;
+            }
+        } catch (err) {
+            console.error('RSVP error:', err);
+            showToast('Failed to update RSVP. ' + getErrorMessage(err, 'Please try again.'));
         }
     }
 
     async function handleComment(postId, text) {
         if (!state.user) return showToast('Please log in first.');
-        if (!text.trim()) return;
+        if (!text.trim()) return false;
 
-        await supabaseClient.from('comments').insert({
-            post_id: postId,
-            user_id: state.user.id,
-            author: state.user.label,
-            text: text.trim()
-        });
+        try {
+            const { error } = await supabaseClient.from('comments').insert({
+                post_id: postId,
+                user_id: state.user.id,
+                author: state.user.label,
+                text: text.trim()
+            });
+
+            if (error) throw error;
+            return true;
+        } catch (err) {
+            console.error('Comment error:', err);
+            showToast('Failed to add comment. ' + getErrorMessage(err, 'Please try again.'));
+            return false;
+        }
     }
 
     function handleSort(type) {
+        if (!type) return;
         currentSort = type;
-
-        // Update UI
-        sortBtns.forEach(btn => {
-            if (btn.dataset.sort === type) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
+        setActiveByDataset(sortBtns, 'sort', type);
 
         render();
     }
 
 
     function handleCategoryFilter(category) {
+        if (!category) return;
         currentCategory = category;
-
-        categoryBtns.forEach(btn => {
-            if (btn.dataset.category === category) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
+        setActiveByDataset(categoryBtns, 'category', category);
 
         render();
     }
 
     function handleFeedFilter(type) {
+        if (!type) return;
         if (type === 'confirmed' && !supportsPostStatus) {
             showToast('Confirmed filter is unavailable until DB migration is applied.');
             return;
         }
 
         currentFeedFilter = type;
-
-        filterBtns.forEach(btn => {
-            if (btn.dataset.filter === type) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
-            }
-        });
+        setActiveByDataset(filterBtns, 'filter', type);
 
         render();
     }
@@ -498,34 +652,6 @@
                 </div>`;
         } else {
             postFeed.innerHTML = sorted.map(renderPost).join('');
-
-            // Re-bind listeners
-            postFeed.querySelectorAll('.vote-btn').forEach(btn =>
-                btn.addEventListener('click', () => handleVote(btn.dataset.id)));
-
-            postFeed.querySelectorAll('.btn-rsvp').forEach(btn =>
-                btn.addEventListener('click', () => handleRsvp(btn.dataset.id)));
-
-            postFeed.querySelectorAll('.comment-toggle').forEach(btn =>
-                btn.addEventListener('click', () => {
-                    const sec = document.querySelector(`[data-comments="${btn.dataset.id}"]`);
-                    sec.classList.toggle('open');
-                }));
-
-            postFeed.querySelectorAll('.comment-form button').forEach(btn => {
-                const id = btn.dataset.id;
-                const input = document.querySelector(`.comment-input-${id}`);
-                btn.addEventListener('click', () => {
-                    handleComment(id, input.value);
-                    input.value = '';
-                });
-            });
-
-            postFeed.querySelectorAll('.delete-btn').forEach(btn =>
-                btn.addEventListener('click', () => handleDeletePost(btn.dataset.id)));
-
-            postFeed.querySelectorAll('.btn-confirm').forEach(btn =>
-                btn.addEventListener('click', () => handleConfirmPost(btn.dataset.id)));
         }
     }
 
@@ -597,8 +723,8 @@
                 <div class="comments-section" data-comments="${post.id}">
                     <div class="comment-list">${commentsHtml}</div>
                     <div class="comment-form" data-id="${post.id}">
-                        <input type="text" class="comment-input-${post.id}" placeholder="Write a comment..." />
-                        <button data-id="${post.id}">Post</button>
+                        <input type="text" class="comment-input" placeholder="Write a comment..." />
+                        <button type="button" class="comment-submit" data-id="${post.id}">Post</button>
                     </div>
                 </div>
             </div>
@@ -608,12 +734,13 @@
     async function handleDeletePost(postId) {
         if (!confirm('Are you sure you want to delete this trip?')) return;
 
-        const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
-        if (error) {
-            console.error('Delete error:', error);
-            showToast('Failed to delete. ' + error.message);
-        } else {
+        try {
+            const { error } = await supabaseClient.from('posts').delete().eq('id', postId);
+            if (error) throw error;
             showToast('Post deleted.');
+        } catch (err) {
+            console.error('Delete error:', err);
+            showToast('Failed to delete. ' + getErrorMessage(err, 'Please try again.'));
         }
     }
 
@@ -621,22 +748,23 @@
         if (!state.user) return showToast('Please log in first.');
         if (!supportsPostStatus) return showToast('Trip status is unavailable until DB migration is applied.');
 
-        const post = state.posts.find(item => item.id === postId);
+        const post = getPostById(postId);
         if (!post || post.user_id !== state.user.id) return showToast('Only the post owner can confirm this plan.');
 
-        let { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
+        try {
+            let { error } = await supabaseClient.from('posts').update({ status: 'confirmed' }).eq('id', postId);
 
-        if (error && isMissingStatusColumnError(error)) {
-            supportsPostStatus = false;
-            showToast('Trip status is unavailable until DB migration is applied.');
-            return;
-        }
+            if (error && isMissingStatusColumnError(error)) {
+                supportsPostStatus = false;
+                showToast('Trip status is unavailable until DB migration is applied.');
+                return;
+            }
 
-        if (error) {
-            console.error('Confirm error:', error);
-            showToast('Failed to confirm. ' + error.message);
-        } else {
+            if (error) throw error;
             showToast('Trip confirmed!');
+        } catch (err) {
+            console.error('Confirm error:', err);
+            showToast('Failed to confirm. ' + getErrorMessage(err, 'Please try again.'));
         }
     }
 
@@ -667,6 +795,35 @@
             (acc[item[key]] = acc[item[key]] || []).push(item);
             return acc;
         }, {});
+    }
+
+    function getPostById(postId) {
+        return state.posts.find(post => post.id === postId);
+    }
+
+    function setActiveByDataset(buttons, key, activeValue) {
+        buttons.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset[key] === activeValue);
+        });
+    }
+
+    function getErrorMessage(error, fallback = 'Unexpected error.') {
+        if (error && typeof error.message === 'string' && error.message.trim()) {
+            return error.message.trim();
+        }
+
+        return fallback;
+    }
+
+    function hasRequiredElements() {
+        const missing = requiredElements
+            .filter(([, element]) => !element)
+            .map(([name]) => name);
+
+        if (missing.length === 0) return true;
+
+        console.error('Missing required DOM element(s):', missing.join(', '));
+        return false;
     }
 
     function formatTimeAgo(iso) {
