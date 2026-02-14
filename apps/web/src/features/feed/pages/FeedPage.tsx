@@ -788,7 +788,11 @@ export function FeedPage() {
       if (action === 'leave') {
         await removeRsvp(post.id, user.id)
         await invalidateAfterRsvpMutation(queryClient)
-        setInlineRsvpMessage(post.id, { tone: 'success', text: 'Participation canceled.' })
+        setInlineRsvpMessageByPostId((previous) => {
+          const next = { ...previous }
+          delete next[post.id]
+          return next
+        })
         return
       }
 
