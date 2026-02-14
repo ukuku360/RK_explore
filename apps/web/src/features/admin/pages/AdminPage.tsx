@@ -16,7 +16,7 @@ function getActionLabel(action: string): string {
   if (action === 'unhide') return 'Post Unhidden'
   if (action === 'delete') return 'Post Deleted'
   if (action === 'dismiss_report') return 'Report Dismissed'
-  return 'Admin Action'
+  return 'Moderation Action'
 }
 
 export default function AdminPage() {
@@ -198,7 +198,7 @@ export default function AdminPage() {
   return (
     <section className="rk-page rk-admin-page">
       <h1>Admin Workspace</h1>
-      <p>Review reports, hide posts, and keep a reasoned moderation trail.</p>
+      <p>Review reports, moderate posts, and keep a clear decision trail.</p>
       {statusMessage ? (
         <p className={statusTone === 'error' ? 'rk-auth-message rk-auth-error' : 'rk-auth-message rk-auth-success'}>
           {statusMessage}
@@ -238,7 +238,7 @@ export default function AdminPage() {
                 const hasLinkedPost = Boolean(postTitleById[report.post_id])
                 return (
                   <article key={report.id} className="rk-admin-item">
-                    <strong>🚩 {postTitleById[report.post_id] ?? 'Deleted post'}</strong>
+                    <strong>Report: {postTitleById[report.post_id] ?? 'Deleted post'}</strong>
                     <span>
                       {report.reporter_email} • {formatDateTime(report.created_at)}
                     </span>

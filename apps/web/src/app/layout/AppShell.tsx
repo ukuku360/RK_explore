@@ -22,9 +22,9 @@ function formatJoinedDate(value: string): string {
 }
 
 function formatStatusLabel(status: 'connecting' | 'live' | 'offline') {
-  if (status === 'live') return 'Live'
+  if (status === 'live') return 'Live Sync'
   if (status === 'offline') return 'Offline'
-  return 'Connecting...'
+  return 'Syncing'
 }
 
 export function AppShell() {
@@ -76,18 +76,18 @@ export function AppShell() {
               <span className={`rk-connection-dot rk-connection-${realtimeStatus}`} />
               <span>{formatStatusLabel(realtimeStatus)}</span>
             </div>
-            <div className="rk-session">{isLoading ? 'Session: checking' : `Session: ${sessionEmail ?? 'guest'}`}</div>
+            <div className="rk-session">{isLoading ? 'Account: checking' : `Account: ${sessionEmail ?? 'guest'}`}</div>
             {user ? (
               <button
                 type="button"
                 className="rk-button rk-button-secondary rk-button-small"
                 onClick={() => setIsProfileOpen((previous) => !previous)}
               >
-                {isProfileOpen ? 'Hide Profile' : 'Profile'}
+                {isProfileOpen ? 'Close Profile' : 'My Profile'}
               </button>
             ) : (
               <NavLink to="/auth" className={navClassName}>
-                Auth
+                Sign in
               </NavLink>
             )}
             {user ? (
@@ -99,8 +99,8 @@ export function AppShell() {
         </div>
         {user && isProfileOpen ? (
           <div className="rk-profile-panel">
-            <h3>Your Profile</h3>
-            <p className="rk-profile-subtext">Check your account details and activity.</p>
+            <h3>My Profile</h3>
+            <p className="rk-profile-subtext">Account details and activity snapshot.</p>
             <div className="rk-profile-grid">
               <div className="rk-profile-item">
                 <span className="rk-profile-label">Nickname</span>

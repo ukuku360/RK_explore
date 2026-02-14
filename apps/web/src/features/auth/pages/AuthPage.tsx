@@ -54,7 +54,7 @@ export function AuthPage() {
   return (
     <section className="rk-page rk-auth-page">
       <h1>RoomingKos Explores</h1>
-      <p>Log in or sign up with email. Verified members can post, vote, RSVP, and comment.</p>
+      <p>Sign in with your email to post, vote, RSVP, and join conversations.</p>
 
       <div className="rk-auth-fields">
         <label className="rk-auth-label">
@@ -70,7 +70,7 @@ export function AuthPage() {
         </label>
 
         <label className="rk-auth-label">
-          Nickname (for sign up)
+          Nickname (sign up only)
           <input
             className="rk-auth-input"
             type="text"

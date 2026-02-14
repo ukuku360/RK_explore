@@ -1,15 +1,35 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
 * {
   box-sizing: border-box;
 }
 
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  font-family: 'Manrope', 'Segoe UI', sans-serif;
-  background: #f3f5f8;
-  color: #17223b;
+}
+
+body {
+  font-family: 'Pretendard', 'SUIT', 'Noto Sans KR', sans-serif;
+  background: #f2f4f6;
+  color: #191f28;
+  line-height: 1.45;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
 #root {
@@ -17,5 +37,5 @@ body {
 }
 
 a {
-  color: #0f7c90;
+  color: #1b64da;
 }

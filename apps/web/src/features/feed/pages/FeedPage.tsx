@@ -84,7 +84,7 @@ function parseRsvpDeadlineIso(rawValue: string): string | null {
 }
 
 function getStatusLabel(status: 'proposed' | 'confirmed'): string {
-  return status === 'confirmed' ? '✅ Confirmed' : '🕓 Proposed'
+  return status === 'confirmed' ? 'Confirmed' : 'Proposed'
 }
 
 export function FeedPage() {
@@ -178,8 +178,8 @@ export function FeedPage() {
     const safeCapacity =
       Number.isFinite(capacity) && capacity >= 1 && capacity <= MAX_CAPACITY ? capacity : DEFAULT_CAPACITY
 
-    if (!location) return "Let's go to _______! 🚀"
-    return `Let's go to ${location}! 🚀 (${safeCapacity} spots)`
+    if (!location) return 'Plan your next trip.'
+    return `Trip idea: ${location} (${safeCapacity} spots)`
   }, [form.capacity, form.location])
 
   function updateField<Key extends keyof PostFormState>(key: Key, value: PostFormState[Key]) {
@@ -363,7 +363,7 @@ export function FeedPage() {
 
   return (
     <section className="rk-page">
-      <h1>Suggest a Trip</h1>
+      <h1>Create a Trip Idea</h1>
       <p>{previewText}</p>
 
       <form className="rk-post-form" onSubmit={handleSubmit}>
@@ -376,7 +376,7 @@ export function FeedPage() {
             disabled={isSubmitting}
           />
           <button className="rk-button" type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Posting...' : 'Post'}
+            {isSubmitting ? 'Creating...' : 'Create'}
           </button>
         </div>
 
@@ -488,7 +488,7 @@ export function FeedPage() {
       ) : null}
 
       <section className="rk-feed-section">
-        <h2>Community Feed</h2>
+        <h2>Community Board</h2>
 
         <div className="rk-discovery">
           <input
@@ -604,12 +604,10 @@ export function FeedPage() {
 
               <header className="rk-post-header">
                 <div>
-                  <h3>
-                    Let&apos;s go to <span className="rk-location">{post.location}</span>!
-                  </h3>
+                  <h3><span className="rk-location">{post.location}</span></h3>
                   <div className="rk-post-meta">
-                    <span>👤 {post.author}</span>
-                    <span>🕐 {formatTimeAgo(post.created_at)}</span>
+                    <span>Author {post.author}</span>
+                    <span>Posted {formatTimeAgo(post.created_at)}</span>
                   </div>
                 </div>
                 <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
@@ -617,21 +615,19 @@ export function FeedPage() {
 
               <div className="rk-badges">
                 <span className="rk-badge">{post.category}</span>
-                {post.proposed_date ? <span className="rk-badge">📅 {formatDate(post.proposed_date)}</span> : null}
+                {post.proposed_date ? <span className="rk-badge">{formatDate(post.proposed_date)}</span> : null}
               </div>
 
               <div className="rk-post-details">
-                <span>▲ {post.votes.length} votes</span>
-                <span>💬 {post.comments.length} comments</span>
-                <span>
-                  👥 {rsvpSummary.goingCount}/{rsvpSummary.capacity} going
-                </span>
-                {rsvpSummary.waitlistCount > 0 ? <span>⏳ {rsvpSummary.waitlistCount} waitlist</span> : null}
-                {post.meetup_place ? <span>Meet-up: {post.meetup_place}</span> : null}
-                {post.meeting_time ? <span>Time: {formatMeetingTime(post.meeting_time)}</span> : null}
-                {post.estimated_cost !== null ? <span>Cost: {formatCurrency(post.estimated_cost)}</span> : null}
-                {post.rsvp_deadline ? <span>Deadline: {formatDateTime(post.rsvp_deadline)}</span> : null}
-                {post.prep_notes ? <span>Prep: {post.prep_notes}</span> : null}
+                <span>Votes {post.votes.length}</span>
+                <span>Comments {post.comments.length}</span>
+                <span>Going {rsvpSummary.goingCount}/{rsvpSummary.capacity}</span>
+                {rsvpSummary.waitlistCount > 0 ? <span>Waitlist {rsvpSummary.waitlistCount}</span> : null}
+                {post.meetup_place ? <span>Meet-up {post.meetup_place}</span> : null}
+                {post.meeting_time ? <span>Time {formatMeetingTime(post.meeting_time)}</span> : null}
+                {post.estimated_cost !== null ? <span>Cost {formatCurrency(post.estimated_cost)}</span> : null}
+                {post.rsvp_deadline ? <span>Deadline {formatDateTime(post.rsvp_deadline)}</span> : null}
+                {post.prep_notes ? <span>Prep {post.prep_notes}</span> : null}
               </div>
 
               <div className="rk-post-actions">
@@ -649,14 +645,14 @@ export function FeedPage() {
                   onClick={() => void handleVote(post.id, hasVoted)}
                   disabled={isVotePendingByPostId[post.id]}
                 >
-                  ▲ {post.votes.length}
+                  Vote {post.votes.length}
                 </button>
                 <button
                   type="button"
                   className="rk-action-button"
                   onClick={() => toggleComments(post.id)}
                 >
-                  💬 {post.comments.length}
+                  Comments {post.comments.length}
                 </button>
               </div>
 
