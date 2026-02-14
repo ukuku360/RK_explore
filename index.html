@@ -46,6 +46,7 @@
                 <div class="app-logo">RoomingKos <span>Explores</span></div>
                 <div class="app-header-right">
                     <button id="profile-toggle-btn" class="btn-profile-toggle" aria-expanded="false" aria-controls="profile-panel">👤 Profile</button>
+                    <button id="admin-toggle-btn" class="btn-admin-toggle" aria-expanded="false" aria-controls="admin-panel" hidden>🛡️ Admin</button>
                     <div id="connection-status" class="connection-status">
                         <span class="status-dot"></span>
                         <span class="status-text">Connecting...</span>
@@ -79,6 +80,36 @@
                 <div class="profile-item">
                     <span class="profile-label">RSVPs joined</span>
                     <span id="profile-rsvp-count" class="profile-value">0</span>
+                </div>
+            </div>
+            <div id="admin-panel" class="admin-panel" hidden>
+                <div class="admin-panel-top">
+                    <div>
+                        <h3>Admin Mode</h3>
+                        <p class="admin-subtext">Review reports, hide posts, and keep a reasoned moderation trail.</p>
+                    </div>
+                    <div class="admin-panel-actions">
+                        <button id="admin-refresh-btn" class="btn-admin-filter">Refresh</button>
+                        <button id="admin-toggle-hidden-btn" class="btn-admin-filter" data-show-hidden="false">Show Hidden Posts</button>
+                    </div>
+                </div>
+                <div class="admin-stats">
+                    <div class="admin-stat">
+                        <span class="admin-stat-label">Open reports</span>
+                        <strong id="admin-open-reports">0</strong>
+                    </div>
+                    <div class="admin-stat">
+                        <span class="admin-stat-label">Hidden posts</span>
+                        <strong id="admin-hidden-posts">0</strong>
+                    </div>
+                </div>
+                <div class="admin-section">
+                    <h4>Report Queue</h4>
+                    <div id="admin-report-queue" class="admin-list"></div>
+                </div>
+                <div class="admin-section">
+                    <h4>Action Log</h4>
+                    <div id="admin-log-list" class="admin-list"></div>
                 </div>
             </div>
         </header>
@@ -119,6 +150,31 @@
                             📅 Proposed date
                             <input type="date" id="date-input" />
                         </label>
+                        <label class="date-label">
+                            👥 Capacity
+                            <input type="number" id="capacity-input" min="1" max="200" step="1" value="10" />
+                        </label>
+                    </div>
+                    <div class="suggestion-row details-row">
+                        <input type="text" id="meetup-place-input" placeholder="Meet-up place (e.g. Lobby, Central Station)" />
+                        <label class="date-label">
+                            🕒 Meet-up time
+                            <input type="time" id="meetup-time-input" />
+                        </label>
+                    </div>
+                    <div class="suggestion-row details-row">
+                        <label class="date-label">
+                            💰 Estimated cost
+                            <input type="number" id="cost-input" min="0" step="1" placeholder="0" />
+                        </label>
+                        <label class="date-label">
+                            ⏰ RSVP deadline
+                            <input type="datetime-local" id="deadline-input" />
+                        </label>
+                    </div>
+                    <div class="suggestion-row">
+                        <textarea id="prep-input" rows="2"
+                            placeholder="Preparation notes (what to bring, dress code, booking link, etc.)"></textarea>
                     </div>
                 </div>
             </div>
