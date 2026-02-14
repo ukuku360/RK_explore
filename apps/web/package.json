@@ -11,6 +11,7 @@
     "test": "vitest",
     "test:run": "vitest run",
     "perf:check": "node tools/qa/perf-check.mjs",
+    "allowlist:build": "node tools/allowlist/build-signup-allowlist.mjs",
     "format": "prettier . --write",
     "format:check": "prettier . --check",
     "check": "npm run lint && npm run typecheck && npm run build",

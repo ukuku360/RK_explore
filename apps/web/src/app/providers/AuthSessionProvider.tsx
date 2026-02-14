@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { isAdminEmail } from '../../lib/guards'
+import { ensureSignupEmailAllowed, warmSignupAllowlist } from '../../lib/signupAllowlist'
 import { supabaseClient } from '../../services/supabase/client'
 import {
   AuthSessionContext,
@@ -20,6 +21,8 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    warmSignupAllowlist()
+
     let isMounted = true
 
     function mapAuthUser(rawUser: {
@@ -106,6 +109,11 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
     if (nickname.length < 2) {
       return { ok: false, message: 'Please choose a nickname (2-20 chars).' }
+    }
+
+    const allowlistCheck = await ensureSignupEmailAllowed(email)
+    if (!allowlistCheck.ok) {
+      return { ok: false, message: allowlistCheck.message }
     }
 
     const { error } = await supabaseClient.auth.signUp({

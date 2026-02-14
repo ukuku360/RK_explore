@@ -1,0 +1,9 @@
+# RoomingKos signup allowlist
+# One value per line.
+#
+# Allowed formats:
+# - Plain email: resident@example.com
+# - SHA-256 hash: sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+#
+# For safer deployment, generate hashed entries:
+# npm run allowlist:build
