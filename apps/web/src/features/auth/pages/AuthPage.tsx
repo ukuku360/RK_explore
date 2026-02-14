@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 
+type AuthMode = 'login' | 'signup'
+
 export function AuthPage() {
   const navigate = useNavigate()
   const { login, signup } = useAuthSession()
 
+  const [mode, setMode] = useState<AuthMode>('login')
   const [email, setEmail] = useState('')
   const [nickname, setNickname] = useState('')
   const [password, setPassword] = useState('')
@@ -48,13 +51,48 @@ export function AuthPage() {
   function handlePasswordKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key !== 'Enter') return
     event.preventDefault()
+
+    if (mode === 'signup') {
+      void handleSignup()
+      return
+    }
+
     void handleLogin()
+  }
+
+  function switchMode(nextMode: AuthMode) {
+    setMode(nextMode)
+    setStatusType('idle')
+    setStatusMessage('')
   }
 
   return (
     <section className="rk-page rk-auth-page">
       <h1>RoomingKos Explores</h1>
-      <p>Sign in with your email to post, vote, RSVP, and join conversations.</p>
+      <p>
+        {mode === 'login'
+          ? 'Sign in with your email to post, vote, RSVP, and join conversations.'
+          : 'Create your account to start sharing and joining trip ideas.'}
+      </p>
+
+      <div className="rk-auth-actions">
+        <button
+          type="button"
+          className={`rk-chip ${mode === 'login' ? 'rk-chip-active' : ''}`}
+          onClick={() => switchMode('login')}
+          disabled={isSubmitting}
+        >
+          Log in
+        </button>
+        <button
+          type="button"
+          className={`rk-chip ${mode === 'signup' ? 'rk-chip-active' : ''}`}
+          onClick={() => switchMode('signup')}
+          disabled={isSubmitting}
+        >
+          Sign up
+        </button>
+      </div>
 
       <div className="rk-auth-fields">
         <label className="rk-auth-label">
@@ -69,24 +107,26 @@ export function AuthPage() {
           />
         </label>
 
-        <label className="rk-auth-label">
-          Nickname (sign up only)
-          <input
-            className="rk-auth-input"
-            type="text"
-            autoComplete="nickname"
-            value={nickname}
-            onChange={(event) => setNickname(event.target.value)}
-            disabled={isSubmitting}
-          />
-        </label>
+        {mode === 'signup' ? (
+          <label className="rk-auth-label">
+            Nickname
+            <input
+              className="rk-auth-input"
+              type="text"
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(event) => setNickname(event.target.value)}
+              disabled={isSubmitting}
+            />
+          </label>
+        ) : null}
 
         <label className="rk-auth-label">
           Password
           <input
             className="rk-auth-input"
             type="password"
-            autoComplete="current-password"
+            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             onKeyDown={handlePasswordKeyDown}
@@ -96,16 +136,21 @@ export function AuthPage() {
       </div>
 
       <div className="rk-auth-actions">
-        <button type="button" className="rk-button" onClick={() => void handleLogin()} disabled={isSubmitting}>
-          Log In
+        <button
+          type="button"
+          className="rk-button"
+          onClick={() => void (mode === 'signup' ? handleSignup() : handleLogin())}
+          disabled={isSubmitting}
+        >
+          {mode === 'signup' ? 'Create account' : 'Log in'}
         </button>
         <button
           type="button"
           className="rk-button rk-button-secondary"
-          onClick={() => void handleSignup()}
+          onClick={() => switchMode(mode === 'signup' ? 'login' : 'signup')}
           disabled={isSubmitting}
         >
-          Sign Up
+          {mode === 'signup' ? 'Use login instead' : 'Need an account?'}
         </button>
       </div>
 

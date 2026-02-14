@@ -28,7 +28,7 @@ function formatStatusLabel(status: 'connecting' | 'live' | 'offline') {
 }
 
 export function AppShell() {
-  const { isAdmin, isLoading, sessionEmail, user, logout } = useAuthSession()
+  const { isAdmin, isLoading, user, logout } = useAuthSession()
   const realtimeStatus = useRealtimeSyncStatus()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
 
@@ -77,7 +77,7 @@ export function AppShell() {
               <span className={`rk-connection-dot rk-connection-${realtimeStatus}`} />
               <span>{formatStatusLabel(realtimeStatus)}</span>
             </div>
-            <div className="rk-session">{isLoading ? 'Account: checking' : `Account: ${sessionEmail ?? 'guest'}`}</div>
+            <div className="rk-session">{isLoading ? 'Account: checking' : 'Account: signed in'}</div>
             {user ? (
               <button
                 type="button"
