@@ -53,6 +53,16 @@ export function AppShell() {
     await logout()
   }
 
+  if (!user) {
+    return (
+      <div className="rk-shell">
+        <main className="rk-main">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="rk-shell">
       <header className="rk-header">
@@ -77,27 +87,19 @@ export function AppShell() {
               <span className={`rk-connection-dot rk-connection-${realtimeStatus}`} />
               <span>{formatStatusLabel(realtimeStatus)}</span>
             </div>
-            {user ? (
-              <button
-                type="button"
-                className="rk-button rk-button-secondary rk-button-small"
-                onClick={() => setIsProfileOpen((previous) => !previous)}
-              >
-                {isProfileOpen ? 'Close Profile' : 'My Profile'}
-              </button>
-            ) : (
-              <NavLink to="/auth" className={navClassName}>
-                Sign in
-              </NavLink>
-            )}
-            {user ? (
-              <button type="button" className="rk-button rk-button-small" onClick={() => void handleLogout()}>
-                Log out
-              </button>
-            ) : null}
+            <button
+              type="button"
+              className="rk-button rk-button-secondary rk-button-small"
+              onClick={() => setIsProfileOpen((previous) => !previous)}
+            >
+              {isProfileOpen ? 'Close Profile' : 'My Profile'}
+            </button>
+            <button type="button" className="rk-button rk-button-small" onClick={() => void handleLogout()}>
+              Log out
+            </button>
           </div>
         </div>
-        {user && isProfileOpen ? (
+        {isProfileOpen ? (
           <div className="rk-profile-panel">
             <h3>My Profile</h3>
             <p className="rk-profile-subtext">Account details and activity snapshot.</p>

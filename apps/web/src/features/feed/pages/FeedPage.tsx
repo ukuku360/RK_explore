@@ -1184,10 +1184,8 @@ export function FeedPage() {
             const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
             const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
             const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
+            const postedAgoLabel = formatTimeAgo(post.created_at)
             const detailItems = [
-              { label: 'Category', value: getCategoryLabel(post.category) },
-              { label: 'Author', value: post.author },
-              { label: 'Posted', value: formatTimeAgo(post.created_at) },
               recommendationReason ? { label: 'Recommended', value: recommendationReason } : null,
               post.meetup_place ? { label: 'Meet-up', value: post.meetup_place } : null,
               post.meeting_time ? { label: 'Time', value: formatMeetingTime(post.meeting_time) } : null,
@@ -1208,6 +1206,11 @@ export function FeedPage() {
                       <span className="rk-location">{getLetsGoTitle(post.location)}</span>
                     </h3>
                     <span className="rk-post-category">{getCategoryLabel(post.category)}</span>
+                    <div className="rk-post-meta">
+                      <span>{post.author}</span>
+                      <span>{postedAgoLabel}</span>
+                      {post.proposed_date ? <span className="rk-post-date-pill">{formatDate(post.proposed_date)}</span> : null}
+                    </div>
                   </div>
                   <div className="rk-status-cluster">
                     <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
