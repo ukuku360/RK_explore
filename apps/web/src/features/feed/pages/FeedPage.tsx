@@ -901,14 +901,11 @@ export function FeedPage() {
 
   return (
     <section className="rk-page">
-      <div className="rk-page-top">
-        <div>
-          <h1>Create a Trip Idea</h1>
-          <p>{previewText}</p>
-        </div>
-      </div>
+      <div className="rk-creation-card">
+        <h1>Create a Trip Idea</h1>
+        <p>{previewText}</p>
 
-      <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
+        <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
         <div className="rk-post-grid rk-post-grid-3">
           <label className="rk-auth-label">
             Destination
@@ -1046,6 +1043,7 @@ export function FeedPage() {
           </button>
         </div>
       </form>
+      </div>
 
       {statusMessage ? (
         <p className={statusTone === 'error' ? 'rk-auth-message rk-auth-error' : 'rk-auth-message rk-auth-success'}>

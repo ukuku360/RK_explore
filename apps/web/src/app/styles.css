@@ -483,10 +483,102 @@
   border-radius: var(--rk-radius-sm);
 }
 
-.rk-post-form {
-  margin-top: 16px;
+/* --- New Catchy & Cute Creation Card --- */
+.rk-creation-card {
+  background: #ffffff;
+  border-radius: 32px;
+  padding: 40px;
+  box-shadow: 
+    0 20px 40px -10px rgba(218, 31, 67, 0.15),
+    0 0 0 1px rgba(218, 31, 67, 0.05);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 40px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.rk-creation-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 25px 50px -12px rgba(218, 31, 67, 0.2),
+    0 0 0 1px rgba(218, 31, 67, 0.1);
+}
+
+.rk-creation-card::before {
+  content: '';
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 150px;
+  height: 150px;
+  background: radial-gradient(circle, rgba(218,31,67,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.rk-creation-card h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--rk-brand) 0%, var(--rk-brand-strong) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+/* Updated Input Styles for "Cuter" Look */
+.rk-auth-input,
+.rk-post-input {
+  width: 100%;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--rk-text);
+  background: #fdf2f4; /* Very subtle pink tint */
+  transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.rk-auth-input::placeholder,
+.rk-post-input::placeholder {
+  color: #948c90;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+.rk-auth-input:hover,
+.rk-post-input:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.rk-auth-input:focus-visible,
+.rk-post-input:focus-visible {
+  outline: none;
+  background: #fff;
+  border-color: rgba(218, 31, 67, 0.3);
+  box-shadow: 0 0 0 4px rgba(218, 31, 67, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Cuter Labels */
+.rk-auth-label {
   display: grid;
-  gap: 11px;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--rk-brand-strong);
+}
+
+/* Post Form Layout Updates */
+.rk-post-form {
+  margin-top: 24px;
+  display: grid;
+  gap: 20px;
 }
 
 .rk-post-row {
