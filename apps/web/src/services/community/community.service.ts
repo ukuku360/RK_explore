@@ -5,14 +5,35 @@ import type { CommunityPost, CommunityComment } from '../../types/domain'
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
   const { data: posts, error } = await supabase
     .from('community_posts')
-    .select(`
-      *,
-      likes:community_likes(count),
-      comments:community_comments(count)
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
 
   if (error) throw error
+  if (!posts) return []
+
+  // Fetch counts for likes and comments
+  const postIds = posts.map(p => p.id)
+  
+  const { data: likesData } = await supabase
+    .from('community_likes')
+    .select('post_id')
+    .in('post_id', postIds)
+  
+  const { data: commentsData } = await supabase
+    .from('community_comments')
+    .select('post_id')
+    .in('post_id', postIds)
+
+  // Count likes and comments per post
+  const likesCounts = new Map<string, number>()
+  likesData?.forEach(like => {
+    likesCounts.set(like.post_id, (likesCounts.get(like.post_id) ?? 0) + 1)
+  })
+
+  const commentsCounts = new Map<string, number>()
+  commentsData?.forEach(comment => {
+    commentsCounts.set(comment.post_id, (commentsCounts.get(comment.post_id) ?? 0) + 1)
+  })
 
   // If user is logged in, fetch their likes to determine has_liked
   let likedPostIds = new Set<string>()
@@ -29,8 +50,8 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
 
   return posts.map((post: any) => ({
     ...post,
-    likes_count: post.likes?.[0]?.count ?? 0,
-    comments_count: post.comments?.[0]?.count ?? 0,
+    likes_count: likesCounts.get(post.id) ?? 0,
+    comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id)
   }))
 }
