@@ -11,13 +11,7 @@ import {
   invalidateAfterVoteMutation,
   invalidateForRealtimeTable,
 } from '../../../lib/queryInvalidation'
-import {
-  formatCurrency,
-  formatDate,
-  formatDateTime,
-  formatMeetingTime,
-  formatTimeAgo,
-} from '../../../lib/formatters'
+import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
 import { createComment } from '../../../services/comments/comments.service'
 import { createPost } from '../../../services/posts/posts.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
@@ -1235,20 +1229,11 @@ export function FeedPage() {
             const isClosed = isRsvpClosed(post)
             const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
             const rsvpAction = getRsvpActionState(rsvpSummary, isRsvpClosedForJoin)
-            const recommendationReason =
-              feedTab === 'recommended' && !user?.isAdmin ? recommendedFeed.metaByPostId[post.id]?.reason : ''
             const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
             const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
             const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
             const postedAgoLabel = formatTimeAgo(post.created_at)
-            const detailItems = [
-              recommendationReason ? { label: 'Recommended', value: recommendationReason } : null,
-              post.meetup_place ? { label: 'Meet-up', value: post.meetup_place } : null,
-              post.meeting_time ? { label: 'Time', value: formatMeetingTime(post.meeting_time) } : null,
-              post.estimated_cost !== null ? { label: 'Cost', value: formatCurrency(post.estimated_cost) } : null,
-              post.prep_notes ? { label: 'Prep', value: post.prep_notes } : null,
-              rsvpSummary.waitlistCount > 0 ? { label: 'Waitlist', value: String(rsvpSummary.waitlistCount) } : null,
-            ].filter((item): item is { label: string; value: string } => Boolean(item))
+            
             const commentThreads = buildCommentThreads(post.comments)
 
             return (
@@ -1299,29 +1284,7 @@ export function FeedPage() {
                   </div>
                 </div>
 
-                <details className="rk-card-more">
-                  <summary
-                    onClick={() => {
-                      if (!user) return
-                      trackEvent('post_open', {
-                        user_id: user.id,
-                        role: user.isAdmin ? 'admin' : 'member',
-                        post_id: post.id,
-                        surface: 'feed_card',
-                      })
-                    }}
-                  >
-                    View details
-                  </summary>
-                  <div className="rk-card-more-list">
-                    {detailItems.map((item) => (
-                      <div key={`${post.id}:${item.label}`} className="rk-detail-item">
-                        <span className="rk-detail-label">{item.label}</span>
-                        <strong className="rk-detail-value">{item.value}</strong>
-                      </div>
-                    ))}
-                  </div>
-                </details>
+
 
                 <div className="rk-post-actions">
                   <div className="rk-action-stack rk-vote-stack">
