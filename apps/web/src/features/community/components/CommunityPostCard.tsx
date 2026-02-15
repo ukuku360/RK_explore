@@ -9,13 +9,13 @@ import { CommunityCommentSection } from './CommunityCommentSection'
 type Props = {
   post: CommunityPost
   currentUserId?: string
-  isAdmin: boolean
+  communityPostsQueryKey: ['community_posts', string | undefined]
   onDelete: (id: string) => void
 }
 
-export function CommunityPostCard({ post, currentUserId, isAdmin, onDelete }: Props) {
+export function CommunityPostCard({ post, currentUserId, communityPostsQueryKey, onDelete }: Props) {
   const isOwner = currentUserId === post.user_id
-  const canDelete = isOwner || isAdmin
+  const canDelete = isOwner
   const [showComments, setShowComments] = useState(false)
   const queryClient = useQueryClient()
 
@@ -25,10 +25,10 @@ export function CommunityPostCard({ post, currentUserId, isAdmin, onDelete }: Pr
       return toggleLike(post.id, currentUserId)
     },
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['community_posts'] })
-      const previousPosts = queryClient.getQueryData(['community_posts'])
+      await queryClient.cancelQueries({ queryKey: communityPostsQueryKey })
+      const previousPosts = queryClient.getQueryData(communityPostsQueryKey)
 
-      queryClient.setQueryData(['community_posts'], (old: CommunityPost[] | undefined) => {
+      queryClient.setQueryData(communityPostsQueryKey, (old: CommunityPost[] | undefined) => {
         if (!old) return []
         return old.map(p => {
           if (p.id === post.id) {
@@ -45,7 +45,7 @@ export function CommunityPostCard({ post, currentUserId, isAdmin, onDelete }: Pr
       return { previousPosts }
     },
     onError: (_err, _newTodo, context) => {
-      queryClient.setQueryData(['community_posts'], context?.previousPosts)
+      queryClient.setQueryData(communityPostsQueryKey, context?.previousPosts)
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['community_posts'] })

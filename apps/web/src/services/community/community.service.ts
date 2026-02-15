@@ -1,5 +1,6 @@
 
 import { supabaseClient as supabase } from '../supabase/client'
+import { throwIfPostgrestError } from '../supabase/errors'
 import type { CommunityPost, CommunityComment } from '../../types/domain'
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
@@ -92,23 +93,26 @@ export async function deleteCommunityPost(postId: string): Promise<void> {
 
 export async function toggleLike(postId: string, userId: string): Promise<void> {
   // Check if like exists
-  const { data: existingLike } = await supabase
+  const { data: existingLike, error: likeCheckError } = await supabase
     .from('community_likes')
     .select('post_id')
     .match({ post_id: postId, user_id: userId })
-    .single()
+    .maybeSingle()
+  throwIfPostgrestError(likeCheckError)
 
   if (existingLike) {
     // Unlike
-    await supabase
+    const { error } = await supabase
       .from('community_likes')
       .delete()
       .match({ post_id: postId, user_id: userId })
+    throwIfPostgrestError(error)
   } else {
     // Like
-    await supabase
+    const { error } = await supabase
       .from('community_likes')
       .insert({ post_id: postId, user_id: userId })
+    throwIfPostgrestError(error)
   }
 }
 

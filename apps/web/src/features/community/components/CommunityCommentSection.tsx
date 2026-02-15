@@ -10,7 +10,7 @@ type Props = {
 }
 
 export function CommunityCommentSection({ postId }: Props) {
-  const { user, isAdmin } = useAuthSession()
+  const { user } = useAuthSession()
   const queryClient = useQueryClient()
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -70,7 +70,7 @@ export function CommunityCommentSection({ postId }: Props) {
       <div className="rk-comment-list">
         {comments.map((comment) => {
           const isOwner = user?.id === comment.user_id
-          const canDelete = isOwner || isAdmin
+          const canDelete = isOwner
 
           return (
             <div key={comment.id} className="rk-comment-item">

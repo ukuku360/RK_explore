@@ -10,13 +10,14 @@ import { CommunityPostCard } from './CommunityPostCard'
 import { CreateCommunityPost } from './CreateCommunityPost'
 
 export function CommunityFeed() {
-  const { user, isAdmin } = useAuthSession()
+  const { user } = useAuthSession()
   const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const communityPostsQueryKey: ['community_posts', string | undefined] = ['community_posts', user?.id]
 
 
   const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
-    queryKey: ['community_posts', user?.id],
+    queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
   })
 
@@ -88,7 +89,7 @@ export function CommunityFeed() {
               key={post.id}
               post={post}
               currentUserId={user?.id}
-              isAdmin={isAdmin}
+              communityPostsQueryKey={communityPostsQueryKey}
               onDelete={handleDelete}
             />
           ))
