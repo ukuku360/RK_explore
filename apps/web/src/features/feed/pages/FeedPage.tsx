@@ -1051,397 +1051,399 @@ export function FeedPage() {
         </p>
       ) : null}
 
-      <section className="rk-feed-section">
-        <h2>Community Board</h2>
-        {user?.isAdmin ? (
-          <div className="rk-role-callout">
-            <strong>Admin view is separated.</strong>
-            <span>Use Admin workspace for moderation actions.</span>
-            <button type="button" className="rk-chip" onClick={() => navigate('/admin')}>
-              Open Admin workspace
-            </button>
-          </div>
-        ) : (
-          <div className="rk-feed-tabs" role="tablist" aria-label="Feed tabs">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={feedTab === 'recommended'}
-              className={`rk-chip ${feedTab === 'recommended' ? 'rk-chip-active' : ''}`}
-              onClick={() => applyFeedTab('recommended')}
-            >
-              Recommended
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={feedTab === 'my_activity'}
-              className={`rk-chip ${feedTab === 'my_activity' ? 'rk-chip-active' : ''}`}
-              onClick={() => applyFeedTab('my_activity')}
-            >
-              My Activity
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={feedTab === 'all'}
-              className={`rk-chip ${feedTab === 'all' ? 'rk-chip-active' : ''}`}
-              onClick={() => applyFeedTab('all')}
-            >
-              All
-            </button>
-          </div>
-        )}
-        <p className="rk-feed-count">{feedResultLabel} posts</p>
-
-        <div className="rk-filter-toolbar">
-          <div className="rk-discovery">
-            <input
-              className="rk-post-input"
-              placeholder="Where should we go next? Search destination, author, or comment..."
-              value={searchText}
-              onChange={(event) => setSearchText(event.target.value)}
-            />
-            <div className="rk-discovery-group">
-              <span>Filter</span>
-              {FEED_FILTERS.map((nextFilter) => (
-                <button
-                  key={nextFilter}
-                  type="button"
-                  className={`rk-chip ${feedFilter === nextFilter ? 'rk-chip-active' : ''}`}
-                  onClick={() => applyFeedFilter(nextFilter)}
-                >
-                  {nextFilter === 'all' ? 'All' : nextFilter === 'confirmed' ? 'Confirmed' : 'With Date'}
-                </button>
-              ))}
+      <div className="rk-feed-card">
+        <section className="rk-feed-section">
+          <h2>Community Board</h2>
+          {user?.isAdmin ? (
+            <div className="rk-role-callout">
+              <strong>Admin view is separated.</strong>
+              <span>Use Admin workspace for moderation actions.</span>
+              <button type="button" className="rk-chip" onClick={() => navigate('/admin')}>
+                Open Admin workspace
+              </button>
             </div>
-          </div>
-
-          <div className="rk-discovery rk-discovery-wrap">
-            <div className="rk-discovery-group">
-              <span>Category</span>
+          ) : (
+            <div className="rk-feed-tabs" role="tablist" aria-label="Feed tabs">
               <button
                 type="button"
-                className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
-                onClick={() => applyCategoryFilter('all')}
+                role="tab"
+                aria-selected={feedTab === 'recommended'}
+                className={`rk-chip ${feedTab === 'recommended' ? 'rk-chip-active' : ''}`}
+                onClick={() => applyFeedTab('recommended')}
+              >
+                Recommended
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={feedTab === 'my_activity'}
+                className={`rk-chip ${feedTab === 'my_activity' ? 'rk-chip-active' : ''}`}
+                onClick={() => applyFeedTab('my_activity')}
+              >
+                My Activity
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={feedTab === 'all'}
+                className={`rk-chip ${feedTab === 'all' ? 'rk-chip-active' : ''}`}
+                onClick={() => applyFeedTab('all')}
               >
                 All
               </button>
-              {CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
-                  onClick={() => applyCategoryFilter(category)}
-                >
-                  {getCategoryLabel(category)}
-                </button>
-              ))}
+            </div>
+          )}
+          <p className="rk-feed-count">{feedResultLabel} posts</p>
+
+          <div className="rk-filter-toolbar">
+            <div className="rk-discovery">
+              <input
+                className="rk-post-input"
+                placeholder="Where should we go next? Search destination, author, or comment..."
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+              />
+              <div className="rk-discovery-group">
+                <span>Filter</span>
+                {FEED_FILTERS.map((nextFilter) => (
+                  <button
+                    key={nextFilter}
+                    type="button"
+                    className={`rk-chip ${feedFilter === nextFilter ? 'rk-chip-active' : ''}`}
+                    onClick={() => applyFeedFilter(nextFilter)}
+                  >
+                    {nextFilter === 'all' ? 'All' : nextFilter === 'confirmed' ? 'Confirmed' : 'With Date'}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {feedTab !== 'recommended' || user?.isAdmin ? (
+            <div className="rk-discovery rk-discovery-wrap">
               <div className="rk-discovery-group">
-                <span>Sort</span>
-                {SORT_OPTIONS.map((option) => (
+                <span>Category</span>
+                <button
+                  type="button"
+                  className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
+                  onClick={() => applyCategoryFilter('all')}
+                >
+                  All
+                </button>
+                {CATEGORIES.map((category) => (
                   <button
-                    key={option}
+                    key={category}
                     type="button"
-                    className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
-                    onClick={() => applySortOption(option)}
+                    className={`rk-chip ${selectedCategory === category ? 'rk-chip-active' : ''}`}
+                    onClick={() => applyCategoryFilter(category)}
                   >
-                    {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+                    {getCategoryLabel(category)}
                   </button>
                 ))}
               </div>
-            ) : (
-              <div className="rk-discovery-group">
-                <span>Sort</span>
-                <span className="rk-feed-note">Recommended ranking is active</span>
-              </div>
-            )}
 
-            {hasActiveFilters ? (
-              <button
-                type="button"
-                className="rk-chip rk-chip-active"
-                onClick={resetDiscoveryFilters}
-              >
-                Reset filters
-              </button>
-            ) : null}
+              {feedTab !== 'recommended' || user?.isAdmin ? (
+                <div className="rk-discovery-group">
+                  <span>Sort</span>
+                  {SORT_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                      onClick={() => applySortOption(option)}
+                    >
+                      {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="rk-discovery-group">
+                  <span>Sort</span>
+                  <span className="rk-feed-note">Recommended ranking is active</span>
+                </div>
+              )}
 
-            {user?.isAdmin ? (
-              <button type="button" className="rk-chip" onClick={() => setShowHiddenPosts((previous) => !previous)}>
-                {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
-              </button>
-            ) : null}
+              {hasActiveFilters ? (
+                <button
+                  type="button"
+                  className="rk-chip rk-chip-active"
+                  onClick={resetDiscoveryFilters}
+                >
+                  Reset filters
+                </button>
+              ) : null}
+
+              {user?.isAdmin ? (
+                <button type="button" className="rk-chip" onClick={() => setShowHiddenPosts((previous) => !previous)}>
+                  {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
+          {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
 
-        {!postsQuery.isLoading && displayPosts.length === 0 ? (
-          <div className="rk-empty-state">
-            <strong>{emptyStateConfig.title}</strong>
-            <p>{emptyStateConfig.description}</p>
-            {user?.isAdmin && !showHiddenPosts ? (
-              <button
-                type="button"
-                className="rk-button rk-button-secondary rk-button-small"
-                onClick={() => setShowHiddenPosts(true)}
-              >
-                Show hidden posts
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="rk-button rk-button-small"
-                onClick={handleEmptyStateCta}
-              >
-                {emptyStateConfig.ctaLabel}
-              </button>
-            )}
+          {!postsQuery.isLoading && displayPosts.length === 0 ? (
+            <div className="rk-empty-state">
+              <strong>{emptyStateConfig.title}</strong>
+              <p>{emptyStateConfig.description}</p>
+              {user?.isAdmin && !showHiddenPosts ? (
+                <button
+                  type="button"
+                  className="rk-button rk-button-secondary rk-button-small"
+                  onClick={() => setShowHiddenPosts(true)}
+                >
+                  Show hidden posts
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="rk-button rk-button-small"
+                  onClick={handleEmptyStateCta}
+                >
+                  {emptyStateConfig.ctaLabel}
+                </button>
+              )}
 
-            {emptyStateConfig.type === 'no_data' ? (
-              <div className="rk-empty-templates">
-                {QUICK_TRIP_TEMPLATES.map((template) => (
-                  <button
-                    key={template.label}
-                    type="button"
-                    className="rk-chip"
-                    onClick={() => applyQuickTemplate(template.location)}
-                  >
-                    {template.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+              {emptyStateConfig.type === 'no_data' ? (
+                <div className="rk-empty-templates">
+                  {QUICK_TRIP_TEMPLATES.map((template) => (
+                    <button
+                      key={template.label}
+                      type="button"
+                      className="rk-chip"
+                      onClick={() => applyQuickTemplate(template.location)}
+                    >
+                      {template.label}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
-        <div className="rk-feed-list">
-          {displayPosts.map((post) => {
-            const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
-            const baseRsvpSummary = getRsvpSummary(post, viewerUserId)
-            const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
-            const isClosed = isRsvpClosed(post)
-            const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
-            const rsvpAction = getRsvpActionState(rsvpSummary, isRsvpClosedForJoin)
-            const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
-            const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
-            const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
-            const postedAgoLabel = formatTimeAgo(post.created_at)
-            
-            const commentThreads = buildCommentThreads(post.comments)
+          <div className="rk-feed-list">
+            {displayPosts.map((post) => {
+              const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
+              const baseRsvpSummary = getRsvpSummary(post, viewerUserId)
+              const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
+              const isClosed = isRsvpClosed(post)
+              const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
+              const rsvpAction = getRsvpActionState(rsvpSummary, isRsvpClosedForJoin)
+              const deadlineDiffMs = post.rsvp_deadline ? new Date(post.rsvp_deadline).getTime() - Date.now() : null
+              const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
+              const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
+              const postedAgoLabel = formatTimeAgo(post.created_at)
+              
+              const commentThreads = buildCommentThreads(post.comments)
 
-            return (
-              <article key={post.id} className="rk-post-card">
-                {post.is_hidden ? (
-                  <div className="rk-hidden-note">Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}</div>
-                ) : null}
+              return (
+                <article key={post.id} className="rk-post-card">
+                  {post.is_hidden ? (
+                    <div className="rk-hidden-note">Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}</div>
+                  ) : null}
 
-                <header className="rk-post-header">
-                  <div className="rk-post-header-main">
-                    <h3>
-                      <span className="rk-location rk-location-title">
-                        <span className="rk-location-emoji" aria-hidden>
-                          {getCategoryEmoji(post.category)}
+                  <header className="rk-post-header">
+                    <div className="rk-post-header-main">
+                      <h3>
+                        <span className="rk-location rk-location-title">
+                          <span className="rk-location-emoji" aria-hidden>
+                            {getCategoryEmoji(post.category)}
+                          </span>
+                          <span>{getLetsGoTitle(post.location)}</span>
                         </span>
-                        <span>{getLetsGoTitle(post.location)}</span>
-                      </span>
-                    </h3>
-                    <div className="rk-post-meta">
-                      <span>{post.author}</span>
-                      <span>{postedAgoLabel}</span>
-                      {post.proposed_date ? <span className="rk-post-date-pill">{formatDate(post.proposed_date)}</span> : null}
+                      </h3>
+                      <div className="rk-post-meta">
+                        <span>{post.author}</span>
+                        <span>{postedAgoLabel}</span>
+                        {post.proposed_date ? <span className="rk-post-date-pill">{formatDate(post.proposed_date)}</span> : null}
+                      </div>
+                    </div>
+                    <div className="rk-status-cluster">
+                      <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
+                      {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
+                      {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
+                    </div>
+                  </header>
+
+                  <div className="rk-card-core">
+                    <div className="rk-card-core-item">
+                      <span>Place</span>
+                      <strong>{post.location}</strong>
+                    </div>
+                    <div className="rk-card-core-item">
+                      <span>Date</span>
+                      <strong>{post.proposed_date ? formatDate(post.proposed_date) : 'Not scheduled'}</strong>
+                    </div>
+                    <div className="rk-card-core-item">
+                      <span>Deadline</span>
+                      <strong>{post.rsvp_deadline ? formatDateTime(post.rsvp_deadline) : 'Open'}</strong>
+                    </div>
+                    <div className="rk-card-core-item">
+                      <span>Seats left</span>
+                      <strong>{remainingSeats}</strong>
                     </div>
                   </div>
-                  <div className="rk-status-cluster">
-                    <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
-                    {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
-                    {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
-                  </div>
-                </header>
-
-                <div className="rk-card-core">
-                  <div className="rk-card-core-item">
-                    <span>Place</span>
-                    <strong>{post.location}</strong>
-                  </div>
-                  <div className="rk-card-core-item">
-                    <span>Date</span>
-                    <strong>{post.proposed_date ? formatDate(post.proposed_date) : 'Not scheduled'}</strong>
-                  </div>
-                  <div className="rk-card-core-item">
-                    <span>Deadline</span>
-                    <strong>{post.rsvp_deadline ? formatDateTime(post.rsvp_deadline) : 'Open'}</strong>
-                  </div>
-                  <div className="rk-card-core-item">
-                    <span>Seats left</span>
-                    <strong>{remainingSeats}</strong>
-                  </div>
-                </div>
 
 
 
-                <div className="rk-post-actions">
-                  <div className="rk-action-stack rk-vote-stack">
-                    <button
-                      type="button"
-                      className={`rk-action-button rk-vote-button ${hasVoted ? 'rk-action-active' : ''}`}
-                      onClick={() => void handleVote(post.id, hasVoted)}
-                      disabled={isVotePendingByPostId[post.id]}
-                      aria-label={hasVoted ? `Remove vote (${post.votes.length} votes)` : `Vote (${post.votes.length} votes)`}
-                    >
-                      <span aria-hidden>▲</span>
-                    </button>
-                    <span className="rk-vote-count">{post.votes.length}</span>
-                  </div>
-                  <div className="rk-action-stack">
-                    <button
-                      type="button"
-                      className={`rk-action-button rk-rsvp-button ${rsvpAction.isActive ? 'rk-action-active' : ''}`}
-                      onClick={() => void handleRsvp(post)}
-                      disabled={isRsvpPendingByPostId[post.id] || rsvpAction.disabled}
-                    >
-                      {rsvpAction.label}
-                    </button>
-                    {rsvpAction.helperText !== 'Spots available' ? (
-                      <span className="rk-action-help">{rsvpAction.helperText}</span>
-                    ) : null}
-                  </div>
-                  <div className="rk-action-stack">
-                    <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>
-                      Comment {post.comments.length}
-                    </button>
-                  </div>
-                </div>
-
-                {rsvpSummary.waitlistPosition > 0 ? (
-                  <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
-                ) : null}
-                {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
-
-                {commentsOpenByPostId[post.id] ? (
-                  <div className="rk-comments">
-                    <div className="rk-comment-list">
-                      {post.comments.length === 0 ? (
-                        <p className="rk-feed-note">No comments yet.</p>
-                      ) : (
-                        commentThreads.map((comment) => {
-                          const renderCommentNode = (node: CommentThreadNode, depth = 0) => {
-                            const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
-                            const replyDraft = replyDraftByCommentId[node.id] ?? ''
-                            const initial = (node.author || '?').charAt(0).toUpperCase()
-
-                            return (
-                              <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
-                                <div className="rk-comment-avatar">{initial}</div>
-                                <div className="rk-comment-content">
-                                  <div className="rk-comment-meta">
-                                    <strong>{node.author}</strong>
-                                    <div className="rk-comment-meta-actions">
-                                      <span>{formatTimeAgo(node.created_at)}</span>
-                                      <button
-                                        type="button"
-                                        className="rk-comment-reply-button"
-                                        onClick={() => {
-                                          if (isReplyOpen) {
-                                            closeReplyComposer(node.id)
-                                            return
-                                          }
-                                          openReplyComposer(node)
-                                        }}
-                                        disabled={isCommentPendingByPostId[post.id]}
-                                      >
-                                        {isReplyOpen ? 'Cancel' : 'Reply'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="rk-comment-bubble">
-                                    {node.text}
-                                  </div>
-
-                                  {isReplyOpen ? (
-                                    <div className="rk-comment-form rk-reply-form">
-                                      <input
-                                        className="rk-post-input"
-                                        placeholder={`Reply to ${node.author}...`}
-                                        value={replyDraft}
-                                        onChange={(event) =>
-                                          setReplyDraftByCommentId((previous) => ({
-                                            ...previous,
-                                            [node.id]: event.target.value,
-                                          }))
-                                        }
-                                        onKeyDown={(event) => {
-                                          if (event.key !== 'Enter') return
-                                          event.preventDefault()
-                                          void submitComment({ postId: post.id, parentComment: node })
-                                        }}
-                                        disabled={isCommentPendingByPostId[post.id]}
-                                        autoFocus
-                                      />
-                                      <button
-                                        type="button"
-                                        className="rk-button rk-button-small"
-                                        onClick={() => void submitComment({ postId: post.id, parentComment: node })}
-                                        disabled={isCommentPendingByPostId[post.id]}
-                                      >
-                                        Reply
-                                      </button>
-                                    </div>
-                                  ) : null}
-
-                                  {node.replies.length > 0 ? (
-                                    <div className="rk-comment-children">
-                                      {node.replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            )
-                          }
-
-                          return renderCommentNode(comment)
-                        })
-                      )}
-                    </div>
-                    <div className="rk-comment-form">
-                      <input
-                        className="rk-post-input"
-                        placeholder="Write a comment..."
-                        value={commentDraftByPostId[post.id] ?? ''}
-                        onChange={(event) =>
-                          setCommentDraftByPostId((previous) => ({
-                            ...previous,
-                            [post.id]: event.target.value,
-                          }))
-                        }
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return
-                          event.preventDefault()
-                          void submitComment({ postId: post.id })
-                        }}
-                        disabled={isCommentPendingByPostId[post.id]}
-                      />
+                  <div className="rk-post-actions">
+                    <div className="rk-action-stack rk-vote-stack">
                       <button
                         type="button"
-                        className="rk-button rk-button-small"
-                        onClick={() => void submitComment({ postId: post.id })}
-                        disabled={isCommentPendingByPostId[post.id]}
+                        className={`rk-action-button rk-vote-button ${hasVoted ? 'rk-action-active' : ''}`}
+                        onClick={() => void handleVote(post.id, hasVoted)}
+                        disabled={isVotePendingByPostId[post.id]}
+                        aria-label={hasVoted ? `Remove vote (${post.votes.length} votes)` : `Vote (${post.votes.length} votes)`}
                       >
-                        Post
+                        <span aria-hidden>▲</span>
+                      </button>
+                      <span className="rk-vote-count">{post.votes.length}</span>
+                    </div>
+                    <div className="rk-action-stack">
+                      <button
+                        type="button"
+                        className={`rk-action-button rk-rsvp-button ${rsvpAction.isActive ? 'rk-action-active' : ''}`}
+                        onClick={() => void handleRsvp(post)}
+                        disabled={isRsvpPendingByPostId[post.id] || rsvpAction.disabled}
+                      >
+                        {rsvpAction.label}
+                      </button>
+                      {rsvpAction.helperText !== 'Spots available' ? (
+                        <span className="rk-action-help">{rsvpAction.helperText}</span>
+                      ) : null}
+                    </div>
+                    <div className="rk-action-stack">
+                      <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>
+                        Comment {post.comments.length}
                       </button>
                     </div>
                   </div>
-                ) : null}
-              </article>
-            )
-          })}
-        </div>
-      </section>
+
+                  {rsvpSummary.waitlistPosition > 0 ? (
+                    <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
+                  ) : null}
+                  {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
+
+                  {commentsOpenByPostId[post.id] ? (
+                    <div className="rk-comments">
+                      <div className="rk-comment-list">
+                        {post.comments.length === 0 ? (
+                          <p className="rk-feed-note">No comments yet.</p>
+                        ) : (
+                          commentThreads.map((comment) => {
+                            const renderCommentNode = (node: CommentThreadNode, depth = 0) => {
+                              const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
+                              const replyDraft = replyDraftByCommentId[node.id] ?? ''
+                              const initial = (node.author || '?').charAt(0).toUpperCase()
+
+                              return (
+                                <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
+                                  <div className="rk-comment-avatar">{initial}</div>
+                                  <div className="rk-comment-content">
+                                    <div className="rk-comment-meta">
+                                      <strong>{node.author}</strong>
+                                      <div className="rk-comment-meta-actions">
+                                        <span>{formatTimeAgo(node.created_at)}</span>
+                                        <button
+                                          type="button"
+                                          className="rk-comment-reply-button"
+                                          onClick={() => {
+                                            if (isReplyOpen) {
+                                              closeReplyComposer(node.id)
+                                              return
+                                            }
+                                            openReplyComposer(node)
+                                          }}
+                                          disabled={isCommentPendingByPostId[post.id]}
+                                        >
+                                          {isReplyOpen ? 'Cancel' : 'Reply'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="rk-comment-bubble">
+                                      {node.text}
+                                    </div>
+
+                                    {isReplyOpen ? (
+                                      <div className="rk-comment-form rk-reply-form">
+                                        <input
+                                          className="rk-post-input"
+                                          placeholder={`Reply to ${node.author}...`}
+                                          value={replyDraft}
+                                          onChange={(event) =>
+                                            setReplyDraftByCommentId((previous) => ({
+                                              ...previous,
+                                              [node.id]: event.target.value,
+                                            }))
+                                          }
+                                          onKeyDown={(event) => {
+                                            if (event.key !== 'Enter') return
+                                            event.preventDefault()
+                                            void submitComment({ postId: post.id, parentComment: node })
+                                          }}
+                                          disabled={isCommentPendingByPostId[post.id]}
+                                          autoFocus
+                                        />
+                                        <button
+                                          type="button"
+                                          className="rk-button rk-button-small"
+                                          onClick={() => void submitComment({ postId: post.id, parentComment: node })}
+                                          disabled={isCommentPendingByPostId[post.id]}
+                                        >
+                                          Reply
+                                        </button>
+                                      </div>
+                                    ) : null}
+
+                                    {node.replies.length > 0 ? (
+                                      <div className="rk-comment-children">
+                                        {node.replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              )
+                            }
+
+                            return renderCommentNode(comment)
+                          })
+                        )}
+                      </div>
+                      <div className="rk-comment-form">
+                        <input
+                          className="rk-post-input"
+                          placeholder="Write a comment..."
+                          value={commentDraftByPostId[post.id] ?? ''}
+                          onChange={(event) =>
+                            setCommentDraftByPostId((previous) => ({
+                              ...previous,
+                              [post.id]: event.target.value,
+                            }))
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return
+                            event.preventDefault()
+                            void submitComment({ postId: post.id })
+                          }}
+                          disabled={isCommentPendingByPostId[post.id]}
+                        />
+                        <button
+                          type="button"
+                          className="rk-button rk-button-small"
+                          onClick={() => void submitComment({ postId: post.id })}
+                          disabled={isCommentPendingByPostId[post.id]}
+                        >
+                          Post
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              )
+            })}
+          </div>
+        </section>
+      </div>
 
       {!isKeyboardOpen ? (
         <button
