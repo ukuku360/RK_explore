@@ -258,7 +258,7 @@ export function FeedPage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const location = useLocation()
-  const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
+  const postsQuery = usePostsWithRelationsQuery()
   const formRef = useRef<HTMLFormElement | null>(null)
   const hasTrackedPostCreateStartRef = useRef(false)
   const hasTrackedStep1ValidRef = useRef(false)
@@ -768,7 +768,6 @@ export function FeedPage() {
       }
       await invalidateAfterVoteMutation(queryClient)
       setStatusTone('success')
-      setStatusMessage(hasVoted ? 'Vote removed.' : 'Vote added.')
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to update vote.')
@@ -1095,16 +1094,21 @@ export function FeedPage() {
           )}
           <p className="rk-feed-count">{feedResultLabel} posts</p>
 
-          <div className="rk-filter-toolbar">
-            <div className="rk-discovery">
+          <div className="rk-discovery-container">
+            {/* Search Row */}
+            <div className="rk-discovery-search">
               <input
                 className="rk-post-input"
                 placeholder="Where should we go next? Search destination, author, or comment..."
                 value={searchText}
                 onChange={(event) => setSearchText(event.target.value)}
               />
-              <div className="rk-discovery-group">
-                <span>Filter</span>
+            </div>
+
+            {/* Filter Row */}
+            <div className="rk-discovery-row">
+              <span className="rk-discovery-label">Filter</span>
+              <div className="rk-discovery-chips">
                 {FEED_FILTERS.map((nextFilter) => (
                   <button
                     key={nextFilter}
@@ -1118,9 +1122,10 @@ export function FeedPage() {
               </div>
             </div>
 
-            <div className="rk-discovery rk-discovery-wrap">
-              <div className="rk-discovery-group">
-                <span>Category</span>
+            {/* Category Row */}
+            <div className="rk-discovery-row">
+              <span className="rk-discovery-label">Category</span>
+              <div className="rk-discovery-chips">
                 <button
                   type="button"
                   className={`rk-chip ${selectedCategory === 'all' ? 'rk-chip-active' : ''}`}
@@ -1139,47 +1144,62 @@ export function FeedPage() {
                   </button>
                 ))}
               </div>
-
-              {feedTab !== 'recommended' || user?.isAdmin ? (
-                <div className="rk-discovery-group">
-                  <span>Sort</span>
-                  {SORT_OPTIONS.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
-                      onClick={() => applySortOption(option)}
-                    >
-                      {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="rk-discovery-group">
-                  <span>Sort</span>
-                  <span className="rk-feed-note">Recommended ranking is active</span>
-                </div>
-              )}
-
-              {hasActiveFilters ? (
-                <button
-                  type="button"
-                  className="rk-chip rk-chip-active"
-                  onClick={resetDiscoveryFilters}
-                >
-                  Reset filters
-                </button>
-              ) : null}
-
-              {user?.isAdmin ? (
-                <button type="button" className="rk-chip" onClick={() => setShowHiddenPosts((previous) => !previous)}>
-                  {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
-                </button>
-              ) : null}
             </div>
+
+            {/* Sort Row */}
+            <div className="rk-discovery-row">
+              <span className="rk-discovery-label">Sort</span>
+              <div className="rk-discovery-chips">
+                {feedTab !== 'recommended' || user?.isAdmin ? (
+                  <>
+                    {SORT_OPTIONS.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                        onClick={() => applySortOption(option)}
+                      >
+                        {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
+                      </button>
+                    ))}
+                  </>
+                ) : (
+                  <span className="rk-feed-note">Recommended ranking is active</span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions Row (Reset / Admin) - Only show if needed */}
+            {(hasActiveFilters || user?.isAdmin) && (
+              <div className="rk-discovery-row rk-discovery-actions">
+                 <span className="rk-discovery-label"></span> {/* Spacer */}
+                 <div className="rk-discovery-chips">
+                    {hasActiveFilters ? (
+                      <button
+                        type="button"
+                        className="rk-chip rk-chip-active"
+                        onClick={resetDiscoveryFilters}
+                      >
+                        Reset filters
+                      </button>
+                    ) : null}
+
+                    {user?.isAdmin ? (
+                      <button type="button" className="rk-chip" onClick={() => setShowHiddenPosts((previous) => !previous)}>
+                        {showHiddenPosts ? 'Hide Hidden Posts' : 'Show Hidden Posts'}
+                      </button>
+                    ) : null}
+                 </div>
+              </div>
+            )}
           </div>
 
-          {postsQuery.isLoading ? <p className="rk-feed-note">Loading suggestions...</p> : null}
+          {postsQuery.isLoading ? (
+             <div className="rk-post-card rk-skeleton-card">
+               <div className="rk-skeleton-header" />
+               <div className="rk-skeleton-body" />
+             </div>
+          ) : null}
 
           {!postsQuery.isLoading && displayPosts.length === 0 ? (
             <div className="rk-empty-state">

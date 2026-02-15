@@ -15,14 +15,18 @@ function groupByPostId<T extends { post_id: string }>(items: T[]): Record<string
   }, {})
 }
 
-export async function listPosts(): Promise<PostRecord[]> {
-  const { data, error } = await supabaseClient.from('posts').select('*').order('created_at', { ascending: false })
+export async function listPosts(limit = 50): Promise<PostRecord[]> {
+  const { data, error } = await supabaseClient
+    .from('posts')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
   throwIfPostgrestError(error)
   return (data ?? []) as PostRecord[]
 }
 
-export async function listPostsWithRelations(): Promise<Post[]> {
-  const posts = await listPosts()
+export async function listPostsWithRelations(limit = 50): Promise<Post[]> {
+  const posts = await listPosts(limit)
   if (posts.length === 0) return []
 
   const postIds = posts.map((post) => post.id)

@@ -503,6 +503,32 @@
     0 25px 50px -12px rgba(218, 31, 67, 0.2),
     0 0 0 1px rgba(218, 31, 67, 0.1);
 }
+/* Skeleton Loader */
+.rk-skeleton-card {
+  height: 200px;
+  background: #f8fafc;
+  animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+.rk-skeleton-header {
+  height: 24px;
+  width: 60%;
+  background: #e2e8f0;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.rk-skeleton-body {
+  height: 100px;
+  background: #e2e8f0;
+  border-radius: 12px;
+}
 
 .rk-creation-card::before {
   content: '';
@@ -720,6 +746,43 @@
   color: var(--rk-text);
   background: rgba(255,255,255,0.5);
   box-shadow: none;
+}
+/* --- Discovery / Filters Layout --- */
+.rk-discovery-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.rk-discovery-search {
+  width: 100%;
+}
+
+.rk-discovery-row {
+  display: flex;
+  align-items: flex-start; /* Align to top in case of wrapping */
+  gap: 16px;
+}
+
+.rk-discovery-label {
+  min-width: 80px;
+  padding-top: 8px; /* Visual alignment with chips */
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.rk-discovery-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+.rk-discovery-actions {
+  margin-top: -8px; /* Pull tighter to the sort row */
 }
 
 .rk-feed-tabs .rk-chip-active {
