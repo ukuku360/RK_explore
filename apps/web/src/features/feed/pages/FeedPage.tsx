@@ -1185,9 +1185,14 @@ export function FeedPage() {
                 <header className="rk-post-header">
                   <div className="rk-post-header-main">
                     <h3>
-                      <span className="rk-location">{getLetsGoTitle(post.location)}</span>
+                      <span className="rk-location rk-location-title">
+                        <span className="rk-location-emoji" aria-hidden>
+                          {getCategoryEmoji(post.category)}
+                        </span>
+                        <span>{getLetsGoTitle(post.location)}</span>
+                      </span>
                     </h3>
-                    <span className="rk-post-category">{getCategoryLabel(post.category)}</span>
+                    <span className="rk-post-category">{post.category}</span>
                     <div className="rk-post-meta">
                       <span>{post.author}</span>
                       <span>{postedAgoLabel}</span>
@@ -1245,19 +1250,6 @@ export function FeedPage() {
                 </details>
 
                 <div className="rk-post-actions">
-                  <div className="rk-action-stack">
-                    <button
-                      type="button"
-                      className={`rk-action-button ${rsvpAction.isActive ? 'rk-action-active' : ''}`}
-                      onClick={() => void handleRsvp(post)}
-                      disabled={isRsvpPendingByPostId[post.id] || rsvpAction.disabled}
-                    >
-                      {rsvpAction.label}
-                    </button>
-                    {rsvpAction.helperText !== 'Spots available' ? (
-                      <span className="rk-action-help">{rsvpAction.helperText}</span>
-                    ) : null}
-                  </div>
                   <div className="rk-action-stack rk-vote-stack">
                     <button
                       type="button"
@@ -1269,6 +1261,19 @@ export function FeedPage() {
                       <span aria-hidden>▲</span>
                     </button>
                     <span className="rk-vote-count">{post.votes.length}</span>
+                  </div>
+                  <div className="rk-action-stack">
+                    <button
+                      type="button"
+                      className={`rk-action-button rk-rsvp-button ${rsvpAction.isActive ? 'rk-action-active' : ''}`}
+                      onClick={() => void handleRsvp(post)}
+                      disabled={isRsvpPendingByPostId[post.id] || rsvpAction.disabled}
+                    >
+                      {rsvpAction.label}
+                    </button>
+                    {rsvpAction.helperText !== 'Spots available' ? (
+                      <span className="rk-action-help">{rsvpAction.helperText}</span>
+                    ) : null}
                   </div>
                   <div className="rk-action-stack">
                     <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>

@@ -702,6 +702,17 @@
   color: var(--rk-brand-strong);
 }
 
+.rk-location-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rk-location-emoji {
+  font-size: 0.9em;
+  line-height: 1;
+}
+
 .rk-post-category {
   margin-top: 7px;
   display: inline-flex;
@@ -958,6 +969,7 @@
 
 .rk-vote-stack {
   justify-items: center;
+  margin-right: auto;
 }
 
 .rk-action-button {
@@ -991,7 +1003,7 @@
   color: #3f4c5b;
 }
 
-.rk-post-actions .rk-action-stack:first-child .rk-action-button {
+.rk-post-actions .rk-rsvp-button {
   border-color: #eebfca;
   background: #fff7f9;
   color: var(--rk-brand-strong);
