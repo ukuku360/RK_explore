@@ -1192,7 +1192,6 @@ export function FeedPage() {
                         <span>{getLetsGoTitle(post.location)}</span>
                       </span>
                     </h3>
-                    <span className="rk-post-category">{post.category}</span>
                     <div className="rk-post-meta">
                       <span>{post.author}</span>
                       <span>{postedAgoLabel}</span>

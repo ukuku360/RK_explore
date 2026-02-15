@@ -479,6 +479,39 @@
   resize: vertical;
 }
 
+.rk-post-optional .rk-post-grid {
+  align-items: start;
+}
+
+.rk-post-optional .rk-post-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.rk-post-optional .rk-auth-label {
+  gap: 8px;
+}
+
+.rk-post-optional .rk-auth-input:not(.rk-textarea) {
+  height: 44px;
+  padding: 0 13px;
+}
+
+.rk-post-optional input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+.rk-post-optional input[type='number']::-webkit-outer-spin-button,
+.rk-post-optional input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.rk-post-optional .rk-textarea {
+  min-height: 120px;
+  padding-top: 10px;
+}
+
 .rk-field-error {
   min-height: 1em;
   font-size: 0.78rem;
@@ -711,20 +744,6 @@
 .rk-location-emoji {
   font-size: 0.9em;
   line-height: 1;
-}
-
-.rk-post-category {
-  margin-top: 7px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  border: 1px solid #dce3eb;
-  background: #f8fafd;
-  color: #5f6c7e;
-  font-size: 0.78rem;
-  font-weight: 700;
-  padding: 4px 10px;
 }
 
 .rk-post-meta {
@@ -1266,6 +1285,10 @@
 
   .rk-profile-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rk-post-optional .rk-post-grid-2 {
+    grid-template-columns: 1fr;
   }
 }
 
