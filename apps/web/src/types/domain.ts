@@ -106,10 +106,22 @@ export type AdminLog = {
   created_at: string
 }
 
+export type CommunityComment = {
+  id: string
+  post_id: string
+  user_id: string
+  author: string
+  content: string
+  created_at: string
+}
+
 export type CommunityPost = {
   id: string
   user_id: string
   author: string
   content: string
   created_at: string
+  likes_count: number
+  comments_count: number
+  has_liked: boolean
 }
