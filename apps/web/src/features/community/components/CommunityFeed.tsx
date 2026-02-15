@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import type { CommunityPost } from '../../../types/domain'
 
 import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
@@ -13,10 +14,12 @@ export function CommunityFeed() {
   const queryClient = useQueryClient()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+
   const { data: posts = [], isLoading } = useQuery({
-    queryKey: ['community_posts'],
-    queryFn: fetchCommunityPosts,
+    queryKey: ['community_posts', user?.id],
+    queryFn: () => fetchCommunityPosts(user?.id),
   })
+
 
   // Realtime subscription
   useEffect(() => {
