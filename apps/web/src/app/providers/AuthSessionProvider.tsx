@@ -16,14 +16,25 @@ type AuthSessionProviderProps = {
   children: ReactNode
 }
 
+const SESSION_RESTORE_TIMEOUT_MS = 8000
+
 export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    warmSignupAllowlist()
+    void warmSignupAllowlist()
 
     let isMounted = true
+    let hasResolvedInitialSession = false
+    const sessionRestoreTimeoutId = window.setTimeout(() => {
+      if (!isMounted || hasResolvedInitialSession) return
+
+      hasResolvedInitialSession = true
+      console.error('[auth] session restore timed out')
+      setUser(null)
+      setIsLoading(false)
+    }, SESSION_RESTORE_TIMEOUT_MS)
 
     function mapAuthUser(rawUser: {
       id: string
@@ -47,19 +58,29 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     }
 
     async function restoreSession() {
-      const { data, error } = await supabaseClient.auth.getSession()
+      try {
+        const { data, error } = await supabaseClient.auth.getSession()
 
-      if (!isMounted) return
+        if (!isMounted || hasResolvedInitialSession) return
 
-      if (error) {
-        console.error('[auth] session restore failed', error)
+        if (error) {
+          console.error('[auth] session restore failed', error)
+          setUser(null)
+          return
+        }
+
+        setUser(data.session?.user ? mapAuthUser(data.session.user) : null)
+      } catch (error) {
+        if (!isMounted || hasResolvedInitialSession) return
+        console.error('[auth] unexpected session restore failure', error)
         setUser(null)
-        setIsLoading(false)
-        return
+      } finally {
+        if (isMounted && !hasResolvedInitialSession) {
+          hasResolvedInitialSession = true
+          window.clearTimeout(sessionRestoreTimeoutId)
+          setIsLoading(false)
+        }
       }
-
-      setUser(data.session?.user ? mapAuthUser(data.session.user) : null)
-      setIsLoading(false)
     }
 
     void restoreSession()
@@ -67,12 +88,15 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     const {
       data: { subscription },
     } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      hasResolvedInitialSession = true
+      window.clearTimeout(sessionRestoreTimeoutId)
       setUser(session?.user ? mapAuthUser(session.user) : null)
       setIsLoading(false)
     })
 
     return () => {
       isMounted = false
+      window.clearTimeout(sessionRestoreTimeoutId)
       subscription.unsubscribe()
     }
   }, [])

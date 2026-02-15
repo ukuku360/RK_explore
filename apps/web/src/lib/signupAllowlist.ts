@@ -101,9 +101,14 @@ function getAllowlistPromise(): Promise<ParsedAllowlist> {
   return allowlistPromise
 }
 
-export function warmSignupAllowlist(): void {
+export async function warmSignupAllowlist(): Promise<void> {
   if (!env.signupAllowlistEnabled) return
-  void getAllowlistPromise()
+
+  try {
+    await getAllowlistPromise()
+  } catch (error) {
+    console.error('[signup-allowlist] warmup failed', error)
+  }
 }
 
 export async function ensureSignupEmailAllowed(email: string): Promise<SignupAllowlistCheck> {
