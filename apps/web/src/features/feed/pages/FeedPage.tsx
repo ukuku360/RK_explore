@@ -140,13 +140,6 @@ function getRsvpActionState(summary: RsvpSummary, isJoinClosed: boolean): {
 
 type RsvpAction = 'join' | 'leave'
 
-type InlineMessageTone = 'info' | 'success' | 'error'
-
-type InlineMessage = {
-  tone: InlineMessageTone
-  text: string
-}
-
 type EmptyStateType = 'no_data' | 'search_empty' | 'filter_overload'
 
 type EmptyStateConfig = {
@@ -266,7 +259,6 @@ export function FeedPage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [optimisticRsvpByPostId, setOptimisticRsvpByPostId] = useState<Record<string, RsvpSummary>>({})
-  const [inlineRsvpMessageByPostId, setInlineRsvpMessageByPostId] = useState<Record<string, InlineMessage>>({})
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMobileFabCompact, setIsMobileFabCompact] = useState(false)
   const viewerUserId = user?.id ?? ''
@@ -700,10 +692,6 @@ export function FeedPage() {
     })
   }
 
-  function setInlineRsvpMessage(postId: string, message: InlineMessage) {
-    setInlineRsvpMessageByPostId((previous) => ({ ...previous, [postId]: message }))
-  }
-
   function handleEmptyStateCta() {
     if (emptyStateConfig.type === 'filter_overload') {
       resetDiscoveryFilters()
@@ -771,7 +759,8 @@ export function FeedPage() {
     const summary = optimisticRsvpByPostId[post.id] ?? serverSummary
 
     if (!summary.hasRsvpd && isRsvpClosed(post)) {
-      setInlineRsvpMessage(post.id, { tone: 'error', text: 'RSVP is closed for this trip.' })
+      setStatusTone('error')
+      setStatusMessage('RSVP is closed for this trip.')
       return
     }
 
@@ -780,7 +769,6 @@ export function FeedPage() {
       ...previous,
       [post.id]: buildOptimisticRsvpSummary(summary, action),
     }))
-    setInlineRsvpMessage(post.id, { tone: 'info', text: 'Updating status...' })
 
     setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
 
@@ -788,20 +776,11 @@ export function FeedPage() {
       if (action === 'leave') {
         await removeRsvp(post.id, user.id)
         await invalidateAfterRsvpMutation(queryClient)
-        setInlineRsvpMessageByPostId((previous) => {
-          const next = { ...previous }
-          delete next[post.id]
-          return next
-        })
         return
       }
 
       await addRsvp(post.id, user.id)
       await invalidateAfterRsvpMutation(queryClient)
-      setInlineRsvpMessage(post.id, {
-        tone: 'success',
-        text: summary.isFull ? 'Trip is full. You joined the waitlist.' : 'RSVP confirmed.',
-      })
     } catch (error) {
       setOptimisticRsvpByPostId((previous) => {
         const next = { ...previous }
@@ -810,12 +789,11 @@ export function FeedPage() {
       })
 
       if (error instanceof SupabaseServiceError && error.code === '23505') {
-        setInlineRsvpMessage(post.id, { tone: 'error', text: "You have already RSVP'd to this trip." })
+        setStatusTone('error')
+        setStatusMessage("You have already RSVP'd to this trip.")
       } else {
-        setInlineRsvpMessage(post.id, {
-          tone: 'error',
-          text: error instanceof Error ? error.message : 'Failed to update RSVP.',
-        })
+        setStatusTone('error')
+        setStatusMessage(error instanceof Error ? error.message : 'Failed to update RSVP.')
       }
     } finally {
       setIsRsvpPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
@@ -1301,11 +1279,6 @@ export function FeedPage() {
                   <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>
                 ) : null}
                 {isClosed ? <div className="rk-note">RSVP is closed for this trip.</div> : null}
-                {inlineRsvpMessageByPostId[post.id] ? (
-                  <div className={`rk-inline-message rk-inline-${inlineRsvpMessageByPostId[post.id].tone}`}>
-                    {inlineRsvpMessageByPostId[post.id].text}
-                  </div>
-                ) : null}
 
                 {commentsOpenByPostId[post.id] ? (
                   <div className="rk-comments">
