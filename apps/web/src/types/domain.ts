@@ -105,3 +105,11 @@ export type AdminLog = {
   admin_email: string
   created_at: string
 }
+
+export type CommunityPost = {
+  id: string
+  user_id: string
+  author: string
+  content: string
+  created_at: string
+}

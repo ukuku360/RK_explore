@@ -9,6 +9,7 @@ import { FeedPage } from '../../features/feed/pages/FeedPage'
 import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
+const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
 
 function RouteLoading({ label }: { label: string }) {
   return (
@@ -81,6 +82,16 @@ export function AppRouter() {
           }
         />
         <Route path="/auth" element={<AuthRoute />} />
+        <Route 
+          path="/community" 
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<RouteLoading label="Loading community..." />}>
+                <CommunityPage />
+              </Suspense>
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/admin" element={<AdminRoute />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
