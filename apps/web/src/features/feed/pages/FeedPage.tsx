@@ -23,7 +23,7 @@ import { createPost } from '../../../services/posts/posts.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
 import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
-import { CATEGORIES, type Category, type Post } from '../../../types/domain'
+import { CATEGORIES, type Category, type Comment as PostComment, type Post } from '../../../types/domain'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
 import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
 import {
@@ -149,6 +149,10 @@ type EmptyStateConfig = {
   ctaLabel: string
 }
 
+type CommentThreadNode = PostComment & {
+  replies: CommentThreadNode[]
+}
+
 function buildOptimisticRsvpSummary(summary: RsvpSummary, action: RsvpAction): RsvpSummary {
   if (action === 'join') {
     if (summary.isFull) {
@@ -230,6 +234,31 @@ function getEmptyStateConfig(params: {
   }
 }
 
+function buildCommentThreads(comments: PostComment[]): CommentThreadNode[] {
+  const nodesById: Record<string, CommentThreadNode> = {}
+
+  for (const comment of comments) {
+    nodesById[comment.id] = { ...comment, replies: [] }
+  }
+
+  const roots: CommentThreadNode[] = []
+
+  for (const comment of comments) {
+    const node = nodesById[comment.id]
+    const parentId = comment.parent_comment_id
+    const parentNode = parentId && parentId !== comment.id ? nodesById[parentId] : undefined
+
+    if (parentNode && parentNode.post_id === comment.post_id) {
+      parentNode.replies.push(node)
+      continue
+    }
+
+    roots.push(node)
+  }
+
+  return roots
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -249,6 +278,8 @@ export function FeedPage() {
   const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
+  const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
+  const [replyOpenByCommentId, setReplyOpenByCommentId] = useState<Record<string, boolean>>({})
   const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
   const [selectedCategory, setSelectedCategory] = useState<'all' | Category>('all')
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all')
@@ -804,30 +835,69 @@ export function FeedPage() {
     setCommentsOpenByPostId((previous) => ({ ...previous, [postId]: !previous[postId] }))
   }
 
-  async function submitComment(postId: string) {
+  function openReplyComposer(comment: PostComment) {
+    setReplyOpenByCommentId((previous) => ({ ...previous, [comment.id]: true }))
+    setReplyDraftByCommentId((previous) => {
+      if (previous[comment.id]?.trim()) {
+        return previous
+      }
+
+      return {
+        ...previous,
+        [comment.id]: `@${comment.author} `,
+      }
+    })
+  }
+
+  function closeReplyComposer(commentId: string) {
+    setReplyOpenByCommentId((previous) => {
+      const next = { ...previous }
+      delete next[commentId]
+      return next
+    })
+    setReplyDraftByCommentId((previous) => {
+      const next = { ...previous }
+      delete next[commentId]
+      return next
+    })
+  }
+
+  async function submitComment(params: { postId: string; parentComment?: PostComment }) {
     if (!user) return
 
-    const draft = commentDraftByPostId[postId]?.trim() ?? ''
+    const parentCommentId = params.parentComment?.id ?? null
+    const draftSource = parentCommentId
+      ? replyDraftByCommentId[parentCommentId]
+      : commentDraftByPostId[params.postId]
+    const draft = draftSource?.trim() ?? ''
     if (!draft) return
 
-    setIsCommentPendingByPostId((previous) => ({ ...previous, [postId]: true }))
+    setIsCommentPendingByPostId((previous) => ({ ...previous, [params.postId]: true }))
 
     try {
       await createComment({
-        post_id: postId,
+        post_id: params.postId,
+        parent_comment_id: parentCommentId,
         user_id: user.id,
         author: user.label,
         text: draft,
       })
       await invalidateAfterCommentMutation(queryClient)
-      setCommentDraftByPostId((previous) => ({ ...previous, [postId]: '' }))
-      setStatusTone('success')
-      setStatusMessage('Comment added.')
+
+      if (parentCommentId) {
+        closeReplyComposer(parentCommentId)
+        setStatusTone('success')
+        setStatusMessage('Reply added.')
+      } else {
+        setCommentDraftByPostId((previous) => ({ ...previous, [params.postId]: '' }))
+        setStatusTone('success')
+        setStatusMessage('Comment added.')
+      }
     } catch (error) {
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to add comment.')
     } finally {
-      setIsCommentPendingByPostId((previous) => ({ ...previous, [postId]: false }))
+      setIsCommentPendingByPostId((previous) => ({ ...previous, [params.postId]: false }))
     }
   }
 
@@ -1175,6 +1245,7 @@ export function FeedPage() {
               post.prep_notes ? { label: 'Prep', value: post.prep_notes } : null,
               rsvpSummary.waitlistCount > 0 ? { label: 'Waitlist', value: String(rsvpSummary.waitlistCount) } : null,
             ].filter((item): item is { label: string; value: string } => Boolean(item))
+            const commentThreads = buildCommentThreads(post.comments)
 
             return (
               <article key={post.id} className="rk-post-card">
@@ -1292,15 +1363,76 @@ export function FeedPage() {
                       {post.comments.length === 0 ? (
                         <p className="rk-feed-note">No comments yet.</p>
                       ) : (
-                        post.comments.map((comment) => (
-                          <div key={comment.id} className="rk-comment-item">
-                            <div className="rk-comment-meta">
-                              <strong>{comment.author}</strong>
-                              <span>{formatTimeAgo(comment.created_at)}</span>
-                            </div>
-                            <p>{comment.text}</p>
-                          </div>
-                        ))
+                        commentThreads.map((comment) => {
+                          const renderCommentNode = (node: CommentThreadNode, depth = 0) => {
+                            const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
+                            const replyDraft = replyDraftByCommentId[node.id] ?? ''
+
+                            return (
+                              <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
+                                <div className="rk-comment-meta">
+                                  <strong>{node.author}</strong>
+                                  <div className="rk-comment-meta-actions">
+                                    <span>{formatTimeAgo(node.created_at)}</span>
+                                    <button
+                                      type="button"
+                                      className="rk-comment-reply-button"
+                                      onClick={() => {
+                                        if (isReplyOpen) {
+                                          closeReplyComposer(node.id)
+                                          return
+                                        }
+                                        openReplyComposer(node)
+                                      }}
+                                      disabled={isCommentPendingByPostId[post.id]}
+                                    >
+                                      {isReplyOpen ? 'Cancel' : 'Reply'}
+                                    </button>
+                                  </div>
+                                </div>
+                                <p>{node.text}</p>
+
+                                {isReplyOpen ? (
+                                  <div className="rk-comment-form rk-reply-form">
+                                    <input
+                                      className="rk-post-input"
+                                      placeholder={`Reply to ${node.author}...`}
+                                      value={replyDraft}
+                                      onChange={(event) =>
+                                        setReplyDraftByCommentId((previous) => ({
+                                          ...previous,
+                                          [node.id]: event.target.value,
+                                        }))
+                                      }
+                                      onKeyDown={(event) => {
+                                        if (event.key !== 'Enter') return
+                                        event.preventDefault()
+                                        void submitComment({ postId: post.id, parentComment: node })
+                                      }}
+                                      disabled={isCommentPendingByPostId[post.id]}
+                                    />
+                                    <button
+                                      type="button"
+                                      className="rk-button rk-button-small"
+                                      onClick={() => void submitComment({ postId: post.id, parentComment: node })}
+                                      disabled={isCommentPendingByPostId[post.id]}
+                                    >
+                                      Reply
+                                    </button>
+                                  </div>
+                                ) : null}
+
+                                {node.replies.length > 0 ? (
+                                  <div className="rk-comment-children">
+                                    {node.replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
+                                  </div>
+                                ) : null}
+                              </div>
+                            )
+                          }
+
+                          return renderCommentNode(comment)
+                        })
                       )}
                     </div>
                     <div className="rk-comment-form">
@@ -1317,14 +1449,14 @@ export function FeedPage() {
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return
                           event.preventDefault()
-                          void submitComment(post.id)
+                          void submitComment({ postId: post.id })
                         }}
                         disabled={isCommentPendingByPostId[post.id]}
                       />
                       <button
                         type="button"
                         className="rk-button rk-button-small"
-                        onClick={() => void submitComment(post.id)}
+                        onClick={() => void submitComment({ postId: post.id })}
                         disabled={isCommentPendingByPostId[post.id]}
                       >
                         Post

@@ -27,6 +27,7 @@ export type Rsvp = {
 export type Comment = {
   id: string
   post_id: string
+  parent_comment_id: string | null
   user_id: string | null
   author: string
   text: string

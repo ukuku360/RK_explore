@@ -126,6 +126,7 @@ create table if not exists rsvps (
 create table if not exists comments (
   id          uuid primary key default gen_random_uuid(),
   post_id     uuid not null references posts(id) on delete cascade,
+  parent_comment_id uuid references comments(id) on delete cascade,
   user_id     uuid default auth.uid(),
   author      text not null default 'Tenant',
   text        text not null,
@@ -136,6 +137,10 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'comments' AND column_name = 'user_id') THEN
     ALTER TABLE comments ADD COLUMN user_id uuid default auth.uid();
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'comments' AND column_name = 'parent_comment_id') THEN
+    ALTER TABLE comments ADD COLUMN parent_comment_id uuid REFERENCES comments(id) ON DELETE CASCADE;
   END IF;
 END $$;
 
@@ -192,6 +197,7 @@ create index if not exists idx_votes_user_id            on votes(user_id);
 create index if not exists idx_rsvps_post_id            on rsvps(post_id);
 create index if not exists idx_rsvps_user_id            on rsvps(user_id);
 create index if not exists idx_comments_post_id         on comments(post_id);
+create index if not exists idx_comments_parent_comment_id on comments(parent_comment_id);
 create index if not exists idx_post_reports_post_id     on post_reports(post_id);
 create index if not exists idx_post_reports_status      on post_reports(status);
 create index if not exists idx_post_reports_created_at  on post_reports(created_at desc);

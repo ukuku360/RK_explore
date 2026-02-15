@@ -4,6 +4,7 @@ import type { Comment } from '../../types/domain'
 
 type CreateCommentInput = {
   post_id: string
+  parent_comment_id?: string | null
   user_id: string
   author: string
   text: string

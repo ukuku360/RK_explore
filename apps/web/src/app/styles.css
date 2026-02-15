@@ -1112,9 +1112,35 @@
   color: #6f7c8b;
 }
 
+.rk-comment-meta-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rk-comment-reply-button {
+  border: 0;
+  background: transparent;
+  color: #5f6c7e;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+
+.rk-comment-reply-button:hover:not(:disabled) {
+  color: var(--rk-brand-strong);
+}
+
+.rk-comment-reply-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .rk-comment-item p {
   margin: 4px 0 0;
   color: #4f5d6e;
+  white-space: pre-wrap;
 }
 
 .rk-comment-form {
@@ -1122,6 +1148,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.rk-reply-form {
+  margin-top: 8px;
+}
+
+.rk-comment-children {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid #e6edf4;
+  display: grid;
+  gap: 8px;
+}
+
+.rk-comment-item-reply {
+  background: #fbfdff;
+  border-color: #e4ebf3;
 }
 
 .rk-admin-page {
@@ -1504,6 +1547,15 @@
   .rk-comment-meta {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .rk-comment-meta-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .rk-comment-children {
+    padding-left: 10px;
   }
 
   .rk-card-more-list {
