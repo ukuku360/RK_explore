@@ -1258,15 +1258,17 @@ export function FeedPage() {
                       <span className="rk-action-help">{rsvpAction.helperText}</span>
                     ) : null}
                   </div>
-                  <div className="rk-action-stack">
+                  <div className="rk-action-stack rk-vote-stack">
                     <button
                       type="button"
-                      className={`rk-action-button ${hasVoted ? 'rk-action-active' : ''}`}
+                      className={`rk-action-button rk-vote-button ${hasVoted ? 'rk-action-active' : ''}`}
                       onClick={() => void handleVote(post.id, hasVoted)}
                       disabled={isVotePendingByPostId[post.id]}
+                      aria-label={hasVoted ? `Remove vote (${post.votes.length} votes)` : `Vote (${post.votes.length} votes)`}
                     >
-                      Vote {post.votes.length}
+                      <span aria-hidden>▲</span>
                     </button>
+                    <span className="rk-vote-count">{post.votes.length}</span>
                   </div>
                   <div className="rk-action-stack">
                     <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>

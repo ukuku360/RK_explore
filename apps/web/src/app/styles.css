@@ -956,6 +956,10 @@
   align-content: start;
 }
 
+.rk-vote-stack {
+  justify-items: center;
+}
+
 .rk-action-button {
   border: 1px solid #d6dde6;
   border-radius: 999px;
@@ -967,6 +971,24 @@
   cursor: pointer;
   box-shadow: none;
   transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+}
+
+.rk-post-actions .rk-vote-button {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.rk-vote-count {
+  font-size: 1.06rem;
+  font-weight: 800;
+  line-height: 1;
+  color: #3f4c5b;
 }
 
 .rk-post-actions .rk-action-stack:first-child .rk-action-button {
@@ -1326,6 +1348,12 @@
   .rk-post-actions .rk-action-button {
     width: auto;
     padding: 8px 11px;
+  }
+
+  .rk-post-actions .rk-vote-button {
+    width: 42px;
+    height: 42px;
+    padding: 0;
   }
 
   .rk-mobile-fab {
