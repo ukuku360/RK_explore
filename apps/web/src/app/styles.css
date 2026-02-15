@@ -1094,14 +1094,20 @@
 
 .rk-comment-list {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .rk-comment-item {
-  border-radius: 10px;
-  border: 1px solid #dfe6ee;
-  background: #ffffff;
-  padding: 9px 10px;
+  position: relative;
+  border: 0;
+  background: transparent;
+  padding: 8px 0 0;
+  min-width: 0;
+}
+
+.rk-comment-item + .rk-comment-item {
+  border-top: 1px solid #e4eaf1;
+  padding-top: 12px;
 }
 
 .rk-comment-meta {
@@ -1110,6 +1116,11 @@
   gap: 8px;
   font-size: 0.78rem;
   color: #6f7c8b;
+}
+
+.rk-comment-meta strong {
+  color: #556475;
+  letter-spacing: 0.01em;
 }
 
 .rk-comment-meta-actions {
@@ -1155,16 +1166,38 @@
 }
 
 .rk-comment-children {
-  margin-top: 8px;
-  padding-left: 12px;
-  border-left: 2px solid #e6edf4;
+  position: relative;
+  margin-top: 10px;
+  margin-left: 6px;
+  padding-left: 18px;
+  border-left: 1.5px solid #d8e1eb;
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .rk-comment-item-reply {
-  background: #fbfdff;
-  border-color: #e4ebf3;
+  padding-left: 4px;
+}
+
+.rk-comment-item-reply::before {
+  content: '';
+  position: absolute;
+  top: 11px;
+  left: -18px;
+  width: 12px;
+  border-top: 1.5px solid #d8e1eb;
+}
+
+.rk-comment-item-reply::after {
+  content: '';
+  position: absolute;
+  top: 7px;
+  left: -19px;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-right: 6px solid #d8e1eb;
 }
 
 .rk-admin-page {
@@ -1555,7 +1588,17 @@
   }
 
   .rk-comment-children {
-    padding-left: 10px;
+    margin-left: 4px;
+    padding-left: 14px;
+  }
+
+  .rk-comment-item-reply::before {
+    left: -14px;
+    width: 9px;
+  }
+
+  .rk-comment-item-reply::after {
+    left: -15px;
   }
 
   .rk-card-more-list {
