@@ -1371,66 +1371,74 @@ export function FeedPage() {
                           const renderCommentNode = (node: CommentThreadNode, depth = 0) => {
                             const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
                             const replyDraft = replyDraftByCommentId[node.id] ?? ''
+                            const initial = (node.author || '?').charAt(0).toUpperCase()
 
                             return (
                               <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
-                                <div className="rk-comment-meta">
-                                  <strong>{node.author}</strong>
-                                  <div className="rk-comment-meta-actions">
-                                    <span>{formatTimeAgo(node.created_at)}</span>
-                                    <button
-                                      type="button"
-                                      className="rk-comment-reply-button"
-                                      onClick={() => {
-                                        if (isReplyOpen) {
-                                          closeReplyComposer(node.id)
-                                          return
+                                <div className="rk-comment-avatar">{initial}</div>
+                                <div className="rk-comment-content">
+                                  <div className="rk-comment-meta">
+                                    <strong>{node.author}</strong>
+                                    <div className="rk-comment-meta-actions">
+                                      <span>{formatTimeAgo(node.created_at)}</span>
+                                      <button
+                                        type="button"
+                                        className="rk-comment-reply-button"
+                                        onClick={() => {
+                                          if (isReplyOpen) {
+                                            closeReplyComposer(node.id)
+                                            return
+                                          }
+                                          openReplyComposer(node)
+                                        }}
+                                        disabled={isCommentPendingByPostId[post.id]}
+                                      >
+                                        {isReplyOpen ? 'Cancel' : 'Reply'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="rk-comment-bubble">
+                                    {node.text}
+                                  </div>
+
+                                  {isReplyOpen ? (
+                                    <div className="rk-comment-form rk-reply-form">
+                                      <input
+                                        className="rk-post-input"
+                                        placeholder={`Reply to ${node.author}...`}
+                                        value={replyDraft}
+                                        onChange={(event) =>
+                                          setReplyDraftByCommentId((previous) => ({
+                                            ...previous,
+                                            [node.id]: event.target.value,
+                                          }))
                                         }
-                                        openReplyComposer(node)
-                                      }}
-                                      disabled={isCommentPendingByPostId[post.id]}
-                                    >
-                                      {isReplyOpen ? 'Cancel' : 'Reply'}
-                                    </button>
-                                  </div>
+                                        onKeyDown={(event) => {
+                                          if (event.key !== 'Enter') return
+                                          event.preventDefault()
+                                          void submitComment({ postId: post.id, parentComment: node })
+                                        }}
+                                        disabled={isCommentPendingByPostId[post.id]}
+                                        autoFocus
+                                      />
+                                      <button
+                                        type="button"
+                                        className="rk-button rk-button-small"
+                                        onClick={() => void submitComment({ postId: post.id, parentComment: node })}
+                                        disabled={isCommentPendingByPostId[post.id]}
+                                      >
+                                        Reply
+                                      </button>
+                                    </div>
+                                  ) : null}
+
+                                  {node.replies.length > 0 ? (
+                                    <div className="rk-comment-children">
+                                      {node.replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
+                                    </div>
+                                  ) : null}
                                 </div>
-                                <p>{node.text}</p>
-
-                                {isReplyOpen ? (
-                                  <div className="rk-comment-form rk-reply-form">
-                                    <input
-                                      className="rk-post-input"
-                                      placeholder={`Reply to ${node.author}...`}
-                                      value={replyDraft}
-                                      onChange={(event) =>
-                                        setReplyDraftByCommentId((previous) => ({
-                                          ...previous,
-                                          [node.id]: event.target.value,
-                                        }))
-                                      }
-                                      onKeyDown={(event) => {
-                                        if (event.key !== 'Enter') return
-                                        event.preventDefault()
-                                        void submitComment({ postId: post.id, parentComment: node })
-                                      }}
-                                      disabled={isCommentPendingByPostId[post.id]}
-                                    />
-                                    <button
-                                      type="button"
-                                      className="rk-button rk-button-small"
-                                      onClick={() => void submitComment({ postId: post.id, parentComment: node })}
-                                      disabled={isCommentPendingByPostId[post.id]}
-                                    >
-                                      Reply
-                                    </button>
-                                  </div>
-                                ) : null}
-
-                                {node.replies.length > 0 ? (
-                                  <div className="rk-comment-children">
-                                    {node.replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
-                                  </div>
-                                ) : null}
                               </div>
                             )
                           }
