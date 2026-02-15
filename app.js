@@ -1315,13 +1315,23 @@
 
         const detailsHtml = detailItems.length > 0 ? `<div class="post-details">${detailItems.join('')}</div>` : '';
 
-        const commentsHtml = post.comments.map((comment) => `
+        const commentsHtml = post.comments.map((comment) => {
+            const initial = (comment.author || '?').charAt(0).toUpperCase();
+            return `
             <div class="comment-item">
-                <span class="comment-author">${escapeHtml(comment.author)}</span>
-                <span class="comment-time">${escapeHtml(formatTimeAgo(comment.createdAt))}</span>
-                <div class="comment-text">${escapeHtml(comment.text)}</div>
+                <div class="comment-avatar">${escapeHtml(initial)}</div>
+                <div class="comment-content">
+                    <div class="comment-meta">
+                        <span class="comment-author">${escapeHtml(comment.author)}</span>
+                        <span class="comment-time">${escapeHtml(formatTimeAgo(comment.createdAt))}</span>
+                    </div>
+                    <div class="comment-bubble">
+                        <div class="comment-text">${escapeHtml(comment.text)}</div>
+                    </div>
+                </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
 
         const canConfirm = isOwner && post.status !== 'confirmed';
         const confirmBtn = canConfirm
