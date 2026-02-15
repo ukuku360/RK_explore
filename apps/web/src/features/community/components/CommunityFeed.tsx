@@ -15,7 +15,7 @@ export function CommunityFeed() {
   const [isSubmitting, setIsSubmitting] = useState(false)
 
 
-  const { data: posts = [], isLoading } = useQuery({
+  const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
     queryKey: ['community_posts', user?.id],
     queryFn: () => fetchCommunityPosts(user?.id),
   })
