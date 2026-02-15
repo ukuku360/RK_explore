@@ -875,12 +875,16 @@ export function FeedPage() {
     setIsCommentPendingByPostId((previous) => ({ ...previous, [params.postId]: true }))
 
     try {
-      await createComment({
+      const commentPayload = {
         post_id: params.postId,
-        parent_comment_id: parentCommentId,
         user_id: user.id,
         author: user.label,
         text: draft,
+        ...(parentCommentId ? { parent_comment_id: parentCommentId } : {}),
+      }
+
+      await createComment({
+        ...commentPayload,
       })
       await invalidateAfterCommentMutation(queryClient)
 
