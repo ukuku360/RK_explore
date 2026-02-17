@@ -1335,11 +1335,11 @@
   all: unset;
   cursor: pointer;
   list-style: none;
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
+  box-sizing: border-box;
   min-height: 32px;
   font-size: 0.72rem;
   font-weight: 800;
@@ -1362,7 +1362,7 @@
 }
 
 .rk-rsvp-members-summary::after {
-  content: '';
+  content: '▸';
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1373,7 +1373,8 @@
   background: linear-gradient(180deg, #ffffff, #edf3fb);
   color: #5d6f84;
   font-size: 0.72rem;
-  margin-left: auto;
+  margin-left: 8px;
+  flex-shrink: 0;
 }
 
 .rk-rsvp-members-summary::before {
