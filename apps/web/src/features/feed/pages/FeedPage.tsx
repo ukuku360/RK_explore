@@ -39,7 +39,8 @@ import {
 import { getRsvpSnapshot, getRsvpSummary, isRsvpClosed, type RsvpSummary } from '../lib/rsvp'
 
 const FEED_FILTERS = ['all', 'confirmed', 'scheduled'] as const
-const SORT_OPTIONS = ['votes', 'newest', 'soonest'] as const
+const SORT_OPTIONS = ['recommended', 'votes', 'newest', 'soonest'] as const
+const STANDARD_SORT_OPTIONS = SORT_OPTIONS.slice(1) as ['votes', 'newest', 'soonest']
 
 type FeedFilter = (typeof FEED_FILTERS)[number]
 type SortOption = (typeof SORT_OPTIONS)[number]
@@ -80,6 +81,29 @@ function getLetsGoTitle(location: string): string {
   const clean = location.trim()
   if (!clean) return "Let's go!"
   return `Let's go to ${clean}`
+}
+
+function getDefaultSortOption(feedTab: FeedTab, isAdmin: boolean): SortOption {
+  if (feedTab === 'recommended' && !isAdmin) {
+    return 'recommended'
+  }
+
+  return 'votes'
+}
+
+function getSortOptions(feedTab: FeedTab, isAdmin: boolean): SortOption[] {
+  if (feedTab === 'recommended' && !isAdmin) {
+    return [...SORT_OPTIONS]
+  }
+
+  return [...STANDARD_SORT_OPTIONS]
+}
+
+function getSortOptionLabel(option: SortOption): string {
+  if (option === 'recommended') return 'Recommended'
+  if (option === 'newest') return 'Newest'
+  if (option === 'soonest') return 'Soonest Date'
+  return 'Most Voted'
 }
 
 function getRsvpActionState(summary: RsvpSummary, isJoinClosed: boolean): {
@@ -305,7 +329,7 @@ export function FeedPage() {
   const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
   const [selectedCategory, setSelectedCategory] = useState<'all' | Category>('all')
   const [feedFilter, setFeedFilter] = useState<FeedFilter>('all')
-  const [sortOption, setSortOption] = useState<SortOption>('votes')
+  const [sortOption, setSortOption] = useState<SortOption>('recommended')
   const [feedTab, setFeedTab] = useState<FeedTab>('recommended')
   const [searchText, setSearchText] = useState('')
   const [showHiddenPosts, setShowHiddenPosts] = useState(false)
@@ -394,7 +418,29 @@ export function FeedPage() {
     }
 
     if (feedTab === 'recommended' && !user?.isAdmin) {
-      return nextPosts
+      if (sortOption === 'recommended') {
+        return nextPosts
+      }
+
+      const sorted = [...nextPosts]
+
+      if (sortOption === 'votes') {
+        sorted.sort((a, b) => b.votes.length - a.votes.length)
+        return sorted
+      }
+
+      if (sortOption === 'newest') {
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        return sorted
+      }
+
+      sorted.sort((a, b) => {
+        if (!a.proposed_date && !b.proposed_date) return 0
+        if (!a.proposed_date) return 1
+        if (!b.proposed_date) return -1
+        return new Date(a.proposed_date).getTime() - new Date(b.proposed_date).getTime()
+      })
+      return sorted
     }
 
     const sorted = [...nextPosts]
@@ -429,7 +475,7 @@ export function FeedPage() {
 
   const step1Errors = useMemo(() => validateStep1(form), [form])
   const isStep1Complete = isStep1Valid(step1Errors)
-  const hasActiveSort = (feedTab !== 'recommended' || Boolean(user?.isAdmin)) && sortOption !== 'votes'
+  const hasActiveSort = sortOption !== getDefaultSortOption(feedTab, Boolean(user?.isAdmin))
   const hasActiveFilters =
     searchText.trim().length > 0 || selectedCategory !== 'all' || feedFilter !== 'all' || hasActiveSort
   const feedTabLabel = feedTab === 'recommended' ? 'Recommended' : feedTab === 'my_activity' ? 'My activity' : 'All'
@@ -446,6 +492,7 @@ export function FeedPage() {
   useEffect(() => {
     if (!user?.isAdmin) return
     setFeedTab('all')
+    setSortOption('votes')
   }, [user?.isAdmin])
 
   useEffect(() => {
@@ -724,7 +771,7 @@ export function FeedPage() {
     setSearchText('')
     setSelectedCategory('all')
     setFeedFilter('all')
-    setSortOption('votes')
+    setSortOption(getDefaultSortOption(feedTab, Boolean(user?.isAdmin)))
 
     if (!user) return
     trackEvent('filter_cleared', {
@@ -736,9 +783,7 @@ export function FeedPage() {
 
   function applyFeedTab(nextTab: FeedTab) {
     setFeedTab(nextTab)
-    if (nextTab === 'recommended') {
-      setSortOption('votes')
-    }
+    setSortOption(getDefaultSortOption(nextTab, Boolean(user?.isAdmin)))
     if (!user) return
 
     trackEvent('personalized_tab_viewed', {
@@ -1182,22 +1227,16 @@ export function FeedPage() {
             <div className="rk-discovery-row">
               <span className="rk-discovery-label">Sort</span>
               <div className="rk-discovery-chips">
-                {feedTab !== 'recommended' || user?.isAdmin ? (
-                  <>
-                    {SORT_OPTIONS.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
-                        onClick={() => applySortOption(option)}
-                      >
-                        {option === 'votes' ? 'Most Voted' : option === 'newest' ? 'Newest' : 'Soonest Date'}
-                      </button>
-                    ))}
-                  </>
-                ) : (
-                  <span className="rk-feed-note">Recommended ranking is active</span>
-                )}
+                {getSortOptions(feedTab, Boolean(user?.isAdmin)).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                    onClick={() => applySortOption(option)}
+                  >
+                    {getSortOptionLabel(option)}
+                  </button>
+                ))}
               </div>
             </div>
 
