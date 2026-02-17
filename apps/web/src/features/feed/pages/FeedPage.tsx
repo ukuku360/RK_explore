@@ -1371,8 +1371,8 @@ export function FeedPage() {
                     </div>
                   </div>
 
-                  <section className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
-                    <span className="rk-rsvp-members-label">I'm in {rsvpSnapshot.goingUserIds.length}</span>
+                  <details className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
+                    <summary>I'm in {rsvpSnapshot.goingUserIds.length}</summary>
                     <div className="rk-rsvp-members-list">
                       {rsvpSnapshot.goingUserIds.length > 0 ? (
                         rsvpSnapshot.goingUserIds.map((userId) => (
@@ -1384,11 +1384,11 @@ export function FeedPage() {
                         <span className="rk-rsvp-members-empty">No one has joined yet.</span>
                       )}
                     </div>
-                  </section>
+                  </details>
 
                   {rsvpSnapshot.waitlistUserIds.length > 0 ? (
-                    <section className="rk-rsvp-members rk-rsvp-members-waitlist" aria-label={`Waitlist users for ${post.location}`}>
-                      <span className="rk-rsvp-members-label">Waitlist {rsvpSnapshot.waitlistUserIds.length}</span>
+                    <details className="rk-rsvp-members rk-rsvp-members-waitlist" aria-label={`Waitlist users for ${post.location}`}>
+                      <summary>Waitlist {rsvpSnapshot.waitlistUserIds.length}</summary>
                       <div className="rk-rsvp-members-list">
                         {rsvpSnapshot.waitlistUserIds.map((userId) => (
                           <span key={`${post.id}-waitlist-${userId}`} className="rk-rsvp-member-chip rk-rsvp-member-chip-waitlist">
@@ -1396,7 +1396,7 @@ export function FeedPage() {
                           </span>
                         ))}
                       </div>
-                    </section>
+                    </details>
                   ) : null}
 
                   {rsvpSummary.waitlistPosition > 0 ? (

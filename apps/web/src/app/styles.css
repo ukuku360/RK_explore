@@ -1327,7 +1327,15 @@
   gap: 6px;
 }
 
-.rk-rsvp-members-label {
+.rk-rsvp-members summary {
+  all: unset;
+  cursor: pointer;
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -1335,7 +1343,33 @@
   color: #59677a;
 }
 
+.rk-rsvp-members summary::-webkit-details-marker {
+  display: none;
+}
+
+.rk-rsvp-members summary::after {
+  content: '▸';
+  color: #95a0ad;
+  margin-left: auto;
+}
+
+.rk-rsvp-members[open] {
+  border: 1px solid #dce3eb;
+  border-radius: 11px;
+  background: #f9fbfe;
+  padding: 8px 10px 10px;
+}
+
+.rk-rsvp-members[open] summary {
+  color: #3c4a5d;
+}
+
+.rk-rsvp-members[open] summary::after {
+  content: '▾';
+}
+
 .rk-rsvp-members-list {
+  margin-top: 6px;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
