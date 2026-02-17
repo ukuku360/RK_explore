@@ -57,11 +57,27 @@ function removeLocalCommunityPost(postId: string): void {
   writeLocalCommunityPosts(filtered)
 }
 
-function reconcileLocalCommunityPosts(serverPostIds: Set<string>): void {
+const LOCAL_POST_RETENTION_MS = 60 * 60 * 1000 // 1 hour - keep local posts as backup for this duration
+
+function reconcileLocalCommunityPostsSafe(serverPostIds: Set<string>): void {
   const current = readLocalCommunityPosts()
   if (current.length === 0) return
 
-  const filtered = current.filter((post) => !serverPostIds.has(post.id))
+  const now = Date.now()
+
+  // Only remove posts that:
+  // 1. ARE confirmed on the server
+  // 2. AND were created more than LOCAL_POST_RETENTION_MS ago
+  const filtered = current.filter((post) => {
+    const isOnServer = serverPostIds.has(post.id)
+    if (!isOnServer) return true // Keep posts not on server
+
+    const createdAt = new Date(post.created_at).getTime()
+    const age = now - createdAt
+    // Keep recent posts even if on server (safety backup)
+    return age < LOCAL_POST_RETENTION_MS
+  })
+
   if (filtered.length === current.length) return
   writeLocalCommunityPosts(filtered)
 }
@@ -128,7 +144,10 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   }))
 
   const serverPostIds = new Set(mappedServerPosts.map((post) => post.id))
-  reconcileLocalCommunityPosts(serverPostIds)
+
+  // Keep local posts as a safety backup - only clean up posts confirmed on server
+  // after they've been persisted for a while (handled separately)
+  reconcileLocalCommunityPostsSafe(serverPostIds)
 
   const missingLocalPosts = localPosts.filter((post) => !serverPostIds.has(post.id))
   if (missingLocalPosts.length === 0) return mappedServerPosts
@@ -154,6 +173,10 @@ export async function createCommunityPost(
     .single()
 
   throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to create community post: no data returned from server')
+  }
 
   saveLocalCommunityPost({
     id: data.id,
