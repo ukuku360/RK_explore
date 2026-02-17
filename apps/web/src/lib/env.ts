@@ -2,6 +2,7 @@ type RequiredEnvKey = 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'
 type OptionalEnvKey = 'VITE_SIGNUP_ALLOWLIST_ENABLED' | 'VITE_SIGNUP_ALLOWLIST_PATH'
 
 const DEFAULT_SIGNUP_ALLOWLIST_PATH = '/signup-allowlist.txt'
+const missingRequiredEnvKeys: RequiredEnvKey[] = []
 
 function readRequiredEnv(key: RequiredEnvKey): string {
   const value = import.meta.env[key]
@@ -10,7 +11,8 @@ function readRequiredEnv(key: RequiredEnvKey): string {
     return value.trim()
   }
 
-  throw new Error(`[env] Missing required environment variable: ${key}`)
+  missingRequiredEnvKeys.push(key)
+  return ''
 }
 
 function readOptionalEnv(key: OptionalEnvKey): string | null {
@@ -41,3 +43,8 @@ export const env = {
   signupAllowlistEnabled: readBooleanEnv('VITE_SIGNUP_ALLOWLIST_ENABLED', false),
   signupAllowlistPath: readOptionalEnv('VITE_SIGNUP_ALLOWLIST_PATH') ?? DEFAULT_SIGNUP_ALLOWLIST_PATH,
 } as const
+
+export const envConfigError =
+  missingRequiredEnvKeys.length > 0
+    ? `[env] Missing required environment variable(s): ${missingRequiredEnvKeys.join(', ')}`
+    : null
