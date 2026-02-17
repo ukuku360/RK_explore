@@ -37,7 +37,7 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   })
 
   // If user is logged in, fetch their likes to determine has_liked
-  let likedPostIds = new Set<string>()
+  const likedPostIds = new Set<string>()
   if (currentUserId) {
     const { data: userLikes } = await supabase
       .from('community_likes')
@@ -49,7 +49,7 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
     }
   }
 
-  return posts.map((post: any) => ({
+  return posts.map((post: CommunityPost) => ({
     ...post,
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
