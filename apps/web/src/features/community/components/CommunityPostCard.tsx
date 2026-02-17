@@ -11,9 +11,20 @@ type Props = {
   currentUserId?: string
   communityPostsQueryKey: ['community_posts', string | undefined]
   onDelete: (id: string) => void
+  onShare: (id: string) => void | Promise<void>
+  isShareCopied: boolean
+  elementId: string
 }
 
-export function CommunityPostCard({ post, currentUserId, communityPostsQueryKey, onDelete }: Props) {
+export function CommunityPostCard({
+  post,
+  currentUserId,
+  communityPostsQueryKey,
+  onDelete,
+  onShare,
+  isShareCopied,
+  elementId,
+}: Props) {
   const isOwner = currentUserId === post.user_id
   const canDelete = isOwner
   const [showComments, setShowComments] = useState(false)
@@ -61,7 +72,7 @@ export function CommunityPostCard({ post, currentUserId, communityPostsQueryKey,
   }
 
   return (
-    <div className="rk-card rk-community-card">
+    <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
         <span className="rk-community-author">{post.author}</span>
         <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
@@ -85,6 +96,10 @@ export function CommunityPostCard({ post, currentUserId, communityPostsQueryKey,
             onClick={() => setShowComments(!showComments)}
           >
             💬 <span>{post.comments_count}</span>
+          </button>
+
+          <button className={`rk-action-btn ${isShareCopied ? 'liked' : ''}`} onClick={() => void onShare(post.id)}>
+            🔗 <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
           </button>
         </div>
 
