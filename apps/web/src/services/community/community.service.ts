@@ -1,4 +1,3 @@
-
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import type { CommunityPost, CommunityComment } from '../../types/domain'
@@ -31,7 +30,6 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const commentsData = commentsResult.data ?? []
   const userLikes = userLikesResult.data ?? []
 
-  // Count likes and comments per post
   const likesCounts = new Map<string, number>()
   likesData.forEach((like) => {
     likesCounts.set(like.post_id, (likesCounts.get(like.post_id) ?? 0) + 1)
@@ -68,9 +66,8 @@ export async function createCommunityPost(
     .select()
     .single()
 
-  if (error) throw error
-  
-  // Return with initial counts
+  throwIfPostgrestError(error)
+
   return {
     ...data,
     likes_count: 0,
@@ -81,14 +78,10 @@ export async function createCommunityPost(
 
 export async function deleteCommunityPost(postId: string): Promise<void> {
   const { error } = await supabase.from('community_posts').delete().eq('id', postId)
-
-  if (error) throw error
+  throwIfPostgrestError(error)
 }
 
-// --- Likes ---
-
 export async function toggleLike(postId: string, userId: string): Promise<void> {
-  // Check if like exists
   const { data: existingLike, error: likeCheckError } = await supabase
     .from('community_likes')
     .select('post_id')
@@ -97,22 +90,18 @@ export async function toggleLike(postId: string, userId: string): Promise<void> 
   throwIfPostgrestError(likeCheckError)
 
   if (existingLike) {
-    // Unlike
     const { error } = await supabase
       .from('community_likes')
       .delete()
       .match({ post_id: postId, user_id: userId })
     throwIfPostgrestError(error)
   } else {
-    // Like
     const { error } = await supabase
       .from('community_likes')
       .insert({ post_id: postId, user_id: userId })
     throwIfPostgrestError(error)
   }
 }
-
-// --- Comments ---
 
 export async function fetchComments(postId: string): Promise<CommunityComment[]> {
   const { data, error } = await supabase
@@ -121,8 +110,8 @@ export async function fetchComments(postId: string): Promise<CommunityComment[]>
     .eq('post_id', postId)
     .order('created_at', { ascending: true })
 
-  if (error) throw error
-  return data
+  throwIfPostgrestError(error)
+  return data ?? []
 }
 
 export async function createComment(
@@ -142,11 +131,11 @@ export async function createComment(
     .select()
     .single()
 
-  if (error) throw error
+  throwIfPostgrestError(error)
   return data
 }
 
 export async function deleteComment(commentId: string): Promise<void> {
   const { error } = await supabase.from('community_comments').delete().eq('id', commentId)
-  if (error) throw error
+  throwIfPostgrestError(error)
 }
