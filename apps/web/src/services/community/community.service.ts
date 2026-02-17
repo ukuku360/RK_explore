@@ -1,7 +1,79 @@
-
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import type { CommunityPost, CommunityComment } from '../../types/domain'
+
+const LOCAL_COMMUNITY_POSTS_KEY = 'rk.community.localPosts'
+
+type LocalCommunityPost = Pick<CommunityPost, 'id' | 'user_id' | 'author' | 'content' | 'created_at'>
+
+function readLocalCommunityPosts(): LocalCommunityPost[] {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const raw = window.localStorage.getItem(LOCAL_COMMUNITY_POSTS_KEY)
+    if (!raw) return []
+
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.filter((item): item is LocalCommunityPost => {
+      return Boolean(
+        item &&
+          typeof item === 'object' &&
+          typeof item.id === 'string' &&
+          typeof item.user_id === 'string' &&
+          typeof item.author === 'string' &&
+          typeof item.content === 'string' &&
+          typeof item.created_at === 'string',
+      )
+    })
+  } catch {
+    return []
+  }
+}
+
+function writeLocalCommunityPosts(posts: LocalCommunityPost[]): void {
+  if (typeof window === 'undefined') return
+
+  if (posts.length === 0) {
+    window.localStorage.removeItem(LOCAL_COMMUNITY_POSTS_KEY)
+    return
+  }
+
+  window.localStorage.setItem(LOCAL_COMMUNITY_POSTS_KEY, JSON.stringify(posts))
+}
+
+function saveLocalCommunityPost(post: LocalCommunityPost): void {
+  const current = readLocalCommunityPosts().filter((entry) => entry.id !== post.id)
+  writeLocalCommunityPosts([post, ...current])
+}
+
+function removeLocalCommunityPost(postId: string): void {
+  const current = readLocalCommunityPosts()
+  if (current.length === 0) return
+
+  const filtered = current.filter((post) => post.id !== postId)
+  if (filtered.length === current.length) return
+  writeLocalCommunityPosts(filtered)
+}
+
+function reconcileLocalCommunityPosts(serverPostIds: Set<string>): void {
+  const current = readLocalCommunityPosts()
+  if (current.length === 0) return
+
+  const filtered = current.filter((post) => !serverPostIds.has(post.id))
+  if (filtered.length === current.length) return
+  writeLocalCommunityPosts(filtered)
+}
+
+function mapLocalPostToCommunityPost(post: LocalCommunityPost): CommunityPost {
+  return {
+    ...post,
+    likes_count: 0,
+    comments_count: 0,
+    has_liked: false,
+  }
+}
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
   const { data: posts, error } = await supabase
@@ -10,7 +82,11 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
     .order('created_at', { ascending: false })
 
   throwIfPostgrestError(error)
-  if (!posts || posts.length === 0) return []
+  const localPosts = readLocalCommunityPosts()
+
+  if (!posts || posts.length === 0) {
+    return localPosts.map(mapLocalPostToCommunityPost)
+  }
 
   const postIds = posts.map((post) => post.id)
   const userLikesPromise = currentUserId
@@ -31,7 +107,6 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const commentsData = commentsResult.data ?? []
   const userLikes = userLikesResult.data ?? []
 
-  // Count likes and comments per post
   const likesCounts = new Map<string, number>()
   likesData.forEach((like) => {
     likesCounts.set(like.post_id, (likesCounts.get(like.post_id) ?? 0) + 1)
@@ -45,12 +120,22 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const likedPostIds = new Set<string>()
   userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
-  return posts.map((post: CommunityPost) => ({
+  const mappedServerPosts = posts.map((post: CommunityPost) => ({
     ...post,
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id),
   }))
+
+  const serverPostIds = new Set(mappedServerPosts.map((post) => post.id))
+  reconcileLocalCommunityPosts(serverPostIds)
+
+  const missingLocalPosts = localPosts.filter((post) => !serverPostIds.has(post.id))
+  if (missingLocalPosts.length === 0) return mappedServerPosts
+
+  return [...missingLocalPosts.map(mapLocalPostToCommunityPost), ...mappedServerPosts].sort((a, b) =>
+    a.created_at > b.created_at ? -1 : a.created_at < b.created_at ? 1 : 0,
+  )
 }
 
 export async function createCommunityPost(
@@ -68,9 +153,16 @@ export async function createCommunityPost(
     .select()
     .single()
 
-  if (error) throw error
-  
-  // Return with initial counts
+  throwIfPostgrestError(error)
+
+  saveLocalCommunityPost({
+    id: data.id,
+    user_id: data.user_id,
+    author: data.author,
+    content: data.content,
+    created_at: data.created_at,
+  })
+
   return {
     ...data,
     likes_count: 0,
@@ -81,14 +173,11 @@ export async function createCommunityPost(
 
 export async function deleteCommunityPost(postId: string): Promise<void> {
   const { error } = await supabase.from('community_posts').delete().eq('id', postId)
-
-  if (error) throw error
+  throwIfPostgrestError(error)
+  removeLocalCommunityPost(postId)
 }
 
-// --- Likes ---
-
 export async function toggleLike(postId: string, userId: string): Promise<void> {
-  // Check if like exists
   const { data: existingLike, error: likeCheckError } = await supabase
     .from('community_likes')
     .select('post_id')
@@ -97,22 +186,18 @@ export async function toggleLike(postId: string, userId: string): Promise<void> 
   throwIfPostgrestError(likeCheckError)
 
   if (existingLike) {
-    // Unlike
     const { error } = await supabase
       .from('community_likes')
       .delete()
       .match({ post_id: postId, user_id: userId })
     throwIfPostgrestError(error)
   } else {
-    // Like
     const { error } = await supabase
       .from('community_likes')
       .insert({ post_id: postId, user_id: userId })
     throwIfPostgrestError(error)
   }
 }
-
-// --- Comments ---
 
 export async function fetchComments(postId: string): Promise<CommunityComment[]> {
   const { data, error } = await supabase
@@ -121,8 +206,8 @@ export async function fetchComments(postId: string): Promise<CommunityComment[]>
     .eq('post_id', postId)
     .order('created_at', { ascending: true })
 
-  if (error) throw error
-  return data
+  throwIfPostgrestError(error)
+  return data ?? []
 }
 
 export async function createComment(
@@ -142,11 +227,11 @@ export async function createComment(
     .select()
     .single()
 
-  if (error) throw error
+  throwIfPostgrestError(error)
   return data
 }
 
 export async function deleteComment(commentId: string): Promise<void> {
   const { error } = await supabase.from('community_comments').delete().eq('id', commentId)
-  if (error) throw error
+  throwIfPostgrestError(error)
 }
