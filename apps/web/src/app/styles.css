@@ -674,10 +674,17 @@
 .rk-auth-input[type='date'],
 .rk-auth-input[type='time'],
 .rk-auth-input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+}
+
+.rk-auth-label:has(input[type='date']),
+.rk-auth-label:has(input[type='time']),
+.rk-auth-label:has(input[type='datetime-local']) {
   overflow: hidden;
 }
 
@@ -712,6 +719,7 @@
   padding: 12px;
   display: grid;
   gap: 10px;
+  overflow: hidden;
 }
 
 /* --- New Catchy Community Board Card --- */
