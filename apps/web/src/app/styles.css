@@ -2346,3 +2346,101 @@
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
+
+/* Final mobile layout guard: must stay at the end to beat legacy overrides */
+@media (max-width: 760px) {
+  .rk-shell,
+  .rk-main,
+  .rk-page,
+  .rk-creation-card,
+  .rk-feed-card,
+  .rk-post-form,
+  .rk-post-optional,
+  .rk-post-grid,
+  .rk-post-grid > *,
+  .rk-auth-label {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .rk-post-grid-2,
+  .rk-post-grid-3,
+  .rk-post-optional .rk-post-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .rk-auth-input,
+  .rk-input,
+  .rk-post-input,
+  select.rk-auth-input,
+  textarea.rk-auth-input {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    inline-size: 100%;
+    display: block;
+  }
+
+  .rk-post-actions,
+  .rk-comments {
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  .rk-feed-tabs {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 560px) {
+  .rk-header-inner,
+  .rk-main {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .rk-page {
+    padding: 14px 10px;
+  }
+
+  .rk-nav-link {
+    min-width: 0;
+    white-space: normal;
+    text-align: center;
+  }
+
+  .rk-discovery-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .rk-discovery-label {
+    min-width: 0;
+    padding-top: 0;
+  }
+
+  .rk-feed-tabs .rk-chip,
+  .rk-discovery-chips .rk-chip {
+    white-space: normal;
+    flex: 0 1 auto;
+  }
+
+  .rk-comment-form {
+    flex-wrap: wrap;
+    align-items: stretch;
+    border-radius: 14px;
+    padding: 8px;
+    margin-top: 10px;
+  }
+
+  .rk-comment-form .rk-post-input,
+  .rk-comment-form .rk-input,
+  .rk-comment-form .rk-button {
+    width: 100%;
+    min-width: 0;
+  }
+}
