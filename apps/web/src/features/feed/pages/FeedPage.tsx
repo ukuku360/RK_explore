@@ -1372,7 +1372,11 @@ export function FeedPage() {
                   </div>
 
                   <details className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
-                    <summary>I'm in {rsvpSnapshot.goingUserIds.length}</summary>
+                    <summary className="rk-rsvp-members-summary">
+                      <span className="rk-rsvp-members-summary-label">I'm in {rsvpSnapshot.goingUserIds.length}</span>
+                      <span className="rk-rsvp-members-summary-action">Expand</span>
+                      <span className="rk-rsvp-members-summary-action rk-rsvp-members-summary-action-open">Collapse</span>
+                    </summary>
                     <div className="rk-rsvp-members-list">
                       {rsvpSnapshot.goingUserIds.length > 0 ? (
                         rsvpSnapshot.goingUserIds.map((userId) => (
@@ -1388,7 +1392,11 @@ export function FeedPage() {
 
                   {rsvpSnapshot.waitlistUserIds.length > 0 ? (
                     <details className="rk-rsvp-members rk-rsvp-members-waitlist" aria-label={`Waitlist users for ${post.location}`}>
-                      <summary>Waitlist {rsvpSnapshot.waitlistUserIds.length}</summary>
+                      <summary className="rk-rsvp-members-summary">
+                        <span className="rk-rsvp-members-summary-label">Waitlist {rsvpSnapshot.waitlistUserIds.length}</span>
+                        <span className="rk-rsvp-members-summary-action">Expand</span>
+                        <span className="rk-rsvp-members-summary-action rk-rsvp-members-summary-action-open">Collapse</span>
+                      </summary>
                       <div className="rk-rsvp-members-list">
                         {rsvpSnapshot.waitlistUserIds.map((userId) => (
                           <span key={`${post.id}-waitlist-${userId}`} className="rk-rsvp-member-chip rk-rsvp-member-chip-waitlist">
