@@ -779,9 +779,8 @@
 
 .rk-feed-tabs {
   margin-bottom: 20px;
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   background: #f1f5f9;
   padding: 6px;
@@ -789,7 +788,12 @@
   border: 1px solid rgba(0,0,0,0.03);
 }
 
-.rk-feed-tabs .rk-chip {
+.rk-feed-tab {
+  width: 100%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
   border: none;
   background: transparent;
   color: #64748b;
@@ -799,7 +803,7 @@
   transition: all 0.2s ease;
 }
 
-.rk-feed-tabs .rk-chip:hover {
+.rk-feed-tabs .rk-feed-tab:hover {
   color: var(--rk-text);
   background: rgba(255,255,255,0.5);
   box-shadow: none;
@@ -1853,9 +1857,7 @@
 
   .rk-feed-tabs {
     width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     scrollbar-width: thin;
   }
 
@@ -2532,9 +2534,6 @@
 
   .rk-feed-tabs {
     width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -2567,6 +2566,7 @@
   }
 
   .rk-feed-tabs .rk-chip,
+  .rk-feed-tab,
   .rk-discovery-chips .rk-chip {
     white-space: normal;
     flex: 0 1 auto;

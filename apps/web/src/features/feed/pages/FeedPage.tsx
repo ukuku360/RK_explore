@@ -1099,7 +1099,7 @@ export function FeedPage() {
                 type="button"
                 role="tab"
                 aria-selected={feedTab === 'recommended'}
-                className={`rk-chip ${feedTab === 'recommended' ? 'rk-chip-active' : ''}`}
+                className={`rk-chip rk-feed-tab ${feedTab === 'recommended' ? 'rk-chip-active' : ''}`}
                 onClick={() => applyFeedTab('recommended')}
               >
                 Recommended
@@ -1108,7 +1108,7 @@ export function FeedPage() {
                 type="button"
                 role="tab"
                 aria-selected={feedTab === 'my_activity'}
-                className={`rk-chip ${feedTab === 'my_activity' ? 'rk-chip-active' : ''}`}
+                className={`rk-chip rk-feed-tab ${feedTab === 'my_activity' ? 'rk-chip-active' : ''}`}
                 onClick={() => applyFeedTab('my_activity')}
               >
                 My Activity
@@ -1117,7 +1117,7 @@ export function FeedPage() {
                 type="button"
                 role="tab"
                 aria-selected={feedTab === 'all'}
-                className={`rk-chip ${feedTab === 'all' ? 'rk-chip-active' : ''}`}
+                className={`rk-chip rk-feed-tab ${feedTab === 'all' ? 'rk-chip-active' : ''}`}
                 onClick={() => applyFeedTab('all')}
               >
                 All
