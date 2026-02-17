@@ -34,12 +34,27 @@ function readLocalCommunityPosts(): LocalCommunityPost[] {
 
 function writeLocalCommunityPosts(posts: LocalCommunityPost[]): void {
   if (typeof window === 'undefined') return
+
+  if (posts.length === 0) {
+    window.localStorage.removeItem(LOCAL_COMMUNITY_POSTS_KEY)
+    return
+  }
+
   window.localStorage.setItem(LOCAL_COMMUNITY_POSTS_KEY, JSON.stringify(posts))
 }
 
 function saveLocalCommunityPost(post: LocalCommunityPost): void {
   const current = readLocalCommunityPosts().filter((entry) => entry.id !== post.id)
   writeLocalCommunityPosts([post, ...current])
+}
+
+function removeLocalCommunityPost(postId: string): void {
+  const current = readLocalCommunityPosts()
+  if (current.length === 0) return
+
+  const filtered = current.filter((post) => post.id !== postId)
+  if (filtered.length === current.length) return
+  writeLocalCommunityPosts(filtered)
 }
 
 function reconcileLocalCommunityPosts(serverPostIds: Set<string>): void {
@@ -49,6 +64,15 @@ function reconcileLocalCommunityPosts(serverPostIds: Set<string>): void {
   const filtered = current.filter((post) => !serverPostIds.has(post.id))
   if (filtered.length === current.length) return
   writeLocalCommunityPosts(filtered)
+}
+
+function mapLocalPostToCommunityPost(post: LocalCommunityPost): CommunityPost {
+  return {
+    ...post,
+    likes_count: 0,
+    comments_count: 0,
+    has_liked: false,
+  }
 }
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
@@ -61,12 +85,7 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const localPosts = readLocalCommunityPosts()
 
   if (!posts || posts.length === 0) {
-    return localPosts.map((post) => ({
-      ...post,
-      likes_count: 0,
-      comments_count: 0,
-      has_liked: false,
-    }))
+    return localPosts.map(mapLocalPostToCommunityPost)
   }
 
   const postIds = posts.map((post) => post.id)
@@ -110,18 +129,11 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
 
   const serverPostIds = new Set(mappedServerPosts.map((post) => post.id))
   reconcileLocalCommunityPosts(serverPostIds)
-  const missingLocalPosts = localPosts.filter((post) => !serverPostIds.has(post.id))
 
+  const missingLocalPosts = localPosts.filter((post) => !serverPostIds.has(post.id))
   if (missingLocalPosts.length === 0) return mappedServerPosts
 
-  const mappedLocalPosts: CommunityPost[] = missingLocalPosts.map((post) => ({
-    ...post,
-    likes_count: 0,
-    comments_count: 0,
-    has_liked: false,
-  }))
-
-  return [...mappedLocalPosts, ...mappedServerPosts].sort((a, b) =>
+  return [...missingLocalPosts.map(mapLocalPostToCommunityPost), ...mappedServerPosts].sort((a, b) =>
     a.created_at > b.created_at ? -1 : a.created_at < b.created_at ? 1 : 0,
   )
 }
@@ -143,8 +155,6 @@ export async function createCommunityPost(
 
   throwIfPostgrestError(error)
 
-  if (error) throw error
-
   saveLocalCommunityPost({
     id: data.id,
     user_id: data.user_id,
@@ -152,8 +162,7 @@ export async function createCommunityPost(
     content: data.content,
     created_at: data.created_at,
   })
-  
-  // Return with initial counts
+
   return {
     ...data,
     likes_count: 0,
@@ -165,6 +174,7 @@ export async function createCommunityPost(
 export async function deleteCommunityPost(postId: string): Promise<void> {
   const { error } = await supabase.from('community_posts').delete().eq('id', postId)
   throwIfPostgrestError(error)
+  removeLocalCommunityPost(postId)
 }
 
 export async function toggleLike(postId: string, userId: string): Promise<void> {
