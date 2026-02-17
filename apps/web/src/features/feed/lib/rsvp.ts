@@ -11,12 +11,18 @@ export type RsvpSummary = {
   waitlistPosition: number
 }
 
+export type RsvpSnapshot = {
+  summary: RsvpSummary
+  goingUserIds: string[]
+  waitlistUserIds: string[]
+}
+
 export function isRsvpClosed(post: Post): boolean {
   if (!post.rsvp_deadline) return false
   return new Date(post.rsvp_deadline).getTime() < Date.now()
 }
 
-export function getRsvpSummary(post: Post, viewerUserId: string): RsvpSummary {
+export function getRsvpSnapshot(post: Post, viewerUserId: string): RsvpSnapshot {
   const sortedEntries = [...post.rsvps].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
   )
@@ -39,13 +45,21 @@ export function getRsvpSummary(post: Post, viewerUserId: string): RsvpSummary {
   const isWaitlisted = waitlistIds.includes(viewerUserId)
 
   return {
-    capacity: post.capacity,
-    goingCount: goingIds.length,
-    waitlistCount: waitlistIds.length,
-    isFull: goingIds.length >= post.capacity,
-    isGoing,
-    isWaitlisted,
-    hasRsvpd: isGoing || isWaitlisted,
-    waitlistPosition: isWaitlisted ? waitlistIds.indexOf(viewerUserId) + 1 : 0,
+    summary: {
+      capacity: post.capacity,
+      goingCount: goingIds.length,
+      waitlistCount: waitlistIds.length,
+      isFull: goingIds.length >= post.capacity,
+      isGoing,
+      isWaitlisted,
+      hasRsvpd: isGoing || isWaitlisted,
+      waitlistPosition: isWaitlisted ? waitlistIds.indexOf(viewerUserId) + 1 : 0,
+    },
+    goingUserIds: goingIds,
+    waitlistUserIds: waitlistIds,
   }
+}
+
+export function getRsvpSummary(post: Post, viewerUserId: string): RsvpSummary {
+  return getRsvpSnapshot(post, viewerUserId).summary
 }

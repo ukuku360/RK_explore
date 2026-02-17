@@ -36,7 +36,7 @@ import {
   rankRecommendedPosts,
   type FeedTab,
 } from '../lib/personalization'
-import { getRsvpSummary, isRsvpClosed, type RsvpSummary } from '../lib/rsvp'
+import { getRsvpSnapshot, getRsvpSummary, isRsvpClosed, type RsvpSummary } from '../lib/rsvp'
 
 const FEED_FILTERS = ['all', 'confirmed', 'scheduled'] as const
 const SORT_OPTIONS = ['votes', 'newest', 'soonest'] as const
@@ -253,6 +253,34 @@ function buildCommentThreads(comments: PostComment[]): CommentThreadNode[] {
   return roots
 }
 
+function buildUserLabelById(posts: Post[], viewer?: { id: string; label: string } | null): Record<string, string> {
+  const labelsById: Record<string, string> = {}
+
+  if (viewer?.id && viewer.label.trim().length > 0) {
+    labelsById[viewer.id] = viewer.label.trim()
+  }
+
+  for (const post of posts) {
+    if (post.user_id && post.author.trim().length > 0) {
+      labelsById[post.user_id] = post.author.trim()
+    }
+
+    for (const comment of post.comments) {
+      if (!comment.user_id) continue
+      if (comment.author.trim().length === 0) continue
+      labelsById[comment.user_id] = comment.author.trim()
+    }
+  }
+
+  return labelsById
+}
+
+function getRsvpMemberLabel(userId: string, labelsById: Record<string, string>): string {
+  const label = labelsById[userId]?.trim()
+  if (label) return label
+  return `User ${userId.slice(0, 8)}`
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -300,6 +328,10 @@ export function FeedPage() {
       return post.user_id === user.id
     })
   }, [postsQuery.data, showHiddenPosts, user])
+
+  const userLabelById = useMemo(() => {
+    return buildUserLabelById(visiblePosts, user)
+  }, [user, visiblePosts])
 
   const hasUserSignals = useMemo(() => {
     if (!user) return false
@@ -1243,7 +1275,8 @@ export function FeedPage() {
           <div className="rk-feed-list">
             {displayPosts.map((post) => {
               const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
-              const baseRsvpSummary = getRsvpSummary(post, viewerUserId)
+              const rsvpSnapshot = getRsvpSnapshot(post, viewerUserId)
+              const baseRsvpSummary = rsvpSnapshot.summary
               const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
               const isClosed = isRsvpClosed(post)
               const isRsvpClosedForJoin = isClosed && !rsvpSummary.hasRsvpd
@@ -1337,6 +1370,34 @@ export function FeedPage() {
                       </button>
                     </div>
                   </div>
+
+                  <section className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
+                    <span className="rk-rsvp-members-label">I'm in {rsvpSnapshot.goingUserIds.length}</span>
+                    <div className="rk-rsvp-members-list">
+                      {rsvpSnapshot.goingUserIds.length > 0 ? (
+                        rsvpSnapshot.goingUserIds.map((userId) => (
+                          <span key={`${post.id}-going-${userId}`} className="rk-rsvp-member-chip">
+                            {getRsvpMemberLabel(userId, userLabelById)}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="rk-rsvp-members-empty">No one has joined yet.</span>
+                      )}
+                    </div>
+                  </section>
+
+                  {rsvpSnapshot.waitlistUserIds.length > 0 ? (
+                    <section className="rk-rsvp-members rk-rsvp-members-waitlist" aria-label={`Waitlist users for ${post.location}`}>
+                      <span className="rk-rsvp-members-label">Waitlist {rsvpSnapshot.waitlistUserIds.length}</span>
+                      <div className="rk-rsvp-members-list">
+                        {rsvpSnapshot.waitlistUserIds.map((userId) => (
+                          <span key={`${post.id}-waitlist-${userId}`} className="rk-rsvp-member-chip rk-rsvp-member-chip-waitlist">
+                            {getRsvpMemberLabel(userId, userLabelById)}
+                          </span>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
 
                   {rsvpSummary.waitlistPosition > 0 ? (
                     <div className="rk-note">You are #{rsvpSummary.waitlistPosition} on the waitlist.</div>

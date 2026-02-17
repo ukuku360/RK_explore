@@ -1321,6 +1321,51 @@
   padding-left: 4px;
 }
 
+.rk-rsvp-members {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.rk-rsvp-members-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #59677a;
+}
+
+.rk-rsvp-members-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rk-rsvp-member-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #cfe8db;
+  background: #eff9f3;
+  color: #1b7650;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 6px 10px;
+}
+
+.rk-rsvp-member-chip-waitlist {
+  border-color: #ecd8b0;
+  background: #fff8ea;
+  color: #9f6b19;
+}
+
+.rk-rsvp-members-empty {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #7b8796;
+}
+
 .rk-comments {
   margin: 0 -18px;
   border-top: 1px solid #e3e9ef;

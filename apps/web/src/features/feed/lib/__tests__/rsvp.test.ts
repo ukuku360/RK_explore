@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { getRsvpSummary, isRsvpClosed } from '../rsvp'
+import { getRsvpSnapshot, getRsvpSummary, isRsvpClosed } from '../rsvp'
 import type { Post } from '../../../../types/domain'
 
 function createPost(overrides?: Partial<Post>): Post {
@@ -45,6 +45,21 @@ describe('rsvp helpers', () => {
     expect(summary.waitlistCount).toBe(1)
     expect(summary.isWaitlisted).toBe(true)
     expect(summary.waitlistPosition).toBe(1)
+  })
+
+  it('returns ordered unique going and waitlist user ids', () => {
+    const post = createPost({
+      rsvps: [
+        { id: 'r2', post_id: 'post-1', user_id: 'u2', created_at: '2026-02-14T10:01:00.000Z' },
+        { id: 'r1', post_id: 'post-1', user_id: 'u1', created_at: '2026-02-14T10:00:00.000Z' },
+        { id: 'r3', post_id: 'post-1', user_id: 'u2', created_at: '2026-02-14T10:02:00.000Z' },
+        { id: 'r4', post_id: 'post-1', user_id: 'u3', created_at: '2026-02-14T10:03:00.000Z' },
+      ],
+    })
+
+    const snapshot = getRsvpSnapshot(post, 'u3')
+    expect(snapshot.goingUserIds).toEqual(['u1', 'u2'])
+    expect(snapshot.waitlistUserIds).toEqual(['u3'])
   })
 
   it('detects closed deadlines', () => {
