@@ -9,10 +9,13 @@ type Props = {
   post: CommunityPost
   currentUserId?: string
   canReport: boolean
+  canAdminDelete: boolean
   isReported: boolean
   isReportPending: boolean
+  isAdminDeletePending: boolean
   communityPostsQueryKey: ['community_posts', string | undefined]
   onDelete: (id: string) => void
+  onAdminDelete: (post: CommunityPost) => void | Promise<void>
   onToggleReport: (id: string, isReported: boolean) => void | Promise<void>
   onShare: (id: string) => void | Promise<void>
   isShareCopied: boolean
@@ -23,10 +26,13 @@ export function CommunityPostCard({
   post,
   currentUserId,
   canReport,
+  canAdminDelete,
   isReported,
   isReportPending,
+  isAdminDeletePending,
   communityPostsQueryKey,
   onDelete,
+  onAdminDelete,
   onToggleReport,
   onShare,
   isShareCopied,
@@ -82,7 +88,19 @@ export function CommunityPostCard({
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
         <span className="rk-community-author">{post.author}</span>
-        <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
+        <div className="rk-community-header-meta">
+          <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
+          {canAdminDelete ? (
+            <button
+              type="button"
+              className="rk-admin-quick-delete"
+              onClick={() => void onAdminDelete(post)}
+              disabled={isAdminDeletePending}
+            >
+              {isAdminDeletePending ? 'Deleting...' : 'Delete'}
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="rk-community-content">{post.content}</div>

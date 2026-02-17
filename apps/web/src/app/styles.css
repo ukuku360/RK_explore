@@ -1075,6 +1075,29 @@
   gap: 6px;
 }
 
+.rk-admin-quick-delete {
+  border: 1px solid #efb8c4;
+  border-radius: 999px;
+  background: #fff1f4;
+  color: #b73252;
+  padding: 5px 11px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rk-admin-quick-delete:hover:not(:disabled) {
+  border-color: #e69eaf;
+  background: #ffe8ed;
+}
+
+.rk-admin-quick-delete:disabled {
+  opacity: 0.64;
+  cursor: not-allowed;
+}
+
 .rk-status {
   border-radius: 999px;
   padding: 5px 10px;
@@ -2327,6 +2350,12 @@
   justify-content: space-between;
   align-items: center;
   font-size: 0.875rem;
+}
+
+.rk-community-header-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .rk-community-author {

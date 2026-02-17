@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
 import type { CommunityPost } from '../../../types/domain'
 
+import { createAdminLog } from '../../../services/admin/admin.service'
 import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
-import { clearOpenReportsByReporterTarget, createReport } from '../../../services/reports/reports.service'
+import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
-import { invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
+import { invalidateAfterAdminLogMutation, invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
 import { supabaseClient as supabase } from '../../../services/supabase/client'
 import { useMyOpenReportsQuery } from '../../reports/hooks/useMyOpenReportsQuery'
 import {
@@ -129,6 +130,7 @@ export function CommunityFeed() {
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
+  const [isAdminDeletePendingByPostId, setIsAdminDeletePendingByPostId] = useState<Record<string, boolean>>({})
   const communityPostsQueryKey: ['community_posts', string | undefined] = ['community_posts', user?.id]
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
   const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
@@ -381,6 +383,46 @@ export function CommunityFeed() {
     }
   }
 
+  async function handleAdminQuickDelete(post: CommunityPost) {
+    if (!user || !user.isAdmin) return
+
+    const summary = post.content.trim().replace(/\s+/g, ' ').slice(0, 40)
+    const fallbackSummary = summary.length > 0 ? summary : post.id
+    if (!window.confirm('Delete this community post right away? This cannot be undone.')) return
+
+    setIsAdminDeletePendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      await deleteCommunityPost(post.id)
+
+      await reviewReportsByTarget({
+        target_type: 'community',
+        target_id: post.id,
+        status: 'actioned',
+        reviewed_by_user_id: user.id,
+      })
+
+      await createAdminLog({
+        post_id: null,
+        report_id: null,
+        action: 'delete',
+        reason: `Quick delete from community card (${fallbackSummary})`,
+        admin_user_id: user.id,
+        admin_email: user.email,
+      })
+
+      await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+      await invalidateAfterAdminLogMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage('Community post deleted.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to delete community post.')
+    } finally {
+      setIsAdminDeletePendingByPostId((previous) => ({ ...previous, [post.id]: false }))
+    }
+  }
+
   if (isLoading) {
     return <div className="rk-loading">Loading community posts...</div>
   }
@@ -475,10 +517,13 @@ export function CommunityFeed() {
               post={post}
               currentUserId={user?.id}
               canReport={Boolean(user && !user.isAdmin)}
+              canAdminDelete={Boolean(user?.isAdmin)}
               isReported={myReportedCommunityPostIds.has(post.id)}
               isReportPending={Boolean(isReportPendingByPostId[post.id])}
+              isAdminDeletePending={Boolean(isAdminDeletePendingByPostId[post.id])}
               communityPostsQueryKey={communityPostsQueryKey}
               onDelete={handleDelete}
+              onAdminDelete={handleAdminQuickDelete}
               onToggleReport={handleReportToggle}
               onShare={handleShare}
               isShareCopied={copiedPostId === post.id}

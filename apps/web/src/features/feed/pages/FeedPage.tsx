@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { trackEvent } from '../../../lib/analytics'
 import {
+  invalidateAfterAdminLogMutation,
   invalidateAfterCommentMutation,
   invalidateAfterPostMutation,
   invalidateAfterReportMutation,
@@ -13,9 +14,10 @@ import {
   invalidateForRealtimeTable,
 } from '../../../lib/queryInvalidation'
 import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
+import { createAdminLog } from '../../../services/admin/admin.service'
 import { createComment } from '../../../services/comments/comments.service'
-import { createPost } from '../../../services/posts/posts.service'
-import { clearOpenReportsByReporterTarget, createReport } from '../../../services/reports/reports.service'
+import { createPost, deletePost } from '../../../services/posts/posts.service'
+import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
 import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
@@ -380,6 +382,7 @@ export function FeedPage() {
   const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
   const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
+  const [isDeletePendingByPostId, setIsDeletePendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
@@ -1046,6 +1049,42 @@ export function FeedPage() {
     }
   }
 
+  async function handleAdminQuickDelete(post: Post) {
+    if (!user || !user.isAdmin) return
+    if (!window.confirm(`Delete "${post.location}" right away? This cannot be undone.`)) return
+
+    setIsDeletePendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      await deletePost(post.id)
+
+      await reviewReportsByTarget({
+        target_type: 'feed',
+        target_id: post.id,
+        status: 'actioned',
+        reviewed_by_user_id: user.id,
+      })
+
+      await createAdminLog({
+        post_id: post.id,
+        report_id: null,
+        action: 'delete',
+        reason: `Quick delete from feed card (${post.location})`,
+        admin_user_id: user.id,
+        admin_email: user.email,
+      })
+
+      await invalidateAfterAdminLogMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage('Post deleted.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to delete post.')
+    } finally {
+      setIsDeletePendingByPostId((previous) => ({ ...previous, [post.id]: false }))
+    }
+  }
+
   async function handleVote(postId: string, hasVoted: boolean) {
     if (!user) return
 
@@ -1570,6 +1609,16 @@ export function FeedPage() {
                       <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
                       {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
                       {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
+                      {user?.isAdmin ? (
+                        <button
+                          type="button"
+                          className="rk-admin-quick-delete"
+                          onClick={() => void handleAdminQuickDelete(post)}
+                          disabled={Boolean(isDeletePendingByPostId[post.id])}
+                        >
+                          {isDeletePendingByPostId[post.id] ? 'Deleting...' : 'Delete'}
+                        </button>
+                      ) : null}
                     </div>
                   </header>
 
