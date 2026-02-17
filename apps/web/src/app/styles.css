@@ -671,11 +671,14 @@
   padding: 0 16px;
 }
 
-.rk-post-optional .rk-auth-input[type='date'],
-.rk-post-optional .rk-auth-input[type='time'],
-.rk-post-optional .rk-auth-input[type='datetime-local'] {
+.rk-auth-input[type='date'],
+.rk-auth-input[type='time'],
+.rk-auth-input[type='datetime-local'] {
   width: 100%;
   min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .rk-post-optional input[type='number'] {
