@@ -556,6 +556,9 @@
 .rk-auth-input,
 .rk-post-input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  display: block;
   border: 2px solid transparent;
   border-radius: 16px;
   padding: 14px 18px;
@@ -622,6 +625,10 @@
   gap: 16px;
 }
 
+.rk-post-grid > * {
+  min-width: 0;
+}
+
 .rk-post-grid-3 {
   grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
 }
@@ -651,6 +658,13 @@
 .rk-post-optional .rk-auth-input:not(.rk-textarea) {
   height: 48px;
   padding: 0 16px;
+}
+
+.rk-post-optional .rk-auth-input[type='date'],
+.rk-post-optional .rk-auth-input[type='time'],
+.rk-post-optional .rk-auth-input[type='datetime-local'] {
+  width: 100%;
+  min-width: 0;
 }
 
 .rk-post-optional input[type='number'] {
@@ -2104,4 +2118,3 @@
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
-
