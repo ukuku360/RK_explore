@@ -1248,10 +1248,11 @@
 
 .rk-post-actions {
   margin-top: 14px;
-  margin-left: -18px;
-  margin-right: -18px;
-  padding: 10px 14px;
-  border-top: 1px solid #e3e9ef;
+  margin-left: 0;
+  margin-right: 0;
+  padding: 12px 14px;
+  border: 1px solid #e3e9ef;
+  border-radius: 18px;
   background: #f8fafd;
   display: flex;
   flex-wrap: wrap;
@@ -1284,9 +1285,9 @@
 }
 
 .rk-post-actions .rk-vote-button {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
   padding: 0;
   display: inline-grid;
   place-items: center;
@@ -1961,8 +1962,9 @@
   }
 
   .rk-post-actions .rk-vote-button {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
     padding: 0;
   }
 
