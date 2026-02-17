@@ -139,7 +139,6 @@ export function CommunityFeed() {
   const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
     queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
-    staleTime: 1000 * 30, // 30 seconds - prevent unnecessary refetches
   })
 
   const overview = useMemo(() => getCommunityOverview(posts, user?.id), [posts, user?.id])

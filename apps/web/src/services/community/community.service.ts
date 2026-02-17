@@ -2,95 +2,6 @@ import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import type { CommunityPost, CommunityComment } from '../../types/domain'
 
-const LOCAL_COMMUNITY_POSTS_KEY = 'rk.community.localPosts'
-
-type LocalCommunityPost = Pick<CommunityPost, 'id' | 'user_id' | 'author' | 'content' | 'created_at'>
-
-function readLocalCommunityPosts(): LocalCommunityPost[] {
-  if (typeof window === 'undefined') return []
-
-  try {
-    const raw = window.localStorage.getItem(LOCAL_COMMUNITY_POSTS_KEY)
-    if (!raw) return []
-
-    const parsed: unknown = JSON.parse(raw)
-    if (!Array.isArray(parsed)) return []
-
-    return parsed.filter((item): item is LocalCommunityPost => {
-      return Boolean(
-        item &&
-          typeof item === 'object' &&
-          typeof item.id === 'string' &&
-          typeof item.user_id === 'string' &&
-          typeof item.author === 'string' &&
-          typeof item.content === 'string' &&
-          typeof item.created_at === 'string',
-      )
-    })
-  } catch {
-    return []
-  }
-}
-
-function writeLocalCommunityPosts(posts: LocalCommunityPost[]): void {
-  if (typeof window === 'undefined') return
-
-  if (posts.length === 0) {
-    window.localStorage.removeItem(LOCAL_COMMUNITY_POSTS_KEY)
-    return
-  }
-
-  window.localStorage.setItem(LOCAL_COMMUNITY_POSTS_KEY, JSON.stringify(posts))
-}
-
-function saveLocalCommunityPost(post: LocalCommunityPost): void {
-  const current = readLocalCommunityPosts().filter((entry) => entry.id !== post.id)
-  writeLocalCommunityPosts([post, ...current])
-}
-
-function removeLocalCommunityPost(postId: string): void {
-  const current = readLocalCommunityPosts()
-  if (current.length === 0) return
-
-  const filtered = current.filter((post) => post.id !== postId)
-  if (filtered.length === current.length) return
-  writeLocalCommunityPosts(filtered)
-}
-
-const LOCAL_POST_RETENTION_MS = 60 * 60 * 1000 // 1 hour - keep local posts as backup for this duration
-
-function reconcileLocalCommunityPostsSafe(serverPostIds: Set<string>): void {
-  const current = readLocalCommunityPosts()
-  if (current.length === 0) return
-
-  const now = Date.now()
-
-  // Only remove posts that:
-  // 1. ARE confirmed on the server
-  // 2. AND were created more than LOCAL_POST_RETENTION_MS ago
-  const filtered = current.filter((post) => {
-    const isOnServer = serverPostIds.has(post.id)
-    if (!isOnServer) return true // Keep posts not on server
-
-    const createdAt = new Date(post.created_at).getTime()
-    const age = now - createdAt
-    // Keep recent posts even if on server (safety backup)
-    return age < LOCAL_POST_RETENTION_MS
-  })
-
-  if (filtered.length === current.length) return
-  writeLocalCommunityPosts(filtered)
-}
-
-function mapLocalPostToCommunityPost(post: LocalCommunityPost): CommunityPost {
-  return {
-    ...post,
-    likes_count: 0,
-    comments_count: 0,
-    has_liked: false,
-  }
-}
-
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
   const { data: posts, error } = await supabase
     .from('community_posts')
@@ -98,10 +9,9 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
     .order('created_at', { ascending: false })
 
   throwIfPostgrestError(error)
-  const localPosts = readLocalCommunityPosts()
 
   if (!posts || posts.length === 0) {
-    return localPosts.map(mapLocalPostToCommunityPost)
+    return []
   }
 
   const postIds = posts.map((post) => post.id)
@@ -136,25 +46,12 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const likedPostIds = new Set<string>()
   userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
-  const mappedServerPosts = posts.map((post: CommunityPost) => ({
+  return posts.map((post: CommunityPost) => ({
     ...post,
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id),
   }))
-
-  const serverPostIds = new Set(mappedServerPosts.map((post) => post.id))
-
-  // Keep local posts as a safety backup - only clean up posts confirmed on server
-  // after they've been persisted for a while (handled separately)
-  reconcileLocalCommunityPostsSafe(serverPostIds)
-
-  const missingLocalPosts = localPosts.filter((post) => !serverPostIds.has(post.id))
-  if (missingLocalPosts.length === 0) return mappedServerPosts
-
-  return [...missingLocalPosts.map(mapLocalPostToCommunityPost), ...mappedServerPosts].sort((a, b) =>
-    a.created_at > b.created_at ? -1 : a.created_at < b.created_at ? 1 : 0,
-  )
 }
 
 export async function createCommunityPost(
@@ -178,14 +75,6 @@ export async function createCommunityPost(
     throw new Error('Failed to create community post: no data returned from server')
   }
 
-  saveLocalCommunityPost({
-    id: data.id,
-    user_id: data.user_id,
-    author: data.author,
-    content: data.content,
-    created_at: data.created_at,
-  })
-
   return {
     ...data,
     likes_count: 0,
@@ -197,7 +86,6 @@ export async function createCommunityPost(
 export async function deleteCommunityPost(postId: string): Promise<void> {
   const { error } = await supabase.from('community_posts').delete().eq('id', postId)
   throwIfPostgrestError(error)
-  removeLocalCommunityPost(postId)
 }
 
 export async function toggleLike(postId: string, userId: string): Promise<void> {
