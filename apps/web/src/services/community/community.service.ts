@@ -9,51 +9,47 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (error) throw error
-  if (!posts) return []
+  throwIfPostgrestError(error)
+  if (!posts || posts.length === 0) return []
 
-  // Fetch counts for likes and comments
-  const postIds = posts.map(p => p.id)
-  
-  const { data: likesData } = await supabase
-    .from('community_likes')
-    .select('post_id')
-    .in('post_id', postIds)
-  
-  const { data: commentsData } = await supabase
-    .from('community_comments')
-    .select('post_id')
-    .in('post_id', postIds)
+  const postIds = posts.map((post) => post.id)
+  const userLikesPromise = currentUserId
+    ? supabase.from('community_likes').select('post_id').eq('user_id', currentUserId)
+    : Promise.resolve({ data: [] as Array<{ post_id: string }>, error: null })
+
+  const [likesResult, commentsResult, userLikesResult] = await Promise.all([
+    supabase.from('community_likes').select('post_id').in('post_id', postIds),
+    supabase.from('community_comments').select('post_id').in('post_id', postIds),
+    userLikesPromise,
+  ])
+
+  throwIfPostgrestError(likesResult.error)
+  throwIfPostgrestError(commentsResult.error)
+  throwIfPostgrestError(userLikesResult.error)
+
+  const likesData = likesResult.data ?? []
+  const commentsData = commentsResult.data ?? []
+  const userLikes = userLikesResult.data ?? []
 
   // Count likes and comments per post
   const likesCounts = new Map<string, number>()
-  likesData?.forEach(like => {
+  likesData.forEach((like) => {
     likesCounts.set(like.post_id, (likesCounts.get(like.post_id) ?? 0) + 1)
   })
 
   const commentsCounts = new Map<string, number>()
-  commentsData?.forEach(comment => {
+  commentsData.forEach((comment) => {
     commentsCounts.set(comment.post_id, (commentsCounts.get(comment.post_id) ?? 0) + 1)
   })
 
-  // If user is logged in, fetch their likes to determine has_liked
   const likedPostIds = new Set<string>()
-  if (currentUserId) {
-    const { data: userLikes } = await supabase
-      .from('community_likes')
-      .select('post_id')
-      .eq('user_id', currentUserId)
-    
-    if (userLikes) {
-      userLikes.forEach(like => likedPostIds.add(like.post_id))
-    }
-  }
+  userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
   return posts.map((post: CommunityPost) => ({
     ...post,
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
-    has_liked: likedPostIds.has(post.id)
+    has_liked: likedPostIds.has(post.id),
   }))
 }
 
@@ -79,7 +75,7 @@ export async function createCommunityPost(
     ...data,
     likes_count: 0,
     comments_count: 0,
-    has_liked: false
+    has_liked: false,
   }
 }
 

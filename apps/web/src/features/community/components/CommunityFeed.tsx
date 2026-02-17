@@ -1,4 +1,3 @@
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
@@ -7,12 +6,32 @@ import type { CommunityPost } from '../../../types/domain'
 import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { supabaseClient as supabase } from '../../../services/supabase/client'
+import {
+  COMMUNITY_FEED_TABS,
+  COMMUNITY_SORT_OPTIONS,
+  filterCommunityPosts,
+  getCommunityOverview,
+  sortCommunityPosts,
+  type CommunityFeedTab,
+  type CommunitySortOption,
+} from '../lib/discovery'
 import { CommunityPostCard } from './CommunityPostCard'
 import { CreateCommunityPost } from './CreateCommunityPost'
 
 const SHARED_POST_QUERY_PARAM = 'post'
 const SHARED_POST_HIGHLIGHT_MS = 2200
 const SHARE_COPY_FEEDBACK_MS = 1600
+
+const COMMUNITY_TAB_LABEL: Record<CommunityFeedTab, string> = {
+  all: 'All',
+  my_posts: 'My Posts',
+  needs_reply: 'Needs Reply',
+}
+
+const COMMUNITY_SORT_LABEL: Record<CommunitySortOption, string> = {
+  newest: 'Newest',
+  popular: 'Popular',
+}
 
 function getSharedCommunityPostElementId(postId: string): string {
   return `rk-community-post-${postId}`
@@ -62,24 +81,75 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   return copied
 }
 
+function getCommunityEmptyState(params: { hasAnyPost: boolean; hasSearch: boolean; tab: CommunityFeedTab }): {
+  title: string
+  description: string
+} {
+  if (!params.hasAnyPost) {
+    return {
+      title: 'No community posts yet',
+      description: 'Start with a quick update or question so neighbors can respond.',
+    }
+  }
+
+  if (params.hasSearch) {
+    return {
+      title: 'No results for this search',
+      description: 'Try a simpler keyword or reset filters.',
+    }
+  }
+
+  if (params.tab === 'my_posts') {
+    return {
+      title: 'No posts from you yet',
+      description: 'Share your first update to start your thread history.',
+    }
+  }
+
+  return {
+    title: 'No posts need replies right now',
+    description: 'Switch to All posts or check back later.',
+  }
+}
+
 export function CommunityFeed() {
   const { user } = useAuthSession()
   const location = useLocation()
   const queryClient = useQueryClient()
+  const preparedSharedPostViewRef = useRef<string | null>(null)
   const focusedSharedPostRef = useRef<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [copiedPostId, setCopiedPostId] = useState<string | null>(null)
+  const [feedTab, setFeedTab] = useState<CommunityFeedTab>('all')
+  const [sortOption, setSortOption] = useState<CommunitySortOption>('newest')
+  const [searchText, setSearchText] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const communityPostsQueryKey: ['community_posts', string | undefined] = ['community_posts', user?.id]
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
-
 
   const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
     queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
   })
 
+  const overview = useMemo(() => getCommunityOverview(posts, user?.id), [posts, user?.id])
+  const filteredPosts = useMemo(
+    () =>
+      filterCommunityPosts(posts, {
+        tab: feedTab,
+        currentUserId: user?.id,
+        searchText,
+      }),
+    [feedTab, posts, searchText, user?.id],
+  )
+  const visiblePosts = useMemo(() => sortCommunityPosts(filteredPosts, sortOption), [filteredPosts, sortOption])
+  const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest'
+  const emptyState = getCommunityEmptyState({
+    hasAnyPost: posts.length > 0,
+    hasSearch: searchText.trim().length > 0,
+    tab: feedTab,
+  })
 
   // Realtime subscription
   useEffect(() => {
@@ -90,6 +160,21 @@ export function CommunityFeed() {
         { event: '*', schema: 'public', table: 'community_posts' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_likes' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'community_comments' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+          queryClient.invalidateQueries({ queryKey: ['community_comments'] })
         }
       )
       .subscribe()
@@ -113,6 +198,16 @@ export function CommunityFeed() {
 
   useEffect(() => {
     if (!sharedPostId) return
+    if (preparedSharedPostViewRef.current === sharedPostId) return
+
+    preparedSharedPostViewRef.current = sharedPostId
+    setFeedTab('all')
+    setSortOption('newest')
+    setSearchText('')
+  }, [sharedPostId])
+
+  useEffect(() => {
+    if (!sharedPostId) return
     if (focusedSharedPostRef.current === sharedPostId) return
     if (isLoading) return
 
@@ -123,6 +218,9 @@ export function CommunityFeed() {
       setStatusMessage('The shared post was not found in community.')
       return
     }
+
+    const isVisible = visiblePosts.some((post) => post.id === sharedPostId)
+    if (!isVisible) return
 
     const target = document.getElementById(getSharedCommunityPostElementId(sharedPostId))
     if (!target) return
@@ -140,7 +238,7 @@ export function CommunityFeed() {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [isLoading, posts, sharedPostId])
+  }, [isLoading, posts, sharedPostId, visiblePosts])
 
   async function handleCreate(content: string) {
     if (!user) return
@@ -172,6 +270,12 @@ export function CommunityFeed() {
     deleteMutation.mutate(id)
   }
 
+  function resetDiscovery() {
+    setFeedTab('all')
+    setSortOption('newest')
+    setSearchText('')
+  }
+
   async function handleShare(postId: string) {
     if (typeof window === 'undefined') return
 
@@ -201,14 +305,82 @@ export function CommunityFeed() {
           {statusMessage}
         </p>
       ) : null}
+
+      <section className="rk-filter-toolbar rk-community-discovery">
+        <div className="rk-community-overview">
+          <div className="rk-community-metric">
+            <strong>{overview.totalPosts}</strong>
+            <span>Posts</span>
+          </div>
+          <div className="rk-community-metric">
+            <strong>{overview.needsReply}</strong>
+            <span>Needs Reply</span>
+          </div>
+          <div className="rk-community-metric">
+            <strong>{overview.totalEngagements}</strong>
+            <span>Engagements</span>
+          </div>
+          <div className="rk-community-metric">
+            <strong>{overview.myPosts}</strong>
+            <span>My Posts</span>
+          </div>
+        </div>
+
+        <div className="rk-discovery rk-community-search">
+          <input
+            className="rk-post-input"
+            placeholder="Search by keyword or author..."
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+        </div>
+
+        <div className="rk-feed-tabs" role="tablist" aria-label="Community feed tabs">
+          {COMMUNITY_FEED_TABS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={feedTab === tab}
+              className={`rk-chip rk-feed-tab ${feedTab === tab ? 'rk-chip-active' : ''}`}
+              onClick={() => setFeedTab(tab)}
+            >
+              {COMMUNITY_TAB_LABEL[tab]}
+            </button>
+          ))}
+        </div>
+
+        <div className="rk-community-sort-row">
+          <span className="rk-community-sort-label">Sort</span>
+          <div className="rk-discovery-chips">
+            {COMMUNITY_SORT_OPTIONS.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className={`rk-chip ${sortOption === option ? 'rk-chip-active' : ''}`}
+                onClick={() => setSortOption(option)}
+              >
+                {COMMUNITY_SORT_LABEL[option]}
+              </button>
+            ))}
+            {hasActiveDiscovery ? (
+              <button type="button" className="rk-chip" onClick={resetDiscovery}>
+                Reset
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <p className="rk-feed-note">Showing {visiblePosts.length} posts</p>
+      </section>
       
       <div className="rk-community-list">
-        {posts.length === 0 ? (
+        {visiblePosts.length === 0 ? (
           <div className="rk-empty-state">
-            No community posts yet. Be the first!
+            <strong>{emptyState.title}</strong>
+            <p>{emptyState.description}</p>
           </div>
         ) : (
-          posts.map((post) => (
+          visiblePosts.map((post) => (
             <CommunityPostCard
               key={post.id}
               post={post}

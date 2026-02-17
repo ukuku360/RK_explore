@@ -84,21 +84,32 @@ export function CommunityPostCard({
       <div className="rk-community-footer">
         <div className="rk-engagement-actions">
           <button 
+            type="button"
             className={`rk-action-btn ${post.has_liked ? 'liked' : ''}`}
             onClick={handleLike}
+            aria-pressed={post.has_liked}
+            aria-label={post.has_liked ? `Unlike (${post.likes_count})` : `Like (${post.likes_count})`}
           >
             {post.has_liked ? '❤️' : '🤍'} 
             <span>{post.likes_count}</span>
           </button>
           
           <button 
+            type="button"
             className="rk-action-btn"
             onClick={() => setShowComments(!showComments)}
+            aria-expanded={showComments}
+            aria-label={showComments ? `Hide comments (${post.comments_count})` : `Show comments (${post.comments_count})`}
           >
             💬 <span>{post.comments_count}</span>
           </button>
 
-          <button className={`rk-action-btn ${isShareCopied ? 'liked' : ''}`} onClick={() => void onShare(post.id)}>
+          <button
+            type="button"
+            className={`rk-action-btn ${isShareCopied ? 'liked' : ''}`}
+            onClick={() => void onShare(post.id)}
+            aria-label={isShareCopied ? 'Community link copied' : 'Share this community post'}
+          >
             🔗 <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
           </button>
         </div>
