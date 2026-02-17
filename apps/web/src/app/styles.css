@@ -1030,31 +1030,37 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 9px;
+  gap: 6px;
   font-size: 0.82rem;
   font-weight: 600;
   color: #6f7c8b;
 }
 
-.rk-post-meta span + span::before {
-  content: '•';
-  margin-right: 9px;
-  color: #a2acb8;
-}
-
-.rk-post-date-pill {
+.rk-post-meta-item {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 3px 10px;
-  border: 1px solid #dceee5;
-  background: #ebf8f1;
-  color: #0e7a58;
+  border: 1px solid #e2e8f0;
+  background: #f7fafd;
+  color: #64758a;
   font-weight: 700;
+  line-height: 1;
+  padding: 5px 11px;
+  white-space: nowrap;
 }
 
-.rk-post-date-pill::before {
-  content: none;
+.rk-post-meta-author {
+  color: #5a6a7d;
+}
+
+.rk-post-meta-time {
+  color: #708095;
+}
+
+.rk-post-date-pill {
+  border-color: #cee7dc;
+  background: #edf8f3;
+  color: #177956;
 }
 
 .rk-status-cluster {

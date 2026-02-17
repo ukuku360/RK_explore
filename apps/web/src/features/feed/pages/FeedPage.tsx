@@ -1344,9 +1344,11 @@ export function FeedPage() {
                         </span>
                       </h3>
                       <div className="rk-post-meta">
-                        <span>{post.author}</span>
-                        <span>{postedAgoLabel}</span>
-                        {post.proposed_date ? <span className="rk-post-date-pill">{formatDate(post.proposed_date)}</span> : null}
+                        <span className="rk-post-meta-item rk-post-meta-author">{post.author}</span>
+                        <span className="rk-post-meta-item rk-post-meta-time">{postedAgoLabel}</span>
+                        {post.proposed_date ? (
+                          <span className="rk-post-meta-item rk-post-date-pill">{formatDate(post.proposed_date)}</span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="rk-status-cluster">
