@@ -779,7 +779,8 @@
 
 .rk-feed-tabs {
   margin-bottom: 20px;
-  display: inline-flex;
+  display: flex;
+  justify-content: center;
   flex-wrap: wrap;
   gap: 8px;
   background: #f1f5f9;
