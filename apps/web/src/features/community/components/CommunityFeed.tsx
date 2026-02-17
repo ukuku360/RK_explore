@@ -243,12 +243,28 @@ export function CommunityFeed() {
   async function handleCreate(content: string) {
     if (!user) return
     setIsSubmitting(true)
+    setStatusTone('idle')
+    setStatusMessage('')
     try {
-      await createCommunityPost(content, user.label, user.id)
-      // Optimistic update or wait for realtime/invalidation is handled by query
+      const createdPost = await createCommunityPost(content, user.label, user.id)
+
+      setFeedTab('all')
+      setSortOption('newest')
+      setSearchText('')
+
+      queryClient.setQueryData<CommunityPost[]>(communityPostsQueryKey, (previous) => {
+        const currentPosts = previous ?? []
+        const dedupedPosts = currentPosts.filter((post) => post.id !== createdPost.id)
+        return [createdPost, ...dedupedPosts]
+      })
+
+      await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+      setStatusTone('success')
+      setStatusMessage('Posted to community.')
     } catch (error) {
       console.error('Failed to post', error)
-      alert('Failed to post. Please try again.')
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to post. Please try again.')
     } finally {
       setIsSubmitting(false)
     }

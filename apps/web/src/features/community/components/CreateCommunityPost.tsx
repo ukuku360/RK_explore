@@ -6,7 +6,7 @@ type Props = {
   isSubmitting: boolean
 }
 
-const COMMUNITY_POST_MIN_LENGTH = 3
+const COMMUNITY_POST_MIN_LENGTH = 1
 const COMMUNITY_POST_MAX_LENGTH = 280
 
 export function CreateCommunityPost({ onSubmit, isSubmitting }: Props) {
@@ -44,8 +44,8 @@ export function CreateCommunityPost({ onSubmit, isSubmitting }: Props) {
         />
         <div className="rk-community-compose-meta">
           <span className={helperToneClass}>
-            {isTooShort
-              ? `Write at least ${COMMUNITY_POST_MIN_LENGTH} characters.`
+            {normalizedContent.length === 0
+              ? 'Write at least 1 character to post.'
               : 'Tip: include location or time so people can respond quickly.'}
           </span>
           <span className="rk-community-compose-count">
