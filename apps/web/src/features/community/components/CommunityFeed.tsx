@@ -131,13 +131,15 @@ export function CommunityFeed() {
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isAdminDeletePendingByPostId, setIsAdminDeletePendingByPostId] = useState<Record<string, boolean>>({})
-  const communityPostsQueryKey: ['community_posts', string | undefined] = ['community_posts', user?.id]
+  // Use stable query key without user.id to prevent cache invalidation on auth state change
+  const communityPostsQueryKey = ['community_posts'] as const
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
   const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
 
   const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
     queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
+    staleTime: 1000 * 30, // 30 seconds - prevent unnecessary refetches
   })
 
   const overview = useMemo(() => getCommunityOverview(posts, user?.id), [posts, user?.id])

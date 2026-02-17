@@ -13,7 +13,7 @@ type Props = {
   isReported: boolean
   isReportPending: boolean
   isAdminDeletePending: boolean
-  communityPostsQueryKey: ['community_posts', string | undefined]
+  communityPostsQueryKey: readonly ['community_posts']
   onDelete: (id: string) => void
   onAdminDelete: (post: CommunityPost) => void | Promise<void>
   onToggleReport: (id: string, isReported: boolean) => void | Promise<void>
