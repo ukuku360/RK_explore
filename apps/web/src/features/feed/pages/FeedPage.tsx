@@ -901,7 +901,7 @@ export function FeedPage() {
   return (
     <section className="rk-page">
       <div className="rk-creation-card">
-        <h1>Create a Trip Idea</h1>
+        <h1>Create an Explore idea</h1>
         <p>{previewText}</p>
 
         <form ref={formRef} className="rk-post-form" onSubmit={handleSubmit}>
