@@ -23,6 +23,7 @@ export const queryKeys = {
   reports: {
     all: ['reports'] as const,
     list: () => ['reports', 'list'] as const,
+    byReporter: (reporterUserId: string) => ['reports', 'by-reporter', reporterUserId] as const,
   },
   adminLogs: {
     all: ['admin-logs'] as const,

@@ -6,7 +6,7 @@ import { listReports } from '../../../services/reports/reports.service'
 export function useAdminReportsQuery(enabled: boolean) {
   return useQuery({
     queryKey: queryKeys.reports.list(),
-    queryFn: () => listReports(100),
+    queryFn: () => listReports(300),
     enabled,
   })
 }

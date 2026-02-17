@@ -7,6 +7,9 @@ export type PostStatus = (typeof POST_STATUSES)[number]
 export const REPORT_STATUSES = ['open', 'dismissed', 'actioned'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
+export const REPORT_TARGET_TYPES = ['feed', 'community'] as const
+export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number]
+
 export const ADMIN_ACTIONS = ['hide', 'unhide', 'delete', 'dismiss_report'] as const
 export type AdminAction = (typeof ADMIN_ACTIONS)[number]
 
@@ -85,9 +88,12 @@ export type UpdatePostModerationInput = {
 
 export type Report = {
   id: string
-  post_id: string
+  target_type: ReportTargetType
+  post_id: string | null
+  community_post_id: string | null
   reporter_user_id: string
   reporter_email: string
+  reporter_nickname: string
   reason: string
   status: ReportStatus
   created_at: string

@@ -4,8 +4,11 @@ import { useLocation } from 'react-router-dom'
 import type { CommunityPost } from '../../../types/domain'
 
 import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
+import { clearOpenReportsByReporterTarget, createReport } from '../../../services/reports/reports.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
+import { invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
 import { supabaseClient as supabase } from '../../../services/supabase/client'
+import { useMyOpenReportsQuery } from '../../reports/hooks/useMyOpenReportsQuery'
 import {
   COMMUNITY_FEED_TABS,
   COMMUNITY_SORT_OPTIONS,
@@ -125,8 +128,10 @@ export function CommunityFeed() {
   const [searchText, setSearchText] = useState('')
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
+  const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const communityPostsQueryKey: ['community_posts', string | undefined] = ['community_posts', user?.id]
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
+  const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
 
   const { data: posts = [], isLoading } = useQuery<CommunityPost[]>({
     queryKey: communityPostsQueryKey,
@@ -144,6 +149,18 @@ export function CommunityFeed() {
     [feedTab, posts, searchText, user?.id],
   )
   const visiblePosts = useMemo(() => sortCommunityPosts(filteredPosts, sortOption), [filteredPosts, sortOption])
+  const myReportedCommunityPostIds = useMemo(() => {
+    const reportedPostIds = new Set<string>()
+
+    for (const report of myOpenReportsQuery.data ?? []) {
+      if (report.status !== 'open') continue
+      if (report.target_type !== 'community') continue
+      if (!report.community_post_id) continue
+      reportedPostIds.add(report.community_post_id)
+    }
+
+    return reportedPostIds
+  }, [myOpenReportsQuery.data])
   const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest'
   const emptyState = getCommunityEmptyState({
     hasAnyPost: posts.length > 0,
@@ -308,6 +325,62 @@ export function CommunityFeed() {
     setStatusMessage('Community post URL copied. Share it in SNS.')
   }
 
+  function promptReportReason(): string | null {
+    const rawReason = window.prompt('Report reason (at least 5 characters)', '')
+    if (rawReason === null) return null
+
+    const normalizedReason = rawReason.trim().replace(/\s+/g, ' ').slice(0, 500)
+    if (normalizedReason.length < 5) {
+      setStatusTone('error')
+      setStatusMessage('Please enter at least 5 characters for the report reason.')
+      return null
+    }
+
+    return normalizedReason
+  }
+
+  async function handleReportToggle(postId: string, isAlreadyReported: boolean) {
+    if (!user || user.isAdmin) return
+
+    let nextReason: string | null = null
+    if (!isAlreadyReported) {
+      nextReason = promptReportReason()
+      if (!nextReason) return
+    }
+
+    setIsReportPendingByPostId((previous) => ({ ...previous, [postId]: true }))
+
+    try {
+      if (isAlreadyReported) {
+        await clearOpenReportsByReporterTarget({
+          target_type: 'community',
+          target_id: postId,
+          reporter_user_id: user.id,
+        })
+        setStatusTone('success')
+        setStatusMessage('Report removed.')
+      } else {
+        await createReport({
+          target_type: 'community',
+          target_id: postId,
+          reporter_user_id: user.id,
+          reporter_email: user.email,
+          reporter_nickname: user.label,
+          reason: nextReason ?? 'No reason provided',
+        })
+        setStatusTone('success')
+        setStatusMessage('Community post reported to admin.')
+      }
+
+      await invalidateAfterReportMutation(queryClient)
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update report.')
+    } finally {
+      setIsReportPendingByPostId((previous) => ({ ...previous, [postId]: false }))
+    }
+  }
+
   if (isLoading) {
     return <div className="rk-loading">Loading community posts...</div>
   }
@@ -401,8 +474,12 @@ export function CommunityFeed() {
               key={post.id}
               post={post}
               currentUserId={user?.id}
+              canReport={Boolean(user && !user.isAdmin)}
+              isReported={myReportedCommunityPostIds.has(post.id)}
+              isReportPending={Boolean(isReportPendingByPostId[post.id])}
               communityPostsQueryKey={communityPostsQueryKey}
               onDelete={handleDelete}
+              onToggleReport={handleReportToggle}
               onShare={handleShare}
               isShareCopied={copiedPostId === post.id}
               elementId={getSharedCommunityPostElementId(post.id)}

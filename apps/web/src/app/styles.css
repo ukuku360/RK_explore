@@ -1329,6 +1329,18 @@
   color: #1b7a52;
 }
 
+.rk-report-button {
+  border-color: #ebc4cd;
+  background: #fff7f8;
+  color: #9f3f52;
+}
+
+.rk-report-button-active {
+  border-color: #e9aab8;
+  background: #ffeef1;
+  color: #b02e4d;
+}
+
 .rk-action-help {
   font-size: 0.78rem;
   font-weight: 700;
@@ -2518,6 +2530,12 @@
 .rk-action-btn.liked {
   color: #da1f43;
   font-weight: 600;
+}
+
+.rk-action-btn.rk-action-btn-alert {
+  color: #c12f4f;
+  background: #fff0f3;
+  font-weight: 700;
 }
 
 /* Comments */

@@ -7,6 +7,7 @@ import { trackEvent } from '../../../lib/analytics'
 import {
   invalidateAfterCommentMutation,
   invalidateAfterPostMutation,
+  invalidateAfterReportMutation,
   invalidateAfterRsvpMutation,
   invalidateAfterVoteMutation,
   invalidateForRealtimeTable,
@@ -14,10 +15,12 @@ import {
 import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
 import { createComment } from '../../../services/comments/comments.service'
 import { createPost } from '../../../services/posts/posts.service'
+import { clearOpenReportsByReporterTarget, createReport } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
 import { SupabaseServiceError } from '../../../services/supabase/errors'
 import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category, type Comment as PostComment, type Post } from '../../../types/domain'
+import { useMyOpenReportsQuery } from '../../reports/hooks/useMyOpenReportsQuery'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
 import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
 import {
@@ -376,6 +379,7 @@ export function FeedPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
   const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
+  const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
@@ -394,6 +398,20 @@ export function FeedPage() {
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMobileFabCompact, setIsMobileFabCompact] = useState(false)
   const viewerUserId = user?.id ?? ''
+  const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
+
+  const myReportedFeedPostIds = useMemo(() => {
+    const reportedPostIds = new Set<string>()
+
+    for (const report of myOpenReportsQuery.data ?? []) {
+      if (report.status !== 'open') continue
+      if (report.target_type !== 'feed') continue
+      if (!report.post_id) continue
+      reportedPostIds.add(report.post_id)
+    }
+
+    return reportedPostIds
+  }, [myOpenReportsQuery.data])
 
   const visiblePosts = useMemo(() => {
     if (!postsQuery.data || !user) return []
@@ -972,6 +990,62 @@ export function FeedPage() {
     setStatusMessage('Post URL copied. Share it in SNS.')
   }
 
+  function promptReportReason(): string | null {
+    const rawReason = window.prompt('Report reason (at least 5 characters)', '')
+    if (rawReason === null) return null
+
+    const normalizedReason = rawReason.trim().replace(/\s+/g, ' ').slice(0, 500)
+    if (normalizedReason.length < 5) {
+      setStatusTone('error')
+      setStatusMessage('Please enter at least 5 characters for the report reason.')
+      return null
+    }
+
+    return normalizedReason
+  }
+
+  async function handleReportToggle(postId: string, isAlreadyReported: boolean) {
+    if (!user || user.isAdmin) return
+
+    let nextReason: string | null = null
+    if (!isAlreadyReported) {
+      nextReason = promptReportReason()
+      if (!nextReason) return
+    }
+
+    setIsReportPendingByPostId((previous) => ({ ...previous, [postId]: true }))
+
+    try {
+      if (isAlreadyReported) {
+        await clearOpenReportsByReporterTarget({
+          target_type: 'feed',
+          target_id: postId,
+          reporter_user_id: user.id,
+        })
+        setStatusTone('success')
+        setStatusMessage('Report removed.')
+      } else {
+        await createReport({
+          target_type: 'feed',
+          target_id: postId,
+          reporter_user_id: user.id,
+          reporter_email: user.email,
+          reporter_nickname: user.label,
+          reason: nextReason ?? 'No reason provided',
+        })
+        setStatusTone('success')
+        setStatusMessage('Post reported to admin.')
+      }
+
+      await invalidateAfterReportMutation(queryClient)
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update report.')
+    } finally {
+      setIsReportPendingByPostId((previous) => ({ ...previous, [postId]: false }))
+    }
+  }
+
   async function handleVote(postId: string, hasVoted: boolean) {
     if (!user) return
 
@@ -1454,6 +1528,7 @@ export function FeedPage() {
           <div className="rk-feed-list">
             {displayPosts.map((post) => {
               const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
+              const isReported = myReportedFeedPostIds.has(post.id)
               const rsvpSnapshot = getRsvpSnapshot(post, viewerUserId)
               const baseRsvpSummary = rsvpSnapshot.summary
               const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
@@ -1559,6 +1634,18 @@ export function FeedPage() {
                         {copiedPostId === post.id ? 'Copied URL' : 'Share'}
                       </button>
                     </div>
+                    {!user?.isAdmin ? (
+                      <div className="rk-action-stack">
+                        <button
+                          type="button"
+                          className={`rk-action-button rk-report-button ${isReported ? 'rk-report-button-active' : ''}`}
+                          onClick={() => void handleReportToggle(post.id, isReported)}
+                          disabled={isReportPendingByPostId[post.id]}
+                        >
+                          {isReported ? 'Reported' : 'Report'}
+                        </button>
+                      </div>
+                    ) : null}
                   </div>
 
                   <details className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
