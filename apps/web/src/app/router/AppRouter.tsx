@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import type { ReactElement } from 'react'
 
 import { AppShell } from '../layout/AppShell'
@@ -10,6 +10,18 @@ import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
 const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
+
+function resolvePostAuthRedirect(state: unknown): string {
+  if (!state || typeof state !== 'object') return '/'
+
+  const redirectTo = (state as { redirectTo?: unknown }).redirectTo
+  if (typeof redirectTo !== 'string') return '/'
+  if (!redirectTo.startsWith('/')) return '/'
+  if (redirectTo.startsWith('//')) return '/'
+  if (redirectTo.startsWith('/auth')) return '/'
+
+  return redirectTo
+}
 
 function RouteLoading({ label }: { label: string }) {
   return (
@@ -43,13 +55,15 @@ function AdminRoute() {
 
 function ProtectedRoute({ children }: { children: ReactElement }) {
   const { user, isLoading } = useAuthSession()
+  const location = useLocation()
 
   if (isLoading) {
     return <RouteLoading label="Restoring your session..." />
   }
 
   if (!user) {
-    return <Navigate to="/auth" replace />
+    const redirectTo = `${location.pathname}${location.search}${location.hash}`
+    return <Navigate to="/auth" replace state={{ redirectTo }} />
   }
 
   return children
@@ -57,13 +71,14 @@ function ProtectedRoute({ children }: { children: ReactElement }) {
 
 function AuthRoute() {
   const { user, isLoading } = useAuthSession()
+  const location = useLocation()
 
   if (isLoading) {
     return <RouteLoading label="Restoring your session..." />
   }
 
   if (user) {
-    return <Navigate to="/" replace />
+    return <Navigate to={resolvePostAuthRedirect(location.state)} replace />
   }
 
   return <AuthPage />

@@ -980,6 +980,10 @@
   opacity: 1;
 }
 
+.rk-post-card.rk-post-card-shared-target {
+  box-shadow: 0 0 0 3px rgba(218, 31, 67, 0.22), var(--rk-shadow-lg);
+}
+
 .rk-hidden-note {
   margin-bottom: 10px;
   border-radius: 12px;

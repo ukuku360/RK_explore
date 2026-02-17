@@ -51,6 +51,58 @@ const QUICK_TRIP_TEMPLATES = [
   { label: 'Food Tour', location: 'Inner West Food Walk' },
 ] as const
 
+const SHARED_POST_QUERY_PARAM = 'post'
+const SHARED_POST_HIGHLIGHT_MS = 2200
+const SHARE_COPY_FEEDBACK_MS = 1600
+
+function getSharedPostElementId(postId: string): string {
+  return `rk-post-${postId}`
+}
+
+function getSharedPostIdFromSearch(search: string): string | null {
+  const params = new URLSearchParams(search)
+  const sharedPostId = params.get(SHARED_POST_QUERY_PARAM)?.trim() ?? ''
+  return sharedPostId.length > 0 ? sharedPostId : null
+}
+
+function buildSharePostUrl(origin: string, pathname: string, postId: string): string {
+  const shareUrl = new URL(pathname || '/', origin)
+  shareUrl.searchParams.set(SHARED_POST_QUERY_PARAM, postId)
+  shareUrl.hash = ''
+  return shareUrl.toString()
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (typeof window === 'undefined') return false
+
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      // Falls back to legacy copy path when Clipboard API is blocked.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', 'true')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  textarea.style.pointerEvents = 'none'
+  document.body.appendChild(textarea)
+  textarea.select()
+
+  let copied = false
+  try {
+    copied = document.execCommand('copy')
+  } finally {
+    document.body.removeChild(textarea)
+  }
+
+  return copied
+}
+
 function getStatusLabel(status: 'proposed' | 'confirmed'): string {
   return status === 'confirmed' ? 'Confirmed' : 'Proposed'
 }
@@ -314,6 +366,8 @@ export function FeedPage() {
   const formRef = useRef<HTMLFormElement | null>(null)
   const hasTrackedPostCreateStartRef = useRef(false)
   const hasTrackedStep1ValidRef = useRef(false)
+  const preparedSharedPostViewRef = useRef<string | null>(null)
+  const focusedSharedPostRef = useRef<string | null>(null)
 
   const [form, setForm] = useState<PostFormState>(getInitialFormState)
   const [step1Touched, setStep1Touched] = useState<Record<Step1Field, boolean>>(getInitialStep1TouchedState)
@@ -335,6 +389,7 @@ export function FeedPage() {
   const [showHiddenPosts, setShowHiddenPosts] = useState(false)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
+  const [copiedPostId, setCopiedPostId] = useState<string | null>(null)
   const [optimisticRsvpByPostId, setOptimisticRsvpByPostId] = useState<Record<string, RsvpSummary>>({})
   const [isKeyboardOpen, setIsKeyboardOpen] = useState(false)
   const [isMobileFabCompact, setIsMobileFabCompact] = useState(false)
@@ -488,6 +543,7 @@ export function FeedPage() {
     hasSearchText: searchText.trim().length > 0,
     hasActiveFilters,
   })
+  const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
 
   useEffect(() => {
     if (!user?.isAdmin) return
@@ -503,6 +559,74 @@ export function FeedPage() {
     setStatusMessage('Admin workspace is restricted to admin accounts.')
     navigate(location.pathname, { replace: true })
   }, [location.pathname, location.state, navigate])
+
+  useEffect(() => {
+    if (!copiedPostId) return
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedPostId((previous) => (previous === copiedPostId ? null : previous))
+    }, SHARE_COPY_FEEDBACK_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [copiedPostId])
+
+  useEffect(() => {
+    if (!sharedPostId) return
+    if (preparedSharedPostViewRef.current === sharedPostId) return
+
+    preparedSharedPostViewRef.current = sharedPostId
+    setFeedTab('all')
+    setSearchText('')
+    setSelectedCategory('all')
+    setFeedFilter('all')
+    setSortOption('votes')
+  }, [sharedPostId])
+
+  useEffect(() => {
+    if (!sharedPostId) return
+    if (focusedSharedPostRef.current === sharedPostId) return
+    if (postsQuery.isLoading) return
+
+    const matchedPost = postsQuery.data?.find((post) => post.id === sharedPostId)
+    if (!matchedPost) {
+      focusedSharedPostRef.current = sharedPostId
+      setStatusTone('error')
+      setStatusMessage('The shared post was not found.')
+      return
+    }
+
+    if (user?.isAdmin && matchedPost.is_hidden && !showHiddenPosts) {
+      setShowHiddenPosts(true)
+      return
+    }
+
+    const isVisibleToViewer = user?.isAdmin ? true : !matchedPost.is_hidden || matchedPost.user_id === user?.id
+    if (!isVisibleToViewer) {
+      focusedSharedPostRef.current = sharedPostId
+      setStatusTone('error')
+      setStatusMessage('This shared post is hidden and cannot be viewed.')
+      return
+    }
+
+    const target = document.getElementById(getSharedPostElementId(sharedPostId))
+    if (!target) return
+
+    focusedSharedPostRef.current = sharedPostId
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target.classList.add('rk-post-card-shared-target')
+    setStatusTone('success')
+    setStatusMessage('Opened shared post.')
+
+    const timeoutId = window.setTimeout(() => {
+      target.classList.remove('rk-post-card-shared-target')
+    }, SHARED_POST_HIGHLIGHT_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [postsQuery.data, postsQuery.isLoading, sharedPostId, showHiddenPosts, user?.id, user?.isAdmin])
 
   useEffect(() => {
     if (!user) return
@@ -830,6 +954,22 @@ export function FeedPage() {
       role: user.isAdmin ? 'admin' : 'member',
       surface: 'mobile_fab',
     })
+  }
+
+  async function handleShare(postId: string) {
+    if (typeof window === 'undefined') return
+
+    const shareUrl = buildSharePostUrl(window.location.origin, location.pathname, postId)
+    const copied = await copyTextToClipboard(shareUrl)
+    if (!copied) {
+      setStatusTone('error')
+      setStatusMessage('Unable to copy post URL. Please try again.')
+      return
+    }
+
+    setCopiedPostId(postId)
+    setStatusTone('success')
+    setStatusMessage('Post URL copied. Share it in SNS.')
   }
 
   async function handleVote(postId: string, hasVoted: boolean) {
@@ -1328,7 +1468,7 @@ export function FeedPage() {
               const commentThreads = buildCommentThreads(post.comments)
 
               return (
-                <article key={post.id} className="rk-post-card">
+                <article key={post.id} id={getSharedPostElementId(post.id)} className="rk-post-card">
                   {post.is_hidden ? (
                     <div className="rk-hidden-note">Hidden by admin{post.hidden_reason ? `: ${post.hidden_reason}` : '.'}</div>
                   ) : null}
@@ -1408,6 +1548,15 @@ export function FeedPage() {
                     <div className="rk-action-stack">
                       <button type="button" className="rk-action-button" onClick={() => toggleComments(post.id)}>
                         Comment {post.comments.length}
+                      </button>
+                    </div>
+                    <div className="rk-action-stack">
+                      <button
+                        type="button"
+                        className={`rk-action-button ${copiedPostId === post.id ? 'rk-action-active' : ''}`}
+                        onClick={() => void handleShare(post.id)}
+                      >
+                        {copiedPostId === post.id ? 'Copied URL' : 'Share'}
                       </button>
                     </div>
                   </div>

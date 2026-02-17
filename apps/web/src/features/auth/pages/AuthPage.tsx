@@ -1,12 +1,25 @@
 import { useState, type KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 
 type AuthMode = 'login' | 'signup'
 
+function resolvePostAuthRedirect(state: unknown): string {
+  if (!state || typeof state !== 'object') return '/'
+
+  const redirectTo = (state as { redirectTo?: unknown }).redirectTo
+  if (typeof redirectTo !== 'string') return '/'
+  if (!redirectTo.startsWith('/')) return '/'
+  if (redirectTo.startsWith('//')) return '/'
+  if (redirectTo.startsWith('/auth')) return '/'
+
+  return redirectTo
+}
+
 export function AuthPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, signup } = useAuthSession()
 
   const [mode, setMode] = useState<AuthMode>('login')
@@ -30,7 +43,7 @@ export function AuthPage() {
 
     setStatusType('success')
     setStatusMessage('Welcome back!')
-    navigate('/', { replace: true })
+    navigate(resolvePostAuthRedirect(location.state), { replace: true })
   }
 
   async function handleSignup() {
