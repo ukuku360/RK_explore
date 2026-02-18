@@ -25,6 +25,7 @@ import { addVote, removeVote } from '../../../services/votes/votes.service'
 import { CATEGORIES, type Category, type Comment as PostComment, type Post } from '../../../types/domain'
 import { useMyOpenReportsQuery } from '../../reports/hooks/useMyOpenReportsQuery'
 import { usePostsWithRelationsQuery } from '../hooks/usePostsWithRelationsQuery'
+import { useProfileAvatarsByUserIdsQuery } from '../hooks/useProfileAvatarsByUserIdsQuery'
 import { clearDraft, hasDraftContent, loadDraft, POST_DRAFT_SAVE_DELAY_MS, saveDraft } from '../lib/postDraft'
 import {
   getInitialFormState,
@@ -363,6 +364,12 @@ function getRsvpMemberLabel(userId: string, labelsById: Record<string, string>):
   return `User ${userId.slice(0, 8)}`
 }
 
+function getAvatarFallbackText(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  return trimmed.charAt(0).toUpperCase()
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -435,6 +442,12 @@ export function FeedPage() {
   const userLabelById = useMemo(() => {
     return buildUserLabelById(visiblePosts, user)
   }, [user, visiblePosts])
+
+  const postAuthorIds = useMemo(() => {
+    return [...new Set(visiblePosts.map((post) => post.user_id).filter((userId) => userId.trim().length > 0))]
+  }, [visiblePosts])
+
+  const profileAvatarsQuery = useProfileAvatarsByUserIdsQuery(postAuthorIds)
 
   const hasUserSignals = useMemo(() => {
     if (!user) return false
@@ -1649,14 +1662,25 @@ export function FeedPage() {
                         </span>
                       </h3>
                       <div className="rk-post-meta">
-                        <Link to={`/profile/${post.user_id}`} className="rk-post-meta-item rk-post-meta-author rk-author-link">{post.author}</Link>
+                        <Link to={`/profile/${post.user_id}`} className="rk-post-author-profile rk-author-link">
+                          <span className="rk-post-author-avatar" aria-hidden>
+                            {profileAvatarsQuery.data?.[post.user_id] ? (
+                              <img src={profileAvatarsQuery.data[post.user_id] ?? ''} alt="" className="rk-post-author-avatar-image" loading="lazy" />
+                            ) : (
+                              <span>{getAvatarFallbackText(post.author)}</span>
+                            )}
+                          </span>
+                          <span className="rk-post-meta-item rk-post-meta-author">{post.author}</span>
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="rk-status-cluster">
+                      <div className="rk-post-meta-right">
                         <span className="rk-post-meta-item rk-post-meta-time">{postedAgoLabel}</span>
                         {post.proposed_date ? (
                           <span className="rk-post-meta-item rk-post-date-pill">{formatDate(post.proposed_date)}</span>
                         ) : null}
                       </div>
-                    </div>
-                    <div className="rk-status-cluster">
                       <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
                       {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
                       {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
