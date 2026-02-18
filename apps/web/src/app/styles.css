@@ -2619,6 +2619,11 @@
   margin-top: 1rem;
 }
 
+.rk-comment-form .rk-input {
+  background: #fff;
+  flex: 1;
+}
+
 .rk-community-comment-meta {
   margin-top: 0.5rem;
   display: flex;
@@ -2736,10 +2741,14 @@
   }
 
   .rk-comment-form .rk-post-input,
-  .rk-comment-form .rk-input,
-  .rk-comment-form .rk-button {
+  .rk-comment-form .rk-input {
     width: 100%;
     min-width: 0;
+  }
+
+  .rk-comment-form .rk-button {
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .rk-community-sort-row {
