@@ -267,7 +267,7 @@ export function ProfilePage() {
         </div>
 
         {profileDetailsQuery.isLoading && !isEditingDetails && (
-          <p className="rk-profile-empty">소개를 불러오는 중...</p>
+          <p className="rk-profile-empty">Loading profile details...</p>
         )}
 
         {!isEditingDetails && (profileDetailsError || saveDetailsError) && (
@@ -276,7 +276,7 @@ export function ProfilePage() {
 
         {isOwnProfile && isEditingDetails ? (
           <form className="rk-profile-about-form" onSubmit={handleDetailsSubmit}>
-            <label className="rk-label" htmlFor="profile-tagline">한 줄 소개</label>
+            <label className="rk-label" htmlFor="profile-tagline">Tagline</label>
             <input
               id="profile-tagline"
               className="rk-input"
@@ -284,11 +284,11 @@ export function ProfilePage() {
               onChange={(event) =>
                 setDraftDetails((current) => ({ ...current, tagline: event.target.value }))
               }
-              placeholder="예: 주말마다 소소한 여행을 즐기는 나윤입니다"
+              placeholder="e.g. Weekend traveler who loves easy city escapes"
               maxLength={80}
             />
 
-            <label className="rk-label" htmlFor="profile-bio">자기소개</label>
+            <label className="rk-label" htmlFor="profile-bio">Bio</label>
             <textarea
               id="profile-bio"
               className="rk-post-input"
@@ -296,40 +296,40 @@ export function ProfilePage() {
               onChange={(event) =>
                 setDraftDetails((current) => ({ ...current, bio: event.target.value }))
               }
-              placeholder="내가 어떤 사람인지, 요즘 관심사는 무엇인지 자유롭게 써보세요."
+              placeholder="Tell others about yourself and what you are currently into."
               rows={4}
               maxLength={300}
             />
 
             <div className="rk-profile-about-grid">
               <label className="rk-profile-about-field">
-                <span className="rk-label">활동 지역</span>
+                <span className="rk-label">Location</span>
                 <input
                   className="rk-input"
                   value={draftDetails.location}
                   onChange={(event) =>
                     setDraftDetails((current) => ({ ...current, location: event.target.value }))
                   }
-                  placeholder="예: 서울 · 경기"
+                  placeholder="e.g. Seoul · Gyeonggi"
                   maxLength={40}
                 />
               </label>
 
               <label className="rk-profile-about-field">
-                <span className="rk-label">직업/관심 분야</span>
+                <span className="rk-label">Role / Focus</span>
                 <input
                   className="rk-input"
                   value={draftDetails.occupations}
                   onChange={(event) =>
                     setDraftDetails((current) => ({ ...current, occupations: event.target.value }))
                   }
-                  placeholder="예: Product Designer, PM"
+                  placeholder="e.g. Product Designer, PM"
                   maxLength={80}
                 />
               </label>
             </div>
 
-            <label className="rk-label" htmlFor="profile-hobbies">취미/관심사 (쉼표로 구분)</label>
+            <label className="rk-label" htmlFor="profile-hobbies">Hobbies / Interests (comma-separated)</label>
             <input
               id="profile-hobbies"
               className="rk-input"
@@ -337,11 +337,11 @@ export function ProfilePage() {
               onChange={(event) =>
                 setDraftDetails((current) => ({ ...current, hobbies: event.target.value }))
               }
-              placeholder="예: 러닝, 전시회, 카페 투어"
+              placeholder="e.g. running, exhibitions, cafe tours"
               maxLength={120}
             />
 
-            <label className="rk-label" htmlFor="profile-links">링크 (쉼표로 구분)</label>
+            <label className="rk-label" htmlFor="profile-links">Links (comma-separated)</label>
             <input
               id="profile-links"
               className="rk-input"
@@ -349,7 +349,7 @@ export function ProfilePage() {
               onChange={(event) =>
                 setDraftDetails((current) => ({ ...current, links: event.target.value }))
               }
-              placeholder="예: instagram.com/nayoon, github.com/nayoon"
+              placeholder="e.g. instagram.com/nayoon, github.com/nayoon"
               maxLength={160}
             />
 
@@ -377,16 +377,16 @@ export function ProfilePage() {
             {profileDetails.bio && <p className="rk-profile-bio">{profileDetails.bio}</p>}
             <div className="rk-profile-meta-list">
               {profileDetails.location && (
-                <div className="rk-profile-meta-item"><strong>📍 지역</strong><span>{profileDetails.location}</span></div>
+                <div className="rk-profile-meta-item"><strong>📍 Location</strong><span>{profileDetails.location}</span></div>
               )}
               {profileDetails.occupations && (
-                <div className="rk-profile-meta-item"><strong>💼 분야</strong><span>{profileDetails.occupations}</span></div>
+                <div className="rk-profile-meta-item"><strong>💼 Focus</strong><span>{profileDetails.occupations}</span></div>
               )}
             </div>
 
             {parseList(profileDetails.hobbies).length > 0 && (
               <div className="rk-profile-meta-block">
-                <span className="rk-profile-meta-title">✨ 취미 & 관심사</span>
+                <span className="rk-profile-meta-title">✨ Hobbies & Interests</span>
                 <div className="rk-profile-categories">
                   {parseList(profileDetails.hobbies).map((hobby) => (
                     <span key={hobby} className="rk-chip rk-profile-category-chip">{hobby}</span>
@@ -409,8 +409,8 @@ export function ProfilePage() {
         ) : (
           <p className="rk-profile-empty">
             {isOwnProfile
-              ? '프로필 소개가 비어 있어요. Edit profile 버튼으로 나를 소개해보세요.'
-              : '아직 작성된 소개가 없어요.'}
+              ? 'Your profile intro is empty. Use the Edit profile button to introduce yourself.'
+              : 'No profile intro yet.'}
           </p>
         )}
       </div>
