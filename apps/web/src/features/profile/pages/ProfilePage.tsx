@@ -355,15 +355,6 @@ export function ProfilePage() {
               {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Tap your profile photo to upload a new one'}
             </p>
           )}
-          {isOwnProfile && (
-            <button
-              type="button"
-              className="rk-button rk-button-ghost"
-              onClick={handleStartEdit}
-            >
-              Edit Nickname / Profile
-            </button>
-          )}
           {avatarErrorMessage && <p className="rk-profile-error">{avatarErrorMessage}</p>}
         </div>
       </div>
