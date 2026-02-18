@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import { useMemo, useRef, useState } from 'react'
+import type { ChangeEvent, FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
@@ -10,6 +10,7 @@ import {
   getUserProfileDetails,
   upsertUserProfileDetails,
 } from '../../../services/profile/profile-details.service'
+import { uploadProfileImage } from '../../../services/profile/profile-image.service'
 import type { Post, ProfileDetails } from '../../../types/domain'
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -35,6 +36,7 @@ const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   occupations: '',
   hobbies: '',
   links: '',
+  avatar_url: null,
 }
 
 function parseList(text: string): string[] {
@@ -127,6 +129,8 @@ export function ProfilePage() {
   const profileDetails = profileDetailsQuery.data ?? DEFAULT_PROFILE_DETAILS
   const [draftDetails, setDraftDetails] = useState<ProfileDetails>(DEFAULT_PROFILE_DETAILS)
   const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [avatarInputError, setAvatarInputError] = useState('')
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   const saveDetailsMutation = useMutation({
     mutationFn: (nextDetails: ProfileDetails) => upsertUserProfileDetails(targetUserId ?? '', nextDetails),
@@ -135,6 +139,22 @@ export function ProfilePage() {
       queryClient.setQueryData(queryKeys.profile.details(targetUserId), nextDetails)
       await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all })
       setIsEditingDetails(false)
+    },
+  })
+
+  const uploadAvatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!targetUserId) throw new Error('No target user.')
+      const avatarUrl = await uploadProfileImage(targetUserId, file)
+      return upsertUserProfileDetails(targetUserId, {
+        ...profileDetails,
+        avatar_url: avatarUrl,
+      })
+    },
+    onSuccess: async (nextDetails) => {
+      if (!targetUserId) return
+      queryClient.setQueryData(queryKeys.profile.details(targetUserId), nextDetails)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all })
     },
   })
 
@@ -214,9 +234,18 @@ export function ProfilePage() {
   }
 
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
-  const hasProfileDetails = Object.values(profileDetails).some((value) => value.trim().length > 0)
+  const hasProfileDetails = Boolean(profileDetails.avatar_url) || [
+    profileDetails.tagline,
+    profileDetails.bio,
+    profileDetails.location,
+    profileDetails.occupations,
+    profileDetails.hobbies,
+    profileDetails.links,
+  ].some((value) => value.trim().length > 0)
   const profileDetailsError = profileDetailsQuery.error instanceof Error ? profileDetailsQuery.error.message : null
   const saveDetailsError = saveDetailsMutation.error instanceof Error ? saveDetailsMutation.error.message : null
+  const avatarUploadError = uploadAvatarMutation.error instanceof Error ? uploadAvatarMutation.error.message : null
+  const avatarErrorMessage = avatarInputError || avatarUploadError
 
   function handleStartEdit() {
     setDraftDetails(profileDetails)
@@ -233,6 +262,30 @@ export function ProfilePage() {
     setIsEditingDetails(false)
   }
 
+  function handleAvatarClick() {
+    if (!isOwnProfile) return
+    setAvatarInputError('')
+    avatarInputRef.current?.click()
+  }
+
+  async function handleAvatarInputChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setAvatarInputError('Please choose an image file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarInputError('Image must be 5MB or smaller.')
+      return
+    }
+
+    setAvatarInputError('')
+    await uploadAvatarMutation.mutateAsync(file)
+  }
+
   return (
     <section className="rk-page rk-profile-page">
       <div className="rk-profile-page-top">
@@ -241,14 +294,39 @@ export function ProfilePage() {
 
       {/* Hero */}
       <div className="rk-profile-hero">
-        <div className="rk-profile-avatar-lg">
-          {profileData.nickname.charAt(0).toUpperCase()}
-        </div>
+        <button
+          type="button"
+          className={`rk-profile-avatar-lg ${isOwnProfile ? 'rk-profile-avatar-clickable' : ''}`}
+          onClick={handleAvatarClick}
+          disabled={!isOwnProfile || uploadAvatarMutation.isPending}
+          title={isOwnProfile ? 'Click to upload profile photo' : undefined}
+        >
+          {profileDetails.avatar_url ? (
+            <img src={profileDetails.avatar_url} alt={`${profileData.nickname} profile`} className="rk-profile-avatar-image" />
+          ) : (
+            profileData.nickname.charAt(0).toUpperCase()
+          )}
+        </button>
+
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          className="rk-profile-avatar-input"
+          onChange={(event) => void handleAvatarInputChange(event)}
+        />
+
         <div className="rk-profile-hero-info">
           <h1 className="rk-profile-page-name">{profileData.nickname}</h1>
           {isOwnProfile && <p className="rk-profile-page-email">{user.email}</p>}
           {joinedDate && <p className="rk-profile-page-joined">Joined {joinedDate}</p>}
           {!isOwnProfile && <p className="rk-profile-page-joined">Community member</p>}
+          {isOwnProfile && (
+            <p className="rk-profile-page-joined">
+              {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Click your avatar to upload a profile photo'}
+            </p>
+          )}
+          {avatarErrorMessage && <p className="rk-profile-error">{avatarErrorMessage}</p>}
         </div>
       </div>
 

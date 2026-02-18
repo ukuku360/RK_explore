@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CommunityPost } from '../../../types/domain'
 import { formatDateTime } from '../../../lib/formatters'
@@ -87,7 +88,7 @@ export function CommunityPostCard({
   return (
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
-        <span className="rk-community-author">{post.author}</span>
+        <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
           {canAdminDelete ? (

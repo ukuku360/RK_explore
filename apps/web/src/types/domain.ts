@@ -96,6 +96,7 @@ export type ProfileDetails = {
   occupations: string
   hobbies: string
   links: string
+  avatar_url: string | null
 }
 
 export type Report = {
