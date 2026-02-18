@@ -323,7 +323,7 @@ export function ProfilePage() {
           {!isOwnProfile && <p className="rk-profile-page-joined">Community member</p>}
           {isOwnProfile && (
             <p className="rk-profile-page-joined">
-              {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Click your avatar to upload a profile photo'}
+              {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Tap your profile photo to upload a new one'}
             </p>
           )}
           {avatarErrorMessage && <p className="rk-profile-error">{avatarErrorMessage}</p>}
