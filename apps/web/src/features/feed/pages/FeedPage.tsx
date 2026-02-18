@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { trackEvent } from '../../../lib/analytics'
@@ -1598,7 +1598,7 @@ export function FeedPage() {
                         </span>
                       </h3>
                       <div className="rk-post-meta">
-                        <span className="rk-post-meta-item rk-post-meta-author">{post.author}</span>
+                        <Link to={`/profile/${post.user_id}`} className="rk-post-meta-item rk-post-meta-author rk-author-link">{post.author}</Link>
                         <span className="rk-post-meta-item rk-post-meta-time">{postedAgoLabel}</span>
                         {post.proposed_date ? (
                           <span className="rk-post-meta-item rk-post-date-pill">{formatDate(post.proposed_date)}</span>

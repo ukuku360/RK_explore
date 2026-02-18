@@ -2761,3 +2761,246 @@
     align-items: flex-start;
   }
 }
+
+/* ─── Profile Page ─────────────────────────────────────────── */
+
+.rk-profile-page {
+  display: grid;
+  gap: 24px;
+}
+
+.rk-profile-page-top {
+  margin-bottom: -8px;
+}
+
+.rk-profile-back-link {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--rk-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.rk-profile-back-link:hover {
+  color: var(--rk-brand);
+}
+
+.rk-profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.rk-profile-avatar-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--rk-brand) 0%, var(--rk-brand-strong) 100%);
+  color: #ffffff;
+  font-size: 2rem;
+  font-weight: 800;
+  font-family: 'Sora', 'Manrope', sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(218, 31, 67, 0.3);
+}
+
+.rk-profile-hero-info {
+  display: grid;
+  gap: 3px;
+}
+
+.rk-profile-page-name {
+  margin: 0;
+  font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  font-family: 'Sora', 'Manrope', sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.rk-profile-page-email {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--rk-muted);
+}
+
+.rk-profile-page-joined {
+  margin: 0;
+  font-size: 0.83rem;
+  color: #9ba8b5;
+  font-weight: 600;
+}
+
+.rk-profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+@media (max-width: 560px) {
+  .rk-profile-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.rk-profile-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 12px;
+  border-radius: var(--rk-radius-md);
+  border: 1px solid var(--rk-line);
+  background: var(--rk-surface-soft);
+  text-align: center;
+}
+
+.rk-profile-stat-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  font-family: 'Sora', 'Manrope', sans-serif;
+  color: var(--rk-brand);
+  line-height: 1;
+}
+
+.rk-profile-stat-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--rk-muted);
+  letter-spacing: 0.01em;
+}
+
+.rk-profile-section {
+  display: grid;
+  gap: 12px;
+}
+
+.rk-profile-section-title {
+  margin: 0;
+  font-size: 1.0rem;
+  font-weight: 700;
+  color: var(--rk-text);
+  letter-spacing: -0.01em;
+}
+
+.rk-profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rk-profile-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.83rem;
+  font-weight: 700;
+  border: 1.5px solid;
+  transition: all 0.15s ease;
+}
+
+.rk-profile-badge-earned {
+  background: var(--rk-brand-soft);
+  border-color: rgba(218, 31, 67, 0.25);
+  color: var(--rk-brand-strong);
+}
+
+.rk-profile-badge-locked {
+  background: var(--rk-surface-soft);
+  border-color: var(--rk-line);
+  color: #b0b8c4;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.rk-profile-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rk-profile-category-chip {
+  cursor: default;
+}
+
+.rk-profile-recent-trips {
+  display: grid;
+  gap: 8px;
+}
+
+.rk-profile-trip-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--rk-radius-md);
+  border: 1px solid var(--rk-line);
+  background: var(--rk-surface-soft);
+  transition: background 0.15s ease;
+}
+
+.rk-profile-trip-item:hover {
+  background: var(--rk-brand-soft);
+}
+
+.rk-profile-trip-emoji {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.rk-profile-trip-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.rk-profile-trip-info strong {
+  font-size: 0.93rem;
+  color: var(--rk-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rk-profile-trip-votes {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--rk-muted);
+  flex-shrink: 0;
+}
+
+.rk-profile-empty {
+  color: var(--rk-muted);
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Profile panel actions (in header dropdown) */
+.rk-profile-panel-actions {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rk-line);
+  display: flex;
+  gap: 8px;
+}
+
+.rk-profile-panel-actions .rk-button {
+  text-decoration: none;
+}
+
+/* Clickable author link in feed */
+.rk-author-link {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.rk-author-link:hover {
+  color: var(--rk-brand) !important;
+  text-decoration: underline;
+}
