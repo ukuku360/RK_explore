@@ -112,7 +112,7 @@ function getNicknameFromPosts(targetUserId: string, posts: Post[]): string {
 
 export function ProfilePage() {
   const { userId } = useParams<{ userId: string }>()
-  const { user } = useAuthSession()
+  const { user, updateNickname } = useAuthSession()
   const queryClient = useQueryClient()
 
   const targetUserId = userId ?? user?.id
@@ -128,7 +128,9 @@ export function ProfilePage() {
 
   const profileDetails = profileDetailsQuery.data ?? DEFAULT_PROFILE_DETAILS
   const [draftDetails, setDraftDetails] = useState<ProfileDetails>(DEFAULT_PROFILE_DETAILS)
+  const [draftNickname, setDraftNickname] = useState('')
   const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [nicknameUpdateError, setNicknameUpdateError] = useState('')
   const [avatarInputError, setAvatarInputError] = useState('')
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
@@ -249,16 +251,33 @@ export function ProfilePage() {
 
   function handleStartEdit() {
     setDraftDetails(profileDetails)
+    setDraftNickname(user?.label ?? '')
+    setNicknameUpdateError('')
     setIsEditingDetails(true)
   }
 
   async function handleDetailsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!targetUserId) return
+
+    const normalizedDraftNickname = draftNickname.trim().replace(/\s+/g, ' ').slice(0, 20)
+    const currentNickname = user?.label.trim() ?? ''
+    const shouldUpdateNickname = isOwnProfile && normalizedDraftNickname !== currentNickname
+
+    if (shouldUpdateNickname) {
+      const nicknameUpdateResult = await updateNickname(normalizedDraftNickname)
+      if (!nicknameUpdateResult.ok) {
+        setNicknameUpdateError(nicknameUpdateResult.message ?? 'Failed to update nickname.')
+        return
+      }
+    }
+
+    setNicknameUpdateError('')
     await saveDetailsMutation.mutateAsync(draftDetails)
   }
 
   function handleDetailsCancel() {
+    setNicknameUpdateError('')
     setIsEditingDetails(false)
   }
 
@@ -326,6 +345,15 @@ export function ProfilePage() {
               {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Tap your profile photo to upload a new one'}
             </p>
           )}
+          {isOwnProfile && (
+            <button
+              type="button"
+              className="rk-button rk-button-ghost"
+              onClick={handleStartEdit}
+            >
+              Edit Nickname / Profile
+            </button>
+          )}
           {avatarErrorMessage && <p className="rk-profile-error">{avatarErrorMessage}</p>}
         </div>
       </div>
@@ -354,6 +382,19 @@ export function ProfilePage() {
 
         {isOwnProfile && isEditingDetails ? (
           <form className="rk-profile-about-form" onSubmit={handleDetailsSubmit}>
+            <label className="rk-label" htmlFor="profile-nickname">Nickname</label>
+            <input
+              id="profile-nickname"
+              className="rk-input"
+              value={draftNickname}
+              onChange={(event) => {
+                setDraftNickname(event.target.value)
+                setNicknameUpdateError('')
+              }}
+              placeholder="e.g. Nayoon"
+              maxLength={20}
+            />
+
             <label className="rk-label" htmlFor="profile-tagline">Tagline</label>
             <input
               id="profile-tagline"
@@ -431,6 +472,7 @@ export function ProfilePage() {
               maxLength={160}
             />
 
+            {nicknameUpdateError && <p className="rk-profile-error">{nicknameUpdateError}</p>}
             {saveDetailsError && <p className="rk-profile-error">{saveDetailsError}</p>}
 
             <div className="rk-profile-about-actions">

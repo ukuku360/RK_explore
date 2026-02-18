@@ -32,6 +32,7 @@ export type AuthSessionContextValue = {
   login: (input: LoginInput) => Promise<AuthActionResult>
   signup: (input: SignupInput) => Promise<AuthActionResult>
   logout: () => Promise<AuthActionResult>
+  updateNickname: (nickname: string) => Promise<AuthActionResult>
 }
 
 export const AuthSessionContext = createContext<AuthSessionContextValue | undefined>(undefined)
