@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import type { ChangeEvent, FormEvent, MouseEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
@@ -65,6 +65,30 @@ function toExternalUrl(rawValue: string): string | null {
   } catch {
     return null
   }
+}
+
+function getInstagramHandle(rawValue: string): string {
+  const trimmed = rawValue.trim()
+  if (!trimmed) return ''
+
+  const sanitized = trimmed
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/^www\./i, '')
+    .replace(/^instagram\.com\/?/i, '')
+    .replace(/^@/, '')
+    .split('?')[0]
+    .split('#')[0]
+    .replace(/^\/+/, '')
+    .split('/')[0]
+    .trim()
+
+  return sanitized
+}
+
+function formatInstagramHandleDisplay(rawValue: string): string {
+  const handle = getInstagramHandle(rawValue)
+  if (!handle) return ''
+  return handle.startsWith('@') ? handle : `@${handle}`
 }
 
 function computeBadges(stats: {
@@ -154,6 +178,7 @@ export function ProfilePage() {
   const [nicknameUpdateError, setNicknameUpdateError] = useState('')
   const [avatarInputError, setAvatarInputError] = useState('')
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const [instagramPopupHandle, setInstagramPopupHandle] = useState('')
 
   const saveDetailsMutation = useMutation({
     mutationFn: (nextDetails: ProfileDetails) => upsertUserProfileDetails(targetUserId ?? '', nextDetails),
@@ -259,9 +284,9 @@ export function ProfilePage() {
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
   const hasFromDetails = [profileDetails.country, profileDetails.city].some((value) => value.trim().length > 0)
   const hasUniDetails = [profileDetails.uni, profileDetails.major].some((value) => value.trim().length > 0)
-  const instagramUrl = toExternalUrl(profileDetails.instagram_url)
+  const instagramHandle = getInstagramHandle(profileDetails.instagram_url)
   const linkedInUrl = toExternalUrl(profileDetails.linkedin_url)
-  const hasSocialDetails = Boolean(instagramUrl) || Boolean(linkedInUrl)
+  const hasSocialDetails = Boolean(instagramHandle) || Boolean(linkedInUrl)
   const hasProfileDetails = Boolean(profileDetails.avatar_url) || [
     profileDetails.tagline,
     profileDetails.bio,
@@ -280,6 +305,17 @@ export function ProfilePage() {
   const saveDetailsError = saveDetailsMutation.error instanceof Error ? saveDetailsMutation.error.message : null
   const avatarUploadError = uploadAvatarMutation.error instanceof Error ? uploadAvatarMutation.error.message : null
   const avatarErrorMessage = avatarInputError || avatarUploadError
+
+  function handleInstagramPopupOpen(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    const handle = formatInstagramHandleDisplay(profileDetails.instagram_url)
+    if (!handle) return
+    setInstagramPopupHandle(handle)
+  }
+
+  function closeInstagramPopup() {
+    setInstagramPopupHandle('')
+  }
 
   function handleStartEdit() {
     setDraftDetails(profileDetails)
@@ -668,9 +704,16 @@ export function ProfilePage() {
               <div className="rk-profile-meta-block">
                 <span className="rk-profile-meta-title">SNS</span>
                 <ul className="rk-profile-link-list">
-                  {instagramUrl && (
+                  {instagramHandle && (
                     <li>
-                      <a href={instagramUrl} target="_blank" rel="noopener noreferrer">📸 Instagram</a>
+                      <button
+                        type="button"
+                        className="rk-profile-inline-link"
+                        onClick={handleInstagramPopupOpen}
+                        aria-label="Show Instagram ID"
+                      >
+                        📸 Instagram
+                      </button>
                     </li>
                   )}
                   {linkedInUrl && (
@@ -690,6 +733,30 @@ export function ProfilePage() {
           </p>
         )}
       </div>
+
+      {instagramPopupHandle && (
+        <div className="rk-instagram-popup-overlay" onMouseDown={closeInstagramPopup}>
+          <div
+            className="rk-instagram-popup-card"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Instagram ID"
+          >
+            <button
+              type="button"
+              className="rk-instagram-popup-close"
+              onClick={closeInstagramPopup}
+              aria-label="Close Instagram ID popup"
+            >
+              ×
+            </button>
+            <p className="rk-instagram-popup-title">📸 Instagram</p>
+            <p className="rk-instagram-popup-value">{instagramPopupHandle}</p>
+            <p className="rk-instagram-popup-note">Instagram ID shared on this profile</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="rk-profile-stats-grid">
