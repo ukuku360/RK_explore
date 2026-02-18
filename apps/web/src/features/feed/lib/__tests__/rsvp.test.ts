@@ -27,7 +27,7 @@ function createPost(overrides?: Partial<Post>): Post {
     comments: [],
     rsvps: [],
     ...overrides,
-  }
+  } as Post
 }
 
 describe('rsvp helpers', () => {
