@@ -37,6 +37,8 @@ const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   city: '',
   uni: '',
   major: '',
+  instagram_url: '',
+  linkedin_url: '',
   occupations: '',
   hobbies: '',
   links: '',
@@ -48,6 +50,21 @@ function parseList(text: string): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function toExternalUrl(rawValue: string): string | null {
+  const trimmed = rawValue.trim()
+  if (!trimmed) return null
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withScheme)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
 }
 
 function computeBadges(stats: {
@@ -242,6 +259,9 @@ export function ProfilePage() {
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
   const hasFromDetails = [profileDetails.country, profileDetails.city].some((value) => value.trim().length > 0)
   const hasUniDetails = [profileDetails.uni, profileDetails.major].some((value) => value.trim().length > 0)
+  const instagramUrl = toExternalUrl(profileDetails.instagram_url)
+  const linkedInUrl = toExternalUrl(profileDetails.linkedin_url)
+  const hasSocialDetails = Boolean(instagramUrl) || Boolean(linkedInUrl)
   const hasProfileDetails = Boolean(profileDetails.avatar_url) || [
     profileDetails.tagline,
     profileDetails.bio,
@@ -250,6 +270,8 @@ export function ProfilePage() {
     profileDetails.city,
     profileDetails.uni,
     profileDetails.major,
+    profileDetails.instagram_url,
+    profileDetails.linkedin_url,
     profileDetails.occupations,
     profileDetails.hobbies,
     profileDetails.links,
@@ -531,6 +553,35 @@ export function ProfilePage() {
               maxLength={160}
             />
 
+            <p className="rk-profile-meta-title">SNS</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">📸 Instagram</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.instagram_url}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, instagram_url: event.target.value }))
+                  }
+                  placeholder="instagram.com/username"
+                  maxLength={200}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">💼 LinkedIn</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.linkedin_url}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, linkedin_url: event.target.value }))
+                  }
+                  placeholder="linkedin.com/in/username"
+                  maxLength={200}
+                />
+              </label>
+            </div>
+
             {nicknameUpdateError && <p className="rk-profile-error">{nicknameUpdateError}</p>}
             {saveDetailsError && <p className="rk-profile-error">{saveDetailsError}</p>}
 
@@ -609,6 +660,24 @@ export function ProfilePage() {
                   {parseList(profileDetails.links).map((link) => (
                     <li key={link}>{link}</li>
                   ))}
+                </ul>
+              </div>
+            )}
+
+            {hasSocialDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">SNS</span>
+                <ul className="rk-profile-link-list">
+                  {instagramUrl && (
+                    <li>
+                      <a href={instagramUrl} target="_blank" rel="noopener noreferrer">📸 Instagram</a>
+                    </li>
+                  )}
+                  {linkedInUrl && (
+                    <li>
+                      <a href={linkedInUrl} target="_blank" rel="noopener noreferrer">💼 LinkedIn</a>
+                    </li>
+                  )}
                 </ul>
               </div>
             )}

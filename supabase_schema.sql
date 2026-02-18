@@ -113,6 +113,8 @@ create table if not exists public.user_profile_details (
   city text not null default '',
   uni text not null default '',
   major text not null default '',
+  instagram_url text not null default '',
+  linkedin_url text not null default '',
   occupations text not null default '',
   hobbies text not null default '',
   links text not null default '',

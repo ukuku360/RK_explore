@@ -97,6 +97,8 @@ export type ProfileDetails = {
   city: string
   uni: string
   major: string
+  instagram_url: string
+  linkedin_url: string
   occupations: string
   hobbies: string
   links: string
