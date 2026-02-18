@@ -7,6 +7,7 @@ import { useAuthSession } from '../providers/auth-session-context'
 import { AuthPage } from '../../features/auth/pages/AuthPage'
 import { FeedPage } from '../../features/feed/pages/FeedPage'
 import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
+import { ProfilePage } from '../../features/profile/pages/ProfilePage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
 const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
@@ -108,6 +109,22 @@ export function AppRouter() {
           } 
         />
         <Route path="/admin" element={<AdminRoute />} />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

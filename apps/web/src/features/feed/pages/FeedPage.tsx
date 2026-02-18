@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { trackEvent } from '../../../lib/analytics'
@@ -17,6 +17,7 @@ import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatte
 import { createAdminLog } from '../../../services/admin/admin.service'
 import { createComment } from '../../../services/comments/comments.service'
 import { createPost, deletePost } from '../../../services/posts/posts.service'
+import { uploadPostImage } from '../../../services/posts/post-image.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
 import { SupabaseServiceError } from '../../../services/supabase/errors'
@@ -379,6 +380,8 @@ export function FeedPage() {
   const [showStep1Errors, setShowStep1Errors] = useState(false)
   const [optionalErrors, setOptionalErrors] = useState<OptionalErrors>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null)
   const [isVotePendingByPostId, setIsVotePendingByPostId] = useState<Record<string, boolean>>({})
   const [isRsvpPendingByPostId, setIsRsvpPendingByPostId] = useState<Record<string, boolean>>({})
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
@@ -824,6 +827,11 @@ export function FeedPage() {
       const location = form.location.trim()
       const capacity = Number(form.capacity)
 
+      let imageUrl: string | null = null
+      if (imageFile) {
+        imageUrl = await uploadPostImage(user.id, imageFile)
+      }
+
       await createPost({
         location,
         author: user.label,
@@ -837,6 +845,7 @@ export function FeedPage() {
         prep_notes: form.prepNotes.trim() || null,
         rsvp_deadline: optionalValidation.values.rsvpDeadline,
         status: 'proposed',
+        image_url: imageUrl,
       })
 
       await invalidateAfterPostMutation(queryClient)
@@ -847,6 +856,9 @@ export function FeedPage() {
       setStep1Touched(getInitialStep1TouchedState())
       setOptionalErrors({})
       setShowStep1Errors(false)
+      if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+      setImageFile(null)
+      setImagePreviewUrl(null)
       setStatusTone('success')
       setStatusMessage('Post added!')
       hasTrackedPostCreateStartRef.current = false
@@ -1366,6 +1378,45 @@ export function FeedPage() {
           </div>
         </div>
 
+        <div className="rk-post-image-section">
+          <span className="rk-auth-label">Trip photo (optional)</span>
+          {imagePreviewUrl ? (
+            <div className="rk-image-preview-wrapper">
+              <img src={imagePreviewUrl} alt="Preview" className="rk-image-preview" />
+              <button
+                type="button"
+                className="rk-image-remove-btn"
+                onClick={() => {
+                  URL.revokeObjectURL(imagePreviewUrl)
+                  setImageFile(null)
+                  setImagePreviewUrl(null)
+                }}
+                disabled={isSubmitting}
+              >
+                ✕ Remove
+              </button>
+            </div>
+          ) : (
+            <label className="rk-image-upload-label">
+              📷 Add a photo
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                disabled={isSubmitting}
+                onChange={(event) => {
+                  const file = event.target.files?.[0]
+                  if (!file) return
+                  if (imagePreviewUrl) URL.revokeObjectURL(imagePreviewUrl)
+                  setImageFile(file)
+                  setImagePreviewUrl(URL.createObjectURL(file))
+                  event.target.value = ''
+                }}
+              />
+            </label>
+          )}
+        </div>
+
         <div className="rk-post-step-actions">
           <button className="rk-button" type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Publishing...' : 'Publish trip idea'}
@@ -1598,7 +1649,7 @@ export function FeedPage() {
                         </span>
                       </h3>
                       <div className="rk-post-meta">
-                        <span className="rk-post-meta-item rk-post-meta-author">{post.author}</span>
+                        <Link to={`/profile/${post.user_id}`} className="rk-post-meta-item rk-post-meta-author rk-author-link">{post.author}</Link>
                         <span className="rk-post-meta-item rk-post-meta-time">{postedAgoLabel}</span>
                         {post.proposed_date ? (
                           <span className="rk-post-meta-item rk-post-date-pill">{formatDate(post.proposed_date)}</span>
@@ -1621,6 +1672,17 @@ export function FeedPage() {
                       ) : null}
                     </div>
                   </header>
+
+                  {post.image_url ? (
+                    <div className="rk-post-image-banner">
+                      <img
+                        src={post.image_url}
+                        alt={post.location}
+                        className="rk-post-image"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : null}
 
                   <div className="rk-card-core">
                     <div className="rk-card-core-item">
@@ -1697,9 +1759,9 @@ export function FeedPage() {
                     ) : null}
                   </div>
 
-                  <details className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
+                  <details className="rk-rsvp-members" aria-label={`Who's Coming users for ${post.location}`}>
                     <summary className="rk-rsvp-members-summary">
-                      <span className="rk-rsvp-members-summary-label">I'm in {rsvpSnapshot.goingUserIds.length}</span>
+                      <span className="rk-rsvp-members-summary-label">Who's Coming? {rsvpSnapshot.goingUserIds.length}</span>
                       <span className="rk-rsvp-members-summary-action">Expand</span>
                       <span className="rk-rsvp-members-summary-action rk-rsvp-members-summary-action-open">Collapse</span>
                     </summary>

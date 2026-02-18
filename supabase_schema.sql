@@ -70,3 +70,34 @@ create policy "Users can delete their own comments"
 
 alter publication supabase_realtime add table public.community_comments;
 
+-- ─── Post Images ──────────────────────────────────────────────────────────────
+
+-- Add image_url column to posts table
+alter table public.posts add column if not exists image_url text default null;
+
+-- Storage bucket for post images
+insert into storage.buckets (id, name, public)
+values ('post-images', 'post-images', true)
+on conflict (id) do nothing;
+
+-- Storage RLS: anyone can read public images
+create policy "Post images are publicly accessible"
+  on storage.objects for select
+  using ( bucket_id = 'post-images' );
+
+-- Storage RLS: authenticated users can upload their own images
+create policy "Users can upload post images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'post-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- Storage RLS: users can delete their own images
+create policy "Users can delete their own post images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'post-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

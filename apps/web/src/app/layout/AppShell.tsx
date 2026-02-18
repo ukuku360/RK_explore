@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuthSession } from '../providers/auth-session-context'
 import { useRealtimeSyncStatus } from '../providers/realtime-sync-context'
@@ -131,6 +131,15 @@ export function AppShell() {
                 <span className="rk-profile-label">RSVPs joined</span>
                 <strong>{profileStats.rsvpsJoined}</strong>
               </div>
+            </div>
+            <div className="rk-profile-panel-actions">
+              <Link
+                to="/profile"
+                className="rk-button rk-button-secondary rk-button-small"
+                onClick={() => setIsProfileOpen(false)}
+              >
+                View Full Profile
+              </Link>
             </div>
           </div>
         ) : null}
