@@ -1697,9 +1697,9 @@ export function FeedPage() {
                     ) : null}
                   </div>
 
-                  <details className="rk-rsvp-members" aria-label={`I'm in users for ${post.location}`}>
+                  <details className="rk-rsvp-members" aria-label={`Who's Coming users for ${post.location}`}>
                     <summary className="rk-rsvp-members-summary">
-                      <span className="rk-rsvp-members-summary-label">I'm in {rsvpSnapshot.goingUserIds.length}</span>
+                      <span className="rk-rsvp-members-summary-label">Who's Coming? {rsvpSnapshot.goingUserIds.length}</span>
                       <span className="rk-rsvp-members-summary-action">Expand</span>
                       <span className="rk-rsvp-members-summary-action rk-rsvp-members-summary-action-open">Collapse</span>
                     </summary>
