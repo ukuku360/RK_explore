@@ -56,6 +56,7 @@ export type PostRecord = {
   hidden_by: string | null
   hidden_at: string | null
   created_at: string
+  image_url: string | null
 }
 
 export type Post = PostRecord & {
@@ -77,6 +78,7 @@ export type CreatePostInput = {
   estimated_cost?: number | null
   prep_notes?: string | null
   rsvp_deadline?: string | null
+  image_url?: string | null
 }
 
 export type UpdatePostModerationInput = {
