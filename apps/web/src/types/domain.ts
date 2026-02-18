@@ -88,6 +88,17 @@ export type UpdatePostModerationInput = {
   hidden_at: string | null
 }
 
+
+export type ProfileDetails = {
+  tagline: string
+  bio: string
+  location: string
+  occupations: string
+  hobbies: string
+  links: string
+  avatar_url: string | null
+}
+
 export type Report = {
   id: string
   target_type: ReportTargetType

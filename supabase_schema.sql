@@ -101,3 +101,104 @@ create policy "Users can delete their own post images"
     bucket_id = 'post-images'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- ─── User Profile Details (About Me) ─────────────────────────────────────────
+
+create table if not exists public.user_profile_details (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  tagline text not null default '',
+  bio text not null default '',
+  location text not null default '',
+  occupations text not null default '',
+  hobbies text not null default '',
+  links text not null default '',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+alter table public.user_profile_details enable row level security;
+
+create or replace function public.set_user_profile_details_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_user_profile_details_updated_at on public.user_profile_details;
+create trigger trg_user_profile_details_updated_at
+before update on public.user_profile_details
+for each row
+execute function public.set_user_profile_details_updated_at();
+
+-- Everyone can read profile details.
+drop policy if exists "Profile details are viewable by everyone" on public.user_profile_details;
+create policy "Profile details are viewable by everyone"
+  on public.user_profile_details for select
+  using (true);
+
+-- Authenticated users can create their own profile details row.
+drop policy if exists "Users can insert their own profile details" on public.user_profile_details;
+create policy "Users can insert their own profile details"
+  on public.user_profile_details for insert
+  with check (auth.uid() = user_id);
+
+-- Authenticated users can update only their own profile details.
+drop policy if exists "Users can update their own profile details" on public.user_profile_details;
+create policy "Users can update their own profile details"
+  on public.user_profile_details for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+-- Optional: allow users to delete only their own profile details.
+drop policy if exists "Users can delete their own profile details" on public.user_profile_details;
+create policy "Users can delete their own profile details"
+  on public.user_profile_details for delete
+  using (auth.uid() = user_id);
+
+alter publication supabase_realtime add table public.user_profile_details;
+
+-- ─── Profile Image Support ────────────────────────────────────────────────────
+
+alter table public.user_profile_details add column if not exists avatar_url text default null;
+
+insert into storage.buckets (id, name, public)
+values ('profile-images', 'profile-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Profile images are publicly accessible" on storage.objects;
+create policy "Profile images are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'profile-images');
+
+drop policy if exists "Users can upload their profile images" on storage.objects;
+create policy "Users can upload their profile images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'profile-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can update their profile images" on storage.objects;
+create policy "Users can update their profile images"
+  on storage.objects for update
+  using (
+    bucket_id = 'profile-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'profile-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can delete their profile images" on storage.objects;
+create policy "Users can delete their profile images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'profile-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
