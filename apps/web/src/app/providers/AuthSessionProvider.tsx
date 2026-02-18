@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { isAdminEmail } from '../../lib/guards'
 import { ensureSignupEmailAllowed, warmSignupAllowlist } from '../../lib/signupAllowlist'
@@ -101,7 +101,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     }
   }, [])
 
-  async function login(input: LoginInput): Promise<AuthActionResult> {
+  const login = useCallback(async (input: LoginInput): Promise<AuthActionResult> => {
     const email = input.email.trim()
     const password = input.password.trim()
 
@@ -120,9 +120,9 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     }
 
     return { ok: true }
-  }
+  }, [])
 
-  async function signup(input: SignupInput): Promise<AuthActionResult> {
+  const signup = useCallback(async (input: SignupInput): Promise<AuthActionResult> => {
     const email = input.email.trim()
     const password = input.password.trim()
     const nickname = input.nickname.trim().replace(/\s+/g, ' ').slice(0, 20)
@@ -151,15 +151,15 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     }
 
     return { ok: true, message: `Check your email for the confirmation link, ${nickname}!` }
-  }
+  }, [])
 
-  async function logout(): Promise<AuthActionResult> {
+  const logout = useCallback(async (): Promise<AuthActionResult> => {
     const { error } = await supabaseClient.auth.signOut()
     if (error) {
       return { ok: false, message: error.message }
     }
     return { ok: true }
-  }
+  }, [])
 
   const value = useMemo<AuthSessionContextValue>(() => {
     return {
@@ -171,7 +171,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       signup,
       logout,
     }
-  }, [isLoading, user])
+  }, [isLoading, user, login, signup, logout])
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
 }

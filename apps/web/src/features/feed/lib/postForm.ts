@@ -156,12 +156,13 @@ export function validateOptionalFields(form: PostFormState): {
 }
 
 export function hasOptionalData(form: PostFormState): boolean {
+  const initial = getInitialFormState()
   return Boolean(
     form.meetupPlace.trim() ||
       form.meetupTime.trim() ||
       form.estimatedCost.trim() ||
       form.rsvpDeadline.trim() ||
       form.prepNotes.trim() ||
-      form.category !== 'Travel',
+      form.category !== initial.category,
   )
 }
