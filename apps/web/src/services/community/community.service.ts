@@ -139,6 +139,11 @@ export async function createComment(
     .single()
 
   throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to create comment: no data returned from server')
+  }
+
   return data
 }
 

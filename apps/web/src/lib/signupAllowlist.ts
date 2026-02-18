@@ -107,6 +107,7 @@ export async function warmSignupAllowlist(): Promise<void> {
   try {
     await getAllowlistPromise()
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('[signup-allowlist] warmup failed', error)
   }
 }
@@ -133,6 +134,7 @@ export async function ensureSignupEmailAllowed(email: string): Promise<SignupAll
 
     return { ok: false, message: NOT_ALLOWED_MESSAGE }
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('[signup-allowlist] validation failed', error)
     return {
       ok: false,

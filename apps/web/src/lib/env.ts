@@ -33,6 +33,7 @@ function readBooleanEnv(key: OptionalEnvKey, fallbackValue: boolean): boolean {
     return false
   }
 
+  // eslint-disable-next-line no-console
   console.warn(`[env] Invalid boolean for ${key}: "${value}". Using fallback value.`)
   return fallbackValue
 }

@@ -31,6 +31,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       if (!isMounted || hasResolvedInitialSession) return
 
       hasResolvedInitialSession = true
+      // eslint-disable-next-line no-console
       console.error('[auth] session restore timed out')
       setUser(null)
       setIsLoading(false)
@@ -64,6 +65,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         if (!isMounted || hasResolvedInitialSession) return
 
         if (error) {
+          // eslint-disable-next-line no-console
           console.error('[auth] session restore failed', error)
           setUser(null)
           return
@@ -72,6 +74,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         setUser(data.session?.user ? mapAuthUser(data.session.user) : null)
       } catch (error) {
         if (!isMounted || hasResolvedInitialSession) return
+        // eslint-disable-next-line no-console
         console.error('[auth] unexpected session restore failure', error)
         setUser(null)
       } finally {

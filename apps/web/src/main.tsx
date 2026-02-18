@@ -7,6 +7,7 @@ import { envConfigError } from './lib/env'
 import './index.css'
 
 if (envConfigError) {
+  // eslint-disable-next-line no-console
   console.error(envConfigError)
 }
 

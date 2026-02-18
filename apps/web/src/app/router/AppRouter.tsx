@@ -9,7 +9,7 @@ import { FeedPage } from '../../features/feed/pages/FeedPage'
 import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
-const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
+const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage'))
 
 function resolvePostAuthRedirect(state: unknown): string {
   if (!state || typeof state !== 'object') return '/'

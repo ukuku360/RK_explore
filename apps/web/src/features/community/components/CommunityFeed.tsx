@@ -282,7 +282,6 @@ export function CommunityFeed() {
       setStatusTone('success')
       setStatusMessage('Posted to community.')
     } catch (error) {
-      console.error('Failed to post', error)
       setStatusTone('error')
       setStatusMessage(error instanceof Error ? error.message : 'Failed to post. Please try again.')
     } finally {
@@ -295,8 +294,7 @@ export function CommunityFeed() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['community_posts'] })
     },
-    onError: (error) => {
-      console.error('Failed to delete', error)
+    onError: () => {
       alert('Failed to delete post.')
     }
   })
