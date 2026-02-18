@@ -32,6 +32,7 @@ export const queryKeys = {
   profile: {
     all: ['profile'] as const,
     details: (userId: string) => ['profile', 'details', userId] as const,
+    avatars: (userIdsHash: string) => ['profile', 'avatars', userIdsHash] as const,
   },
 } as const
 
