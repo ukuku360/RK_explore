@@ -29,6 +29,10 @@ export const queryKeys = {
     all: ['admin-logs'] as const,
     list: () => ['admin-logs', 'list'] as const,
   },
+  profile: {
+    all: ['profile'] as const,
+    details: (userId: string) => ['profile', 'details', userId] as const,
+  },
 } as const
 
 export type RealtimeTableName =
@@ -38,3 +42,4 @@ export type RealtimeTableName =
   | 'comments'
   | 'post_reports'
   | 'admin_action_logs'
+  | 'user_profile_details'

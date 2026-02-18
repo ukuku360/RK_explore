@@ -16,6 +16,7 @@ const REALTIME_TABLES: readonly RealtimeTableName[] = [
   'comments',
   'post_reports',
   'admin_action_logs',
+  'user_profile_details',
 ]
 
 type RealtimeSyncProviderProps = {

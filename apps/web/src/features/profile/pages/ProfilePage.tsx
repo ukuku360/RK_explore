@@ -1,10 +1,16 @@
 import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
+import { queryKeys } from '../../../lib/queryKeys'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { usePostsWithRelationsQuery } from '../../feed/hooks/usePostsWithRelationsQuery'
-import type { Post } from '../../../types/domain'
+import {
+  getUserProfileDetails,
+  upsertUserProfileDetails,
+} from '../../../services/profile/profile-details.service'
+import type { Post, ProfileDetails } from '../../../types/domain'
 
 const CATEGORY_EMOJI: Record<string, string> = {
   Sports: '⚽',
@@ -22,15 +28,6 @@ interface Badge {
   earned: boolean
 }
 
-interface ProfileDetails {
-  bio: string
-  tagline: string
-  location: string
-  occupations: string
-  hobbies: string
-  links: string
-}
-
 const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   bio: '',
   tagline: '',
@@ -40,41 +37,11 @@ const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   links: '',
 }
 
-function getProfileDetailsStorageKey(userId: string): string {
-  return `rk:profile-details:${userId}`
-}
-
 function parseList(text: string): string[] {
   return text
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
-}
-
-function loadProfileDetails(userId: string): ProfileDetails {
-  if (typeof window === 'undefined') return DEFAULT_PROFILE_DETAILS
-
-  const rawValue = window.localStorage.getItem(getProfileDetailsStorageKey(userId))
-  if (!rawValue) return DEFAULT_PROFILE_DETAILS
-
-  try {
-    const parsed = JSON.parse(rawValue) as Partial<ProfileDetails>
-    return {
-      bio: parsed.bio ?? '',
-      tagline: parsed.tagline ?? '',
-      location: parsed.location ?? '',
-      occupations: parsed.occupations ?? '',
-      hobbies: parsed.hobbies ?? '',
-      links: parsed.links ?? '',
-    }
-  } catch {
-    return DEFAULT_PROFILE_DETAILS
-  }
-}
-
-function saveProfileDetails(userId: string, details: ProfileDetails): void {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(getProfileDetailsStorageKey(userId), JSON.stringify(details))
 }
 
 function computeBadges(stats: {
@@ -144,16 +111,32 @@ function getNicknameFromPosts(targetUserId: string, posts: Post[]): string {
 export function ProfilePage() {
   const { userId } = useParams<{ userId: string }>()
   const { user } = useAuthSession()
+  const queryClient = useQueryClient()
 
   const targetUserId = userId ?? user?.id
   const isOwnProfile = !userId || userId === user?.id
 
   const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
+
+  const profileDetailsQuery = useQuery({
+    queryKey: queryKeys.profile.details(targetUserId ?? 'anonymous'),
+    queryFn: () => getUserProfileDetails(targetUserId ?? ''),
+    enabled: Boolean(targetUserId),
+  })
+
+  const profileDetails = profileDetailsQuery.data ?? DEFAULT_PROFILE_DETAILS
   const [draftDetails, setDraftDetails] = useState<ProfileDetails>(DEFAULT_PROFILE_DETAILS)
   const [isEditingDetails, setIsEditingDetails] = useState(false)
-  const [, setDetailsVersion] = useState(0)
 
-  const profileDetails = targetUserId ? loadProfileDetails(targetUserId) : DEFAULT_PROFILE_DETAILS
+  const saveDetailsMutation = useMutation({
+    mutationFn: (nextDetails: ProfileDetails) => upsertUserProfileDetails(targetUserId ?? '', nextDetails),
+    onSuccess: async (nextDetails) => {
+      if (!targetUserId) return
+      queryClient.setQueryData(queryKeys.profile.details(targetUserId), nextDetails)
+      await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all })
+      setIsEditingDetails(false)
+    },
+  })
 
   const profileData = useMemo(() => {
     if (!targetUserId || !postsQuery.data) return null
@@ -203,7 +186,6 @@ export function ProfilePage() {
       confirmedTrips,
       topCategories,
       badges,
-      earnedBadges: badges.filter((b) => b.earned),
       recentPosts,
       hasActivity,
     }
@@ -233,18 +215,18 @@ export function ProfilePage() {
 
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
   const hasProfileDetails = Object.values(profileDetails).some((value) => value.trim().length > 0)
+  const profileDetailsError = profileDetailsQuery.error instanceof Error ? profileDetailsQuery.error.message : null
+  const saveDetailsError = saveDetailsMutation.error instanceof Error ? saveDetailsMutation.error.message : null
 
   function handleStartEdit() {
     setDraftDetails(profileDetails)
     setIsEditingDetails(true)
   }
 
-  function handleDetailsSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleDetailsSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!targetUserId) return
-    saveProfileDetails(targetUserId, draftDetails)
-    setDetailsVersion((current) => current + 1)
-    setIsEditingDetails(false)
+    await saveDetailsMutation.mutateAsync(draftDetails)
   }
 
   function handleDetailsCancel() {
@@ -283,6 +265,14 @@ export function ProfilePage() {
             </button>
           )}
         </div>
+
+        {profileDetailsQuery.isLoading && !isEditingDetails && (
+          <p className="rk-profile-empty">소개를 불러오는 중...</p>
+        )}
+
+        {!isEditingDetails && (profileDetailsError || saveDetailsError) && (
+          <p className="rk-profile-error">{profileDetailsError ?? saveDetailsError}</p>
+        )}
 
         {isOwnProfile && isEditingDetails ? (
           <form className="rk-profile-about-form" onSubmit={handleDetailsSubmit}>
@@ -363,9 +353,18 @@ export function ProfilePage() {
               maxLength={160}
             />
 
+            {saveDetailsError && <p className="rk-profile-error">{saveDetailsError}</p>}
+
             <div className="rk-profile-about-actions">
-              <button type="submit" className="rk-button rk-button-primary">Save</button>
-              <button type="button" className="rk-button rk-button-ghost" onClick={handleDetailsCancel}>
+              <button type="submit" className="rk-button rk-button-primary" disabled={saveDetailsMutation.isPending}>
+                {saveDetailsMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="rk-button rk-button-ghost"
+                onClick={handleDetailsCancel}
+                disabled={saveDetailsMutation.isPending}
+              >
                 Cancel
               </button>
             </div>

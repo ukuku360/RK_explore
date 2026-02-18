@@ -12,6 +12,10 @@ async function invalidateFeedReadModels(queryClient: QueryClient): Promise<void>
   ])
 }
 
+async function invalidateProfileReadModels(queryClient: QueryClient): Promise<void> {
+  await queryClient.invalidateQueries({ queryKey: queryKeys.profile.all })
+}
+
 async function invalidateModerationReadModels(queryClient: QueryClient): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: queryKeys.reports.all }),
@@ -71,6 +75,11 @@ export async function invalidateForRealtimeTable(
 ): Promise<void> {
   if (tableName === 'post_reports' || tableName === 'admin_action_logs') {
     await invalidateModerationReadModels(queryClient)
+    return
+  }
+
+  if (tableName === 'user_profile_details') {
+    await invalidateProfileReadModels(queryClient)
     return
   }
 

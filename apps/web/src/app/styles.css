@@ -3090,6 +3090,13 @@
   padding: 20px 0;
 }
 
+.rk-profile-error {
+  margin: 0;
+  color: #be123c;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
 /* Profile panel actions (in header dropdown) */
 .rk-profile-panel-actions {
   margin-top: 12px;
