@@ -14,7 +14,7 @@ type UserProfileAvatarRecord = {
 export async function getUserProfileDetails(userId: string): Promise<ProfileDetails> {
   const { data, error } = await supabaseClient
     .from('user_profile_details')
-    .select('tagline, bio, location, occupations, hobbies, links, avatar_url')
+    .select('tagline, bio, location, country, city, uni, major, occupations, hobbies, links, avatar_url')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -25,6 +25,10 @@ export async function getUserProfileDetails(userId: string): Promise<ProfileDeta
       tagline: '',
       bio: '',
       location: '',
+      country: '',
+      city: '',
+      uni: '',
+      major: '',
       occupations: '',
       hobbies: '',
       links: '',
@@ -47,7 +51,7 @@ export async function upsertUserProfileDetails(
   const { data, error } = await supabaseClient
     .from('user_profile_details')
     .upsert(payload, { onConflict: 'user_id' })
-    .select('tagline, bio, location, occupations, hobbies, links, avatar_url')
+    .select('tagline, bio, location, country, city, uni, major, occupations, hobbies, links, avatar_url')
     .single()
 
   throwIfPostgrestError(error)

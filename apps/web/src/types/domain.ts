@@ -93,6 +93,10 @@ export type ProfileDetails = {
   tagline: string
   bio: string
   location: string
+  country: string
+  city: string
+  uni: string
+  major: string
   occupations: string
   hobbies: string
   links: string

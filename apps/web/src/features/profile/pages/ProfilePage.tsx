@@ -33,6 +33,10 @@ const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   bio: '',
   tagline: '',
   location: '',
+  country: '',
+  city: '',
+  uni: '',
+  major: '',
   occupations: '',
   hobbies: '',
   links: '',
@@ -236,10 +240,16 @@ export function ProfilePage() {
   }
 
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
+  const hasFromDetails = [profileDetails.country, profileDetails.city].some((value) => value.trim().length > 0)
+  const hasUniDetails = [profileDetails.uni, profileDetails.major].some((value) => value.trim().length > 0)
   const hasProfileDetails = Boolean(profileDetails.avatar_url) || [
     profileDetails.tagline,
     profileDetails.bio,
     profileDetails.location,
+    profileDetails.country,
+    profileDetails.city,
+    profileDetails.uni,
+    profileDetails.major,
     profileDetails.occupations,
     profileDetails.hobbies,
     profileDetails.links,
@@ -395,7 +405,7 @@ export function ProfilePage() {
               maxLength={20}
             />
 
-            <label className="rk-label" htmlFor="profile-tagline">Tagline</label>
+            <label className="rk-label" htmlFor="profile-tagline">One Liner</label>
             <input
               id="profile-tagline"
               className="rk-input"
@@ -422,14 +432,14 @@ export function ProfilePage() {
 
             <div className="rk-profile-about-grid">
               <label className="rk-profile-about-field">
-                <span className="rk-label">Location</span>
+                <span className="rk-label">Unit Number</span>
                 <input
                   className="rk-input"
                   value={draftDetails.location}
                   onChange={(event) =>
                     setDraftDetails((current) => ({ ...current, location: event.target.value }))
                   }
-                  placeholder="e.g. Seoul · Gyeonggi"
+                  placeholder="e.g. 1502"
                   maxLength={40}
                 />
               </label>
@@ -443,6 +453,64 @@ export function ProfilePage() {
                     setDraftDetails((current) => ({ ...current, occupations: event.target.value }))
                   }
                   placeholder="e.g. Product Designer, PM"
+                  maxLength={80}
+                />
+              </label>
+            </div>
+
+            <p className="rk-profile-meta-title">From</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Country</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.country}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, country: event.target.value }))
+                  }
+                  placeholder="e.g. Korea"
+                  maxLength={60}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">City</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.city}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, city: event.target.value }))
+                  }
+                  placeholder="e.g. Seoul"
+                  maxLength={60}
+                />
+              </label>
+            </div>
+
+            <p className="rk-profile-meta-title">Uni / Major</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Uni</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.uni}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, uni: event.target.value }))
+                  }
+                  placeholder="e.g. Sookmyung Women's University"
+                  maxLength={80}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Major</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.major}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, major: event.target.value }))
+                  }
+                  placeholder="e.g. Design"
                   maxLength={80}
                 />
               </label>
@@ -497,12 +565,40 @@ export function ProfilePage() {
             {profileDetails.bio && <p className="rk-profile-bio">{profileDetails.bio}</p>}
             <div className="rk-profile-meta-list">
               {profileDetails.location && (
-                <div className="rk-profile-meta-item"><strong>📍 Location</strong><span>{profileDetails.location}</span></div>
+                <div className="rk-profile-meta-item"><strong>🏠 Unit Number</strong><span>{profileDetails.location}</span></div>
               )}
               {profileDetails.occupations && (
                 <div className="rk-profile-meta-item"><strong>💼 Focus</strong><span>{profileDetails.occupations}</span></div>
               )}
             </div>
+
+            {hasFromDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">From</span>
+                <div className="rk-profile-meta-list">
+                  {profileDetails.country && (
+                    <div className="rk-profile-meta-item"><strong>Country</strong><span>{profileDetails.country}</span></div>
+                  )}
+                  {profileDetails.city && (
+                    <div className="rk-profile-meta-item"><strong>City</strong><span>{profileDetails.city}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {hasUniDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">Uni / Major</span>
+                <div className="rk-profile-meta-list">
+                  {profileDetails.uni && (
+                    <div className="rk-profile-meta-item"><strong>Uni</strong><span>{profileDetails.uni}</span></div>
+                  )}
+                  {profileDetails.major && (
+                    <div className="rk-profile-meta-item"><strong>Major</strong><span>{profileDetails.major}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {parseList(profileDetails.hobbies).length > 0 && (
               <div className="rk-profile-meta-block">
@@ -607,7 +703,6 @@ export function ProfilePage() {
           </div>
         </div>
       )}
-
       {!profileData.hasActivity && (
         <p className="rk-profile-empty">No activity yet.</p>
       )}
