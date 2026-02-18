@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
@@ -19,6 +20,61 @@ interface Badge {
   label: string
   description: string
   earned: boolean
+}
+
+interface ProfileDetails {
+  bio: string
+  tagline: string
+  location: string
+  occupations: string
+  hobbies: string
+  links: string
+}
+
+const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
+  bio: '',
+  tagline: '',
+  location: '',
+  occupations: '',
+  hobbies: '',
+  links: '',
+}
+
+function getProfileDetailsStorageKey(userId: string): string {
+  return `rk:profile-details:${userId}`
+}
+
+function parseList(text: string): string[] {
+  return text
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function loadProfileDetails(userId: string): ProfileDetails {
+  if (typeof window === 'undefined') return DEFAULT_PROFILE_DETAILS
+
+  const rawValue = window.localStorage.getItem(getProfileDetailsStorageKey(userId))
+  if (!rawValue) return DEFAULT_PROFILE_DETAILS
+
+  try {
+    const parsed = JSON.parse(rawValue) as Partial<ProfileDetails>
+    return {
+      bio: parsed.bio ?? '',
+      tagline: parsed.tagline ?? '',
+      location: parsed.location ?? '',
+      occupations: parsed.occupations ?? '',
+      hobbies: parsed.hobbies ?? '',
+      links: parsed.links ?? '',
+    }
+  } catch {
+    return DEFAULT_PROFILE_DETAILS
+  }
+}
+
+function saveProfileDetails(userId: string, details: ProfileDetails): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.setItem(getProfileDetailsStorageKey(userId), JSON.stringify(details))
 }
 
 function computeBadges(stats: {
@@ -93,6 +149,11 @@ export function ProfilePage() {
   const isOwnProfile = !userId || userId === user?.id
 
   const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
+  const [draftDetails, setDraftDetails] = useState<ProfileDetails>(DEFAULT_PROFILE_DETAILS)
+  const [isEditingDetails, setIsEditingDetails] = useState(false)
+  const [, setDetailsVersion] = useState(0)
+
+  const profileDetails = targetUserId ? loadProfileDetails(targetUserId) : DEFAULT_PROFILE_DETAILS
 
   const profileData = useMemo(() => {
     if (!targetUserId || !postsQuery.data) return null
@@ -171,6 +232,24 @@ export function ProfilePage() {
   }
 
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
+  const hasProfileDetails = Object.values(profileDetails).some((value) => value.trim().length > 0)
+
+  function handleStartEdit() {
+    setDraftDetails(profileDetails)
+    setIsEditingDetails(true)
+  }
+
+  function handleDetailsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!targetUserId) return
+    saveProfileDetails(targetUserId, draftDetails)
+    setDetailsVersion((current) => current + 1)
+    setIsEditingDetails(false)
+  }
+
+  function handleDetailsCancel() {
+    setIsEditingDetails(false)
+  }
 
   return (
     <section className="rk-page rk-profile-page">
@@ -189,6 +268,152 @@ export function ProfilePage() {
           {joinedDate && <p className="rk-profile-page-joined">Joined {joinedDate}</p>}
           {!isOwnProfile && <p className="rk-profile-page-joined">Community member</p>}
         </div>
+      </div>
+
+      <div className="rk-profile-section rk-profile-about-card">
+        <div className="rk-profile-section-heading-row">
+          <h2 className="rk-profile-section-title">About Me</h2>
+          {isOwnProfile && !isEditingDetails && (
+            <button
+              type="button"
+              className="rk-button rk-button-ghost rk-profile-edit-button"
+              onClick={handleStartEdit}
+            >
+              Edit profile
+            </button>
+          )}
+        </div>
+
+        {isOwnProfile && isEditingDetails ? (
+          <form className="rk-profile-about-form" onSubmit={handleDetailsSubmit}>
+            <label className="rk-label" htmlFor="profile-tagline">한 줄 소개</label>
+            <input
+              id="profile-tagline"
+              className="rk-input"
+              value={draftDetails.tagline}
+              onChange={(event) =>
+                setDraftDetails((current) => ({ ...current, tagline: event.target.value }))
+              }
+              placeholder="예: 주말마다 소소한 여행을 즐기는 나윤입니다"
+              maxLength={80}
+            />
+
+            <label className="rk-label" htmlFor="profile-bio">자기소개</label>
+            <textarea
+              id="profile-bio"
+              className="rk-post-input"
+              value={draftDetails.bio}
+              onChange={(event) =>
+                setDraftDetails((current) => ({ ...current, bio: event.target.value }))
+              }
+              placeholder="내가 어떤 사람인지, 요즘 관심사는 무엇인지 자유롭게 써보세요."
+              rows={4}
+              maxLength={300}
+            />
+
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">활동 지역</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.location}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, location: event.target.value }))
+                  }
+                  placeholder="예: 서울 · 경기"
+                  maxLength={40}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">직업/관심 분야</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.occupations}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, occupations: event.target.value }))
+                  }
+                  placeholder="예: Product Designer, PM"
+                  maxLength={80}
+                />
+              </label>
+            </div>
+
+            <label className="rk-label" htmlFor="profile-hobbies">취미/관심사 (쉼표로 구분)</label>
+            <input
+              id="profile-hobbies"
+              className="rk-input"
+              value={draftDetails.hobbies}
+              onChange={(event) =>
+                setDraftDetails((current) => ({ ...current, hobbies: event.target.value }))
+              }
+              placeholder="예: 러닝, 전시회, 카페 투어"
+              maxLength={120}
+            />
+
+            <label className="rk-label" htmlFor="profile-links">링크 (쉼표로 구분)</label>
+            <input
+              id="profile-links"
+              className="rk-input"
+              value={draftDetails.links}
+              onChange={(event) =>
+                setDraftDetails((current) => ({ ...current, links: event.target.value }))
+              }
+              placeholder="예: instagram.com/nayoon, github.com/nayoon"
+              maxLength={160}
+            />
+
+            <div className="rk-profile-about-actions">
+              <button type="submit" className="rk-button rk-button-primary">Save</button>
+              <button type="button" className="rk-button rk-button-ghost" onClick={handleDetailsCancel}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : hasProfileDetails ? (
+          <div className="rk-profile-about-content">
+            {profileDetails.tagline && (
+              <p className="rk-profile-tagline">“{profileDetails.tagline}”</p>
+            )}
+            {profileDetails.bio && <p className="rk-profile-bio">{profileDetails.bio}</p>}
+            <div className="rk-profile-meta-list">
+              {profileDetails.location && (
+                <div className="rk-profile-meta-item"><strong>📍 지역</strong><span>{profileDetails.location}</span></div>
+              )}
+              {profileDetails.occupations && (
+                <div className="rk-profile-meta-item"><strong>💼 분야</strong><span>{profileDetails.occupations}</span></div>
+              )}
+            </div>
+
+            {parseList(profileDetails.hobbies).length > 0 && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">✨ 취미 & 관심사</span>
+                <div className="rk-profile-categories">
+                  {parseList(profileDetails.hobbies).map((hobby) => (
+                    <span key={hobby} className="rk-chip rk-profile-category-chip">{hobby}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {parseList(profileDetails.links).length > 0 && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">🔗 Links</span>
+                <ul className="rk-profile-link-list">
+                  {parseList(profileDetails.links).map((link) => (
+                    <li key={link}>{link}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="rk-profile-empty">
+            {isOwnProfile
+              ? '프로필 소개가 비어 있어요. Edit profile 버튼으로 나를 소개해보세요.'
+              : '아직 작성된 소개가 없어요.'}
+          </p>
+        )}
       </div>
 
       {/* Stats */}
