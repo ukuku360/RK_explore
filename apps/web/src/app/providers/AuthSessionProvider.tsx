@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import { isAdminEmail } from '../../lib/guards'
 import { ensureSignupEmailAllowed, warmSignupAllowlist } from '../../lib/signupAllowlist'
@@ -18,6 +18,33 @@ type AuthSessionProviderProps = {
 
 const SESSION_RESTORE_TIMEOUT_MS = 8000
 
+type RawAuthUser = {
+  id: string
+  email?: string | null
+  created_at?: string | null
+  user_metadata?: { nickname?: string | null } | null
+}
+
+function normalizeNickname(value: string): string {
+  return value.trim().replace(/\s+/g, ' ').slice(0, 20)
+}
+
+function mapAuthUser(rawUser: RawAuthUser): AuthUser | null {
+  const email = rawUser.email?.trim().toLowerCase()
+  if (!email) return null
+
+  const nickname = rawUser.user_metadata?.nickname?.trim() ?? ''
+  const fallbackLabel = email.split('@')[0] || 'Tenant'
+
+  return {
+    id: rawUser.id,
+    email,
+    label: nickname.length > 0 ? nickname : fallbackLabel,
+    createdAt: rawUser.created_at ?? new Date().toISOString(),
+    isAdmin: isAdminEmail(email),
+  }
+}
+
 export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -35,27 +62,6 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       setUser(null)
       setIsLoading(false)
     }, SESSION_RESTORE_TIMEOUT_MS)
-
-    function mapAuthUser(rawUser: {
-      id: string
-      email?: string | null
-      created_at?: string | null
-      user_metadata?: { nickname?: string | null } | null
-    }): AuthUser | null {
-      const email = rawUser.email?.trim().toLowerCase()
-      if (!email) return null
-
-      const nickname = rawUser.user_metadata?.nickname?.trim() ?? ''
-      const fallbackLabel = email.split('@')[0] || 'Tenant'
-
-      return {
-        id: rawUser.id,
-        email,
-        label: nickname.length > 0 ? nickname : fallbackLabel,
-        createdAt: rawUser.created_at ?? new Date().toISOString(),
-        isAdmin: isAdminEmail(email),
-      }
-    }
 
     async function restoreSession() {
       try {
@@ -125,7 +131,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   async function signup(input: SignupInput): Promise<AuthActionResult> {
     const email = input.email.trim()
     const password = input.password.trim()
-    const nickname = input.nickname.trim().replace(/\s+/g, ' ').slice(0, 20)
+    const nickname = normalizeNickname(input.nickname)
 
     if (!email || !password) {
       return { ok: false, message: 'Please enter email and password.' }
@@ -153,6 +159,37 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     return { ok: true, message: `Check your email for the confirmation link, ${nickname}!` }
   }
 
+  async function updateNickname(nextNickname: string): Promise<AuthActionResult> {
+    if (!user) {
+      return { ok: false, message: 'Please log in first.' }
+    }
+
+    const nickname = normalizeNickname(nextNickname)
+    if (nickname.length < 2) {
+      return { ok: false, message: 'Please choose a nickname (2-20 chars).' }
+    }
+
+    if (nickname === user.label) {
+      return { ok: true }
+    }
+
+    const { data, error } = await supabaseClient.auth.updateUser({
+      data: { nickname },
+    })
+    if (error) {
+      return { ok: false, message: error.message }
+    }
+
+    const mappedUser = data.user ? mapAuthUser(data.user) : null
+    if (mappedUser) {
+      setUser(mappedUser)
+    } else {
+      setUser((current) => (current ? { ...current, label: nickname } : current))
+    }
+
+    return { ok: true }
+  }
+
   async function logout(): Promise<AuthActionResult> {
     const { error } = await supabaseClient.auth.signOut()
     if (error) {
@@ -161,17 +198,16 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     return { ok: true }
   }
 
-  const value = useMemo<AuthSessionContextValue>(() => {
-    return {
-      user,
-      sessionEmail: user?.email ?? null,
-      isAdmin: user?.isAdmin ?? false,
-      isLoading,
-      login,
-      signup,
-      logout,
-    }
-  }, [isLoading, user])
+  const value: AuthSessionContextValue = {
+    user,
+    sessionEmail: user?.email ?? null,
+    isAdmin: user?.isAdmin ?? false,
+    isLoading,
+    login,
+    signup,
+    logout,
+    updateNickname,
+  }
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>
 }
