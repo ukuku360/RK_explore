@@ -80,6 +80,58 @@ create policy "Users can update their own community comments"
 
 alter publication supabase_realtime add table public.community_comments;
 
+-- ─── Activity Updated At Tracking ────────────────────────────────────────────
+
+create or replace function public.set_activity_row_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+alter table if exists public.posts
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+alter table if exists public.comments
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+alter table if exists public.community_posts
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+alter table if exists public.community_comments
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+do $$
+begin
+  if to_regclass('public.posts') is not null then
+    execute 'drop trigger if exists trg_posts_updated_at on public.posts';
+    execute
+      'create trigger trg_posts_updated_at before update on public.posts for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.comments') is not null then
+    execute 'drop trigger if exists trg_comments_updated_at on public.comments';
+    execute
+      'create trigger trg_comments_updated_at before update on public.comments for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.community_posts') is not null then
+    execute 'drop trigger if exists trg_community_posts_updated_at on public.community_posts';
+    execute
+      'create trigger trg_community_posts_updated_at before update on public.community_posts for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.community_comments') is not null then
+    execute 'drop trigger if exists trg_community_comments_updated_at on public.community_comments';
+    execute
+      'create trigger trg_community_comments_updated_at before update on public.community_comments for each row execute function public.set_activity_row_updated_at()';
+  end if;
+end;
+$$;
+
 -- ─── Post Images ──────────────────────────────────────────────────────────────
 
 -- Add image_url column to posts table

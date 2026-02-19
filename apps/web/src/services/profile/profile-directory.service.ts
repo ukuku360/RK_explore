@@ -1,3 +1,5 @@
+import type { PostgrestError } from '@supabase/supabase-js'
+
 import { listUserProfileAvatars } from './profile-details.service'
 import { supabaseClient } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
@@ -10,9 +12,41 @@ export type ProfileDirectoryUser = {
 }
 
 type ActivityUserRecord = {
-  user_id: string
-  author: string
+  user_id: string | null
+  author: string | null
   created_at: string
+  updated_at: string | null
+}
+
+type LegacyActivityUserRecord = {
+  user_id: string | null
+  author: string | null
+  created_at: string
+}
+
+type ProfileUpdateRecord = {
+  user_id: string
+  updated_at: string
+}
+
+type LegacyProfileUpdateRecord = {
+  user_id: string
+  created_at: string
+}
+
+type ActivityRecord = {
+  userId: string
+  activityAt: string
+  author: string | null
+}
+
+type UserActivitySnapshot = {
+  lastActiveAt: string
+  latestAuthor: string | null
+}
+
+function isNotNull<T>(value: T | null): value is T {
+  return value !== null
 }
 
 function normalizeNickname(value: string | null | undefined, userId: string): string {
@@ -21,41 +55,154 @@ function normalizeNickname(value: string | null | undefined, userId: string): st
   return `User ${userId.slice(0, 8)}`
 }
 
-export async function listProfileDirectoryUsers(limit = 200): Promise<ProfileDirectoryUser[]> {
-  const [postsResult, communityPostsResult] = await Promise.all([
-    supabaseClient
-      .from('posts')
-      .select('user_id, author, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit),
-    supabaseClient
-      .from('community_posts')
-      .select('user_id, author, created_at')
-      .order('created_at', { ascending: false })
-      .limit(limit),
+function getTimestamp(value: string): number {
+  const timestamp = new Date(value).getTime()
+  if (Number.isNaN(timestamp)) return -1
+  return timestamp
+}
+
+function isMissingColumnError(error: PostgrestError | null, columnName: string): boolean {
+  if (!error) return false
+
+  const message = String(error.message || '').toLowerCase()
+  if (error.code === 'PGRST204' && message.includes(columnName.toLowerCase())) return true
+  if (error.code === '42703' && message.includes(columnName.toLowerCase())) return true
+  return false
+}
+
+function pickActivityAt(record: { created_at: string; updated_at: string | null }): string | null {
+  const createdAtMs = getTimestamp(record.created_at)
+  const updatedAtMs = getTimestamp(record.updated_at ?? '')
+
+  if (createdAtMs < 0 && updatedAtMs < 0) return null
+  if (updatedAtMs >= createdAtMs && updatedAtMs >= 0 && record.updated_at) return record.updated_at
+  if (createdAtMs >= 0) return record.created_at
+  return record.updated_at
+}
+
+function toActivityRecords(records: ActivityUserRecord[]): ActivityRecord[] {
+  return records
+    .map((record) => {
+      const userId = record.user_id?.trim() ?? ''
+      if (!userId) return null
+
+      const activityAt = pickActivityAt(record)
+      if (!activityAt) return null
+
+      return {
+        userId,
+        activityAt,
+        author: record.author?.trim() ?? null,
+      }
+    })
+    .filter((record): record is ActivityRecord => record !== null)
+}
+
+async function listActivityRecordsByTable(table: 'posts' | 'community_posts' | 'comments' | 'community_comments'): Promise<ActivityRecord[]> {
+  const withUpdatedAt = await supabaseClient
+    .from(table)
+    .select('user_id, author, created_at, updated_at')
+    .order('created_at', { ascending: false })
+
+  if (!withUpdatedAt.error) {
+    return toActivityRecords((withUpdatedAt.data ?? []) as ActivityUserRecord[])
+  }
+
+  if (!isMissingColumnError(withUpdatedAt.error, 'updated_at')) {
+    throwIfPostgrestError(withUpdatedAt.error)
+    return []
+  }
+
+  const legacy = await supabaseClient
+    .from(table)
+    .select('user_id, author, created_at')
+    .order('created_at', { ascending: false })
+
+  throwIfPostgrestError(legacy.error)
+
+  const legacyRows = (legacy.data ?? []) as LegacyActivityUserRecord[]
+  return toActivityRecords(
+    legacyRows.map((row) => ({
+      ...row,
+      updated_at: null,
+    })),
+  )
+}
+
+async function listProfileUpdateActivityRecords(): Promise<ActivityRecord[]> {
+  const withUpdatedAt = await supabaseClient.from('user_profile_details').select('user_id, updated_at')
+
+  if (!withUpdatedAt.error) {
+    const rows = (withUpdatedAt.data ?? []) as ProfileUpdateRecord[]
+    return rows
+      .map((row): ActivityRecord | null => {
+        const userId = row.user_id.trim()
+        if (!userId) return null
+        if (getTimestamp(row.updated_at) < 0) return null
+
+        return {
+          userId,
+          activityAt: row.updated_at,
+          author: null,
+        }
+      })
+      .filter(isNotNull)
+  }
+
+  if (!isMissingColumnError(withUpdatedAt.error, 'updated_at')) {
+    throwIfPostgrestError(withUpdatedAt.error)
+    return []
+  }
+
+  const legacy = await supabaseClient.from('user_profile_details').select('user_id, created_at')
+  throwIfPostgrestError(legacy.error)
+
+  const rows = (legacy.data ?? []) as LegacyProfileUpdateRecord[]
+  return rows
+    .map((row): ActivityRecord | null => {
+      const userId = row.user_id.trim()
+      if (!userId) return null
+      if (getTimestamp(row.created_at) < 0) return null
+
+      return {
+        userId,
+        activityAt: row.created_at,
+        author: null,
+      }
+    })
+    .filter(isNotNull)
+}
+
+export async function listProfileDirectoryUsers(): Promise<ProfileDirectoryUser[]> {
+  const [posts, communityPosts, comments, communityComments, profileUpdates] = await Promise.all([
+    listActivityRecordsByTable('posts'),
+    listActivityRecordsByTable('community_posts'),
+    listActivityRecordsByTable('comments'),
+    listActivityRecordsByTable('community_comments'),
+    listProfileUpdateActivityRecords(),
   ])
 
-  throwIfPostgrestError(postsResult.error)
-  throwIfPostgrestError(communityPostsResult.error)
-
-  const recentByUser = new Map<string, ActivityUserRecord>()
-  const allRecords = [
-    ...((postsResult.data ?? []) as ActivityUserRecord[]),
-    ...((communityPostsResult.data ?? []) as ActivityUserRecord[]),
-  ]
+  const recentByUser = new Map<string, UserActivitySnapshot>()
+  const allRecords = [...posts, ...communityPosts, ...comments, ...communityComments, ...profileUpdates].sort(
+    (a, b) => getTimestamp(b.activityAt) - getTimestamp(a.activityAt),
+  )
 
   for (const record of allRecords) {
-    const existing = recentByUser.get(record.user_id)
+    const existing = recentByUser.get(record.userId)
+
     if (!existing) {
-      recentByUser.set(record.user_id, record)
+      recentByUser.set(record.userId, {
+        lastActiveAt: record.activityAt,
+        latestAuthor: record.author,
+      })
       continue
     }
 
-    const existingTime = new Date(existing.created_at).getTime()
-    const candidateTime = new Date(record.created_at).getTime()
-
-    if (Number.isNaN(existingTime) || candidateTime > existingTime) {
-      recentByUser.set(record.user_id, record)
+    if (!existing.latestAuthor && record.author) {
+      recentByUser.set(record.userId, {
+        ...existing,
+        latestAuthor: record.author,
+      })
     }
   }
 
@@ -69,11 +216,11 @@ export async function listProfileDirectoryUsers(limit = 200): Promise<ProfileDir
 
       return {
         userId,
-        nickname: normalizeNickname(latest.author, userId),
+        nickname: normalizeNickname(latest.latestAuthor, userId),
         avatarUrl: avatarByUserId[userId] ?? null,
-        lastActiveAt: latest.created_at,
+        lastActiveAt: latest.lastActiveAt,
       }
     })
     .filter((user): user is ProfileDirectoryUser => user !== null)
-    .sort((a, b) => new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime())
+    .sort((a, b) => getTimestamp(b.lastActiveAt) - getTimestamp(a.lastActiveAt))
 }
