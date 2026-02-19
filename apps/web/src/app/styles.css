@@ -2414,6 +2414,23 @@
   white-space: pre-wrap;
 }
 
+
+.rk-community-edit-form {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.rk-community-inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.rk-community-comment-edit-form {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .rk-community-actions {
   display: flex;
   justify-content: flex-end;

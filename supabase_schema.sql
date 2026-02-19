@@ -4,7 +4,8 @@ create table if not exists public.community_posts (
   user_id uuid references auth.users not null,
   author text not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Enable RLS
@@ -17,6 +18,12 @@ create policy "Community posts are viewable by everyone"
 
 create policy "Users can insert their own community posts"
   on public.community_posts for insert
+  with check ( auth.uid() = user_id );
+
+drop policy if exists "Users can update their own community posts" on public.community_posts;
+create policy "Users can update their own community posts"
+  on public.community_posts for update
+  using ( auth.uid() = user_id )
   with check ( auth.uid() = user_id );
 
 create policy "Users can delete their own community posts"
@@ -54,7 +61,8 @@ create table if not exists public.community_comments (
   user_id uuid references auth.users not null,
   author text not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 alter table public.community_comments enable row level security;
@@ -65,10 +73,42 @@ create policy "Community comments are viewable by everyone"
 create policy "Users can insert their own comments"
   on public.community_comments for insert with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own comments" on public.community_comments;
+create policy "Users can update their own comments"
+  on public.community_comments for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
 create policy "Users can delete their own comments"
   on public.community_comments for delete using (auth.uid() = user_id);
 
 alter publication supabase_realtime add table public.community_comments;
+
+
+create or replace function public.set_community_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_community_posts_updated_at on public.community_posts;
+create trigger trg_community_posts_updated_at
+before update on public.community_posts
+for each row
+execute function public.set_community_updated_at();
+
+drop trigger if exists trg_community_comments_updated_at on public.community_comments;
+create trigger trg_community_comments_updated_at
+before update on public.community_comments
+for each row
+execute function public.set_community_updated_at();
+
+alter table public.community_posts add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+alter table public.community_comments add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
 -- ─── Post Images ──────────────────────────────────────────────────────────────
 

@@ -4,7 +4,12 @@ import { useLocation } from 'react-router-dom'
 import type { CommunityPost } from '../../../types/domain'
 
 import { createAdminLog } from '../../../services/admin/admin.service'
-import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
+import {
+  fetchCommunityPosts,
+  createCommunityPost,
+  updateCommunityPost,
+  deleteCommunityPost,
+} from '../../../services/community/community.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { invalidateAfterAdminLogMutation, invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
@@ -290,6 +295,22 @@ export function CommunityFeed() {
     }
   }
 
+
+
+  const editMutation = useMutation({
+    mutationFn: async ({ postId, content }: { postId: string; content: string }) => updateCommunityPost(postId, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+      setStatusTone('success')
+      setStatusMessage('Post updated.')
+    },
+    onError: (error) => {
+      console.error('Failed to edit post', error)
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update post.')
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: deleteCommunityPost,
     onSuccess: () => {
@@ -300,6 +321,12 @@ export function CommunityFeed() {
       alert('Failed to delete post.')
     }
   })
+
+
+
+  async function handleEdit(postId: string, content: string) {
+    await editMutation.mutateAsync({ postId, content })
+  }
 
   function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this post?')) return
@@ -523,6 +550,7 @@ export function CommunityFeed() {
               isReportPending={Boolean(isReportPendingByPostId[post.id])}
               isAdminDeletePending={Boolean(isAdminDeletePendingByPostId[post.id])}
               communityPostsQueryKey={communityPostsQueryKey}
+              onEdit={handleEdit}
               onDelete={handleDelete}
               onAdminDelete={handleAdminQuickDelete}
               onToggleReport={handleReportToggle}

@@ -83,6 +83,23 @@ export async function createCommunityPost(
   }
 }
 
+export async function updateCommunityPost(postId: string, content: string): Promise<CommunityPost> {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .update({ content })
+    .eq('id', postId)
+    .select()
+    .single()
+
+  throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to update community post: no data returned from server')
+  }
+
+  return data
+}
+
 export async function deleteCommunityPost(postId: string): Promise<void> {
   const { error } = await supabase.from('community_posts').delete().eq('id', postId)
   throwIfPostgrestError(error)
@@ -139,6 +156,23 @@ export async function createComment(
     .single()
 
   throwIfPostgrestError(error)
+  return data
+}
+
+export async function updateComment(commentId: string, content: string): Promise<CommunityComment> {
+  const { data, error } = await supabase
+    .from('community_comments')
+    .update({ content })
+    .eq('id', commentId)
+    .select()
+    .single()
+
+  throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to update comment: no data returned from server')
+  }
+
   return data
 }
 
