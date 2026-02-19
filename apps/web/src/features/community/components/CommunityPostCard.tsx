@@ -52,7 +52,8 @@ export function CommunityPostCard({
   const queryClient = useQueryClient()
 
   const normalizedEditContent = editContent.trim()
-  const isEdited = post.updated_at !== post.created_at
+  const formattedUpdatedAt = formatDateTime(post.updated_at)
+  const isEdited = post.updated_at !== post.created_at && formattedUpdatedAt !== '-'
   const isEditSubmitDisabled =
     isEditPending ||
     normalizedEditContent.length === 0 ||
@@ -124,7 +125,7 @@ export function CommunityPostCard({
         <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
-          {isEdited ? <span className="rk-community-time">(Edited {formatDateTime(post.updated_at)})</span> : null}
+          {isEdited ? <span className="rk-community-time">(Edited {formattedUpdatedAt})</span> : null}
           {canAdminDelete ? (
             <button
               type="button"

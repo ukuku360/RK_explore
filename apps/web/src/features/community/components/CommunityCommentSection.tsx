@@ -116,7 +116,8 @@ export function CommunityCommentSection({ postId }: Props) {
             const isOwner = user?.id === comment.user_id
             const canDelete = isOwner
             const canEdit = isOwner
-            const isEdited = comment.updated_at !== comment.created_at
+            const formattedUpdatedAt = formatDateTime(comment.updated_at)
+            const isEdited = comment.updated_at !== comment.created_at && formattedUpdatedAt !== '-'
             const isEditingCurrent = editingCommentId === comment.id
 
             return (
@@ -125,7 +126,7 @@ export function CommunityCommentSection({ postId }: Props) {
                   <span className="rk-comment-author">{comment.author}</span>
                   <span className="rk-comment-time">
                     {formatDateTime(comment.created_at)}
-                    {isEdited ? ` (Edited ${formatDateTime(comment.updated_at)})` : ''}
+                    {isEdited ? ` (Edited ${formattedUpdatedAt})` : ''}
                   </span>
                 </div>
 
