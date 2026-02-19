@@ -6,6 +6,7 @@ import { AppShell } from '../layout/AppShell'
 import { useAuthSession } from '../providers/auth-session-context'
 import { AuthPage } from '../../features/auth/pages/AuthPage'
 import { FeedPage } from '../../features/feed/pages/FeedPage'
+import { MembersPage } from '../../features/members/pages/MembersPage'
 import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
 import { ProfilePage } from '../../features/profile/pages/ProfilePage'
 
@@ -109,6 +110,14 @@ export function AppRouter() {
           } 
         />
         <Route path="/admin" element={<AdminRoute />} />
+        <Route
+          path="/members"
+          element={
+            <ProtectedRoute>
+              <MembersPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/profile"
           element={
