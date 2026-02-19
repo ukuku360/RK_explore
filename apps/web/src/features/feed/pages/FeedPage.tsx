@@ -15,8 +15,8 @@ import {
 } from '../../../lib/queryInvalidation'
 import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
 import { createAdminLog } from '../../../services/admin/admin.service'
-import { createComment } from '../../../services/comments/comments.service'
-import { createPost, deletePost } from '../../../services/posts/posts.service'
+import { createComment, updateComment as updateFeedComment } from '../../../services/comments/comments.service'
+import { createPost, deletePost, updatePost } from '../../../services/posts/posts.service'
 import { uploadPostImage } from '../../../services/posts/post-image.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
@@ -394,6 +394,8 @@ export function FeedPage() {
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isDeletePendingByPostId, setIsDeletePendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
+  const [isCommentEditPendingByCommentId, setIsCommentEditPendingByCommentId] = useState<Record<string, boolean>>({})
+  const [isPostEditPendingByPostId, setIsPostEditPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
   const [replyOpenByCommentId, setReplyOpenByCommentId] = useState<Record<string, boolean>>({})
@@ -1253,6 +1255,49 @@ export function FeedPage() {
     }
   }
 
+
+  async function editFeedPost(post: Post) {
+    if (!user || user.id !== post.user_id) return
+
+    const nextLocation = window.prompt('Edit destination', post.location)?.trim() ?? ''
+    if (!nextLocation || nextLocation === post.location) return
+
+    setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      await updatePost(post.id, nextLocation)
+      await queryClient.invalidateQueries({ queryKey: ['posts_with_relations'] })
+      setStatusTone('success')
+      setStatusMessage('Post updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update post.')
+    } finally {
+      setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
+    }
+  }
+
+  async function editFeedComment(comment: PostComment) {
+    if (!user || user.id !== comment.user_id) return
+
+    const nextText = window.prompt('Edit comment', comment.text)?.trim() ?? ''
+    if (!nextText || nextText === comment.text) return
+
+    setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: true }))
+
+    try {
+      await updateFeedComment(comment.id, nextText)
+      await invalidateAfterCommentMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage('Comment updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update comment.')
+    } finally {
+      setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: false }))
+    }
+  }
+
   return (
     <section className="rk-page">
       <div className="rk-creation-card">
@@ -1769,6 +1814,18 @@ export function FeedPage() {
                         {copiedPostId === post.id ? 'Copied URL' : 'Share'}
                       </button>
                     </div>
+                    {user?.id === post.user_id ? (
+                      <div className="rk-action-stack">
+                        <button
+                          type="button"
+                          className="rk-action-button"
+                          onClick={() => void editFeedPost(post)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isPostEditPendingByPostId[post.id] ? 'Saving...' : 'Edit'}
+                        </button>
+                      </div>
+                    ) : null}
                     {!user?.isAdmin ? (
                       <div className="rk-action-stack">
                         <button
@@ -1858,6 +1915,16 @@ export function FeedPage() {
                                         >
                                           {isReplyOpen ? 'Cancel' : 'Reply'}
                                         </button>
+                                        {user?.id === node.user_id ? (
+                                          <button
+                                            type="button"
+                                            className="rk-comment-reply-button"
+                                            onClick={() => void editFeedComment(node)}
+                                            disabled={Boolean(isCommentEditPendingByCommentId[node.id])}
+                                          >
+                                            {isCommentEditPendingByCommentId[node.id] ? 'Saving...' : 'Edit'}
+                                          </button>
+                                        ) : null}
                                       </div>
                                     </div>
                                     
