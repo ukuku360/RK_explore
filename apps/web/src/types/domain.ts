@@ -35,6 +35,7 @@ export type Comment = {
   author: string
   text: string
   created_at: string
+  updated_at?: string
 }
 
 export type PostRecord = {

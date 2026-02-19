@@ -48,7 +48,7 @@ export function CommunityCommentSection({ postId }: Props) {
   })
 
   const editCommentMutation = useMutation({
-    mutationFn: async ({ commentId, text }: { commentId: string; text: string }) => updateComment(commentId, text),
+    mutationFn: async ({ commentId, content }: { commentId: string; content: string }) => updateComment(commentId, content),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['community_comments', postId] })
       queryClient.invalidateQueries({ queryKey: ['community_posts'] })
@@ -95,7 +95,7 @@ export function CommunityCommentSection({ postId }: Props) {
     e.preventDefault()
     if (normalizedEditContent.length === 0 || normalizedEditContent === comment.content) return
 
-    await editCommentMutation.mutateAsync({ commentId: comment.id, text: normalizedEditContent })
+    await editCommentMutation.mutateAsync({ commentId: comment.id, content: normalizedEditContent })
   }
 
   function handleDelete(commentId: string) {

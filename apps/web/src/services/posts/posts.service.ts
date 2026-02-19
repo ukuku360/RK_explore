@@ -76,6 +76,16 @@ export async function updatePostModeration(postId: string, input: UpdatePostMode
 }
 
 export async function updatePost(postId: string, location: string): Promise<void> {
-  const { error } = await supabaseClient.from('posts').update({ location }).eq('id', postId)
+  const { data, error } = await supabaseClient
+    .from('posts')
+    .update({ location })
+    .eq('id', postId)
+    .select()
+    .single()
+
   throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to update post: no data returned from server')
+  }
 }

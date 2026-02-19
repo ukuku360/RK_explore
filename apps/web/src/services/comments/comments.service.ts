@@ -56,6 +56,16 @@ export async function createComment(input: CreateCommentInput): Promise<void> {
 }
 
 export async function updateComment(commentId: string, text: string): Promise<void> {
-  const { error } = await supabaseClient.from('comments').update({ text }).eq('id', commentId)
+  const { data, error } = await supabaseClient
+    .from('comments')
+    .update({ text })
+    .eq('id', commentId)
+    .select()
+    .single()
+
   throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to update comment: no data returned from server')
+  }
 }
