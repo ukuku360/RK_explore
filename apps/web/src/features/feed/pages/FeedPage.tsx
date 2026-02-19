@@ -1838,6 +1838,18 @@ export function FeedPage() {
                         {copiedPostId === post.id ? 'Copied URL' : 'Share'}
                       </button>
                     </div>
+                    {user?.id === post.user_id ? (
+                      <div className="rk-action-stack">
+                        <button
+                          type="button"
+                          className="rk-action-button"
+                          onClick={() => void editFeedPost(post)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isPostEditPendingByPostId[post.id] ? 'Saving...' : 'Edit'}
+                        </button>
+                      </div>
+                    ) : null}
                     {!user?.isAdmin ? (
                       <div className="rk-action-stack">
                         <button

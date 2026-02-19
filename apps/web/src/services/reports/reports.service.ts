@@ -70,6 +70,18 @@ export async function listOpenReportsByReporter(reporterUserId: string, limitCou
   return (data ?? []) as Report[]
 }
 
+export async function listReportsByReporter(reporterUserId: string, limitCount = 200): Promise<Report[]> {
+  const { data, error } = await supabaseClient
+    .from('post_reports')
+    .select('*')
+    .eq('reporter_user_id', reporterUserId)
+    .order('created_at', { ascending: false })
+    .limit(limitCount)
+  throwIfPostgrestError(error)
+
+  return (data ?? []) as Report[]
+}
+
 export async function createReport(input: CreateReportInput): Promise<void> {
   const payload = {
     ...buildTargetColumns(input.target_type, input.target_id),
