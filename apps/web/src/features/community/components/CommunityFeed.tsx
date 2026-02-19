@@ -299,8 +299,21 @@ export function CommunityFeed() {
 
   const editMutation = useMutation({
     mutationFn: async ({ postId, content }: { postId: string; content: string }) => updateCommunityPost(postId, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+    onSuccess: async (updatedPost) => {
+      queryClient.setQueryData<CommunityPost[]>(communityPostsQueryKey, (previous) => {
+        if (!previous) return []
+        return previous.map((post) => {
+          if (post.id !== updatedPost.id) return post
+
+          return {
+            ...post,
+            content: updatedPost.content,
+            updated_at: updatedPost.updated_at,
+          }
+        })
+      })
+
+      await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
       setStatusTone('success')
       setStatusMessage('Post updated.')
     },

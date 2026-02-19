@@ -364,6 +364,19 @@ function getRsvpMemberLabel(userId: string, labelsById: Record<string, string>):
   return `User ${userId.slice(0, 8)}`
 }
 
+
+
+function isSameAuthorByFallback(viewer: { id: string; label: string } | null | undefined, ownerUserId: string | null | undefined, ownerAuthor: string | null | undefined): boolean {
+  if (!viewer) return false
+  if (ownerUserId && ownerUserId === viewer.id) return true
+
+  const viewerLabel = viewer.label.trim().toLowerCase()
+  const ownerLabel = (ownerAuthor ?? '').trim().toLowerCase()
+  if (!viewerLabel || !ownerLabel) return false
+
+  return viewerLabel === ownerLabel
+}
+
 function getAvatarFallbackText(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) return '?'
@@ -1257,7 +1270,7 @@ export function FeedPage() {
 
 
   async function editFeedPost(post: Post) {
-    if (!user || user.id !== post.user_id) return
+    if (!isSameAuthorByFallback(user, post.user_id, post.author)) return
 
     const nextLocation = window.prompt('Edit destination', post.location)?.trim() ?? ''
     if (!nextLocation || nextLocation === post.location) return
@@ -1278,7 +1291,7 @@ export function FeedPage() {
   }
 
   async function editFeedComment(comment: PostComment) {
-    if (!user || user.id !== comment.user_id) return
+    if (!isSameAuthorByFallback(user, comment.user_id, comment.author)) return
 
     const nextText = window.prompt('Edit comment', comment.text)?.trim() ?? ''
     if (!nextText || nextText === comment.text) return
@@ -1687,7 +1700,8 @@ export function FeedPage() {
               const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
               const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
               const postedAgoLabel = formatTimeAgo(post.created_at)
-              
+              const canEditPost = isSameAuthorByFallback(user, post.user_id, post.author)
+
               const commentThreads = buildCommentThreads(post.comments)
 
               return (
@@ -1729,6 +1743,16 @@ export function FeedPage() {
                       <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
                       {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
                       {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
+                      {canEditPost ? (
+                        <button
+                          type="button"
+                          className="rk-post-quick-edit"
+                          onClick={() => void editFeedPost(post)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isPostEditPendingByPostId[post.id] ? 'Saving...' : 'Edit'}
+                        </button>
+                      ) : null}
                       {user?.isAdmin ? (
                         <button
                           type="button"
@@ -1892,6 +1916,7 @@ export function FeedPage() {
                               const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
                               const replyDraft = replyDraftByCommentId[node.id] ?? ''
                               const initial = (node.author || '?').charAt(0).toUpperCase()
+                              const canEditComment = isSameAuthorByFallback(user, node.user_id, node.author)
 
                               return (
                                 <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
@@ -1915,7 +1940,7 @@ export function FeedPage() {
                                         >
                                           {isReplyOpen ? 'Cancel' : 'Reply'}
                                         </button>
-                                        {user?.id === node.user_id ? (
+                                        {canEditComment ? (
                                           <button
                                             type="button"
                                             className="rk-comment-reply-button"

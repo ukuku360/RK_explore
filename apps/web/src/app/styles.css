@@ -1110,6 +1110,30 @@
   gap: 6px;
 }
 
+
+.rk-post-quick-edit {
+  border: 1px solid #cde2f8;
+  border-radius: 999px;
+  background: #edf5ff;
+  color: #355f8d;
+  padding: 5px 11px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rk-post-quick-edit:hover:not(:disabled) {
+  border-color: #b7d6f5;
+  background: #e3f0ff;
+}
+
+.rk-post-quick-edit:disabled {
+  opacity: 0.64;
+  cursor: not-allowed;
+}
+
 .rk-admin-quick-delete {
   border: 1px solid #efb8c4;
   border-radius: 999px;

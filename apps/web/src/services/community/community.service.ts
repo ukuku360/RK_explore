@@ -91,6 +91,10 @@ export async function updateCommunityPost(postId: string, content: string): Prom
     .select()
     .single()
 
+  if (error && (error.code === '42501' || error.code === 'PGRST301')) {
+    throw new Error('Community edit permission is not enabled. Apply the latest Supabase RLS update policy and try again.')
+  }
+
   throwIfPostgrestError(error)
 
   if (!data) {
@@ -166,6 +170,10 @@ export async function updateComment(commentId: string, content: string): Promise
     .eq('id', commentId)
     .select()
     .single()
+
+  if (error && (error.code === '42501' || error.code === 'PGRST301')) {
+    throw new Error('Community edit permission is not enabled. Apply the latest Supabase RLS update policy and try again.')
+  }
 
   throwIfPostgrestError(error)
 
