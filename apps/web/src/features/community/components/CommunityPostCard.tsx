@@ -15,6 +15,7 @@ type Props = {
   isReportPending: boolean
   isAdminDeletePending: boolean
   communityPostsQueryKey: readonly ['community_posts']
+  onEdit: (id: string, content: string) => void | Promise<void>
   onDelete: (id: string) => void
   onAdminDelete: (post: CommunityPost) => void | Promise<void>
   onToggleReport: (id: string, isReported: boolean) => void | Promise<void>
@@ -22,6 +23,8 @@ type Props = {
   isShareCopied: boolean
   elementId: string
 }
+
+const COMMUNITY_POST_MAX_LENGTH = 280
 
 export function CommunityPostCard({
   post,
@@ -32,6 +35,7 @@ export function CommunityPostCard({
   isReportPending,
   isAdminDeletePending,
   communityPostsQueryKey,
+  onEdit,
   onDelete,
   onAdminDelete,
   onToggleReport,
@@ -42,7 +46,18 @@ export function CommunityPostCard({
   const isOwner = currentUserId === post.user_id
   const canDelete = isOwner
   const [showComments, setShowComments] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(post.content)
+  const [isEditPending, setIsEditPending] = useState(false)
   const queryClient = useQueryClient()
+
+  const normalizedEditContent = editContent.trim()
+  const isEdited = post.updated_at !== post.created_at
+  const isEditSubmitDisabled =
+    isEditPending ||
+    normalizedEditContent.length === 0 ||
+    normalizedEditContent.length > COMMUNITY_POST_MAX_LENGTH ||
+    normalizedEditContent === post.content
 
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -85,12 +100,31 @@ export function CommunityPostCard({
     likeMutation.mutate()
   }
 
+  async function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (isEditSubmitDisabled) return
+
+    try {
+      setIsEditPending(true)
+      await onEdit(post.id, normalizedEditContent)
+      setIsEditing(false)
+    } finally {
+      setIsEditPending(false)
+    }
+  }
+
+  function handleEditCancel() {
+    setEditContent(post.content)
+    setIsEditing(false)
+  }
+
   return (
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
         <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
+          {isEdited ? <span className="rk-community-time">(Edited {formatDateTime(post.updated_at)})</span> : null}
           {canAdminDelete ? (
             <button
               type="button"
@@ -104,9 +138,41 @@ export function CommunityPostCard({
         </div>
       </div>
 
-      <div className="rk-community-content">{post.content}</div>
+      {isEditing ? (
+        <form onSubmit={handleEditSubmit} className="rk-community-edit-form">
+          <textarea
+            className="rk-input rk-textarea"
+            rows={3}
+            value={editContent}
+            onChange={(event) => setEditContent(event.target.value)}
+            maxLength={COMMUNITY_POST_MAX_LENGTH}
+            disabled={isEditPending}
+          />
+          <div className="rk-community-compose-meta">
+            <span className="rk-community-compose-help">{normalizedEditContent.length}/{COMMUNITY_POST_MAX_LENGTH}</span>
+            <div className="rk-community-inline-actions">
+              <button
+                type="button"
+                className="rk-button-text rk-button-small"
+                onClick={handleEditCancel}
+                disabled={isEditPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rk-button rk-button-secondary rk-button-small"
+                disabled={isEditSubmitDisabled}
+              >
+                {isEditPending ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </form>
+      ) : (
+        <div className="rk-community-content">{post.content}</div>
+      )}
 
-      {/* Engagement Actions */}
       <div className="rk-community-footer">
         <div className="rk-engagement-actions">
           <button
@@ -152,14 +218,26 @@ export function CommunityPostCard({
           ) : null}
         </div>
 
-        {canDelete && (
-          <button
-            type="button"
-            className="rk-button-text rk-button-danger rk-button-small"
-            onClick={() => onDelete(post.id)}
-          >
-            Delete
-          </button>
+        {canDelete && !isEditing && (
+          <div className="rk-community-inline-actions">
+            <button
+              type="button"
+              className="rk-button-text rk-button-small"
+              onClick={() => {
+                setEditContent(post.content)
+                setIsEditing(true)
+              }}
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              className="rk-button-text rk-button-danger rk-button-small"
+              onClick={() => onDelete(post.id)}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
 
