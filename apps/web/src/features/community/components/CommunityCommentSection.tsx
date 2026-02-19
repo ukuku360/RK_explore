@@ -1,7 +1,12 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { fetchComments, createComment, deleteComment } from '../../../services/community/community.service'
+import {
+  fetchComments,
+  createComment,
+  deleteComment,
+  updateCommunityComment,
+} from '../../../services/community/community.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { formatDateTime } from '../../../lib/formatters'
 import type { CommunityComment } from '../../../types/domain'
@@ -18,6 +23,8 @@ export function CommunityCommentSection({ postId }: Props) {
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [editDraftByCommentId, setEditDraftByCommentId] = useState<Record<string, string>>({})
   const normalizedContent = content.trim()
   const isSubmitDisabled = isSubmitting || normalizedContent.length === 0
 
@@ -55,6 +62,22 @@ export function CommunityCommentSection({ postId }: Props) {
     }
   })
 
+  const editCommentMutation = useMutation({
+    mutationFn: async (params: { commentId: string; nextContent: string }) => {
+      if (!user) throw new Error('Not authenticated')
+      return updateCommunityComment(params.commentId, user.id, params.nextContent)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community_comments', postId] })
+      queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+      setEditingCommentId(null)
+      setErrorMessage('')
+    },
+    onError: (error) => {
+      setErrorMessage(error instanceof Error ? error.message : 'Failed to save comment edit.')
+    },
+  })
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!user || isSubmitDisabled) return
@@ -69,6 +92,43 @@ export function CommunityCommentSection({ postId }: Props) {
     }
   }
 
+  function handleStartEdit(comment: CommunityComment) {
+    setEditingCommentId(comment.id)
+    setEditDraftByCommentId((previous) => ({
+      ...previous,
+      [comment.id]: comment.content,
+    }))
+  }
+
+  function handleCancelEdit(commentId: string) {
+    setEditingCommentId((previous) => (previous === commentId ? null : previous))
+    setEditDraftByCommentId((previous) => {
+      const next = { ...previous }
+      delete next[commentId]
+      return next
+    })
+  }
+
+  function handleSaveEdit(comment: CommunityComment) {
+    if (!user) return
+
+    const nextContent = (editDraftByCommentId[comment.id] ?? '').trim()
+    if (!nextContent) {
+      setErrorMessage('Comment content cannot be empty.')
+      return
+    }
+    if (nextContent.length > COMMENT_MAX_LENGTH) {
+      setErrorMessage(`Comment must be ${COMMENT_MAX_LENGTH} characters or less.`)
+      return
+    }
+    if (nextContent === comment.content.trim()) {
+      handleCancelEdit(comment.id)
+      return
+    }
+
+    editCommentMutation.mutate({ commentId: comment.id, nextContent })
+  }
+
   if (isLoading) return <div className="rk-loading-small">Loading comments...</div>
 
   return (
@@ -81,6 +141,9 @@ export function CommunityCommentSection({ postId }: Props) {
           comments.map((comment) => {
             const isOwner = user?.id === comment.user_id
             const canDelete = isOwner
+            const canEdit = isOwner
+            const isEditing = editingCommentId === comment.id
+            const editDraft = editDraftByCommentId[comment.id] ?? comment.content
 
             return (
               <div key={comment.id} className="rk-comment-item">
@@ -88,14 +151,60 @@ export function CommunityCommentSection({ postId }: Props) {
                   <span className="rk-comment-author">{comment.author}</span>
                   <span className="rk-comment-time">{formatDateTime(comment.created_at)}</span>
                 </div>
-                <div className="rk-comment-content">{comment.content}</div>
+                {isEditing ? (
+                  <div className="rk-comment-form rk-reply-form">
+                    <input
+                      type="text"
+                      className="rk-input rk-input-small"
+                      value={editDraft}
+                      onChange={(event) =>
+                        setEditDraftByCommentId((previous) => ({
+                          ...previous,
+                          [comment.id]: event.target.value,
+                        }))
+                      }
+                      maxLength={COMMENT_MAX_LENGTH}
+                      disabled={editCommentMutation.isPending}
+                    />
+                    <button
+                      type="button"
+                      className="rk-button rk-button-secondary rk-button-small"
+                      onClick={() => handleSaveEdit(comment)}
+                      disabled={editCommentMutation.isPending}
+                    >
+                      {editCommentMutation.isPending ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      className="rk-button rk-button-small"
+                      onClick={() => handleCancelEdit(comment.id)}
+                      disabled={editCommentMutation.isPending}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rk-comment-content">{comment.content}</div>
+                )}
                 {canDelete && (
-                  <button
-                    className="rk-button-text rk-button-danger rk-button-tiny"
-                    onClick={() => handleDelete(comment.id)}
-                  >
-                    Delete
-                  </button>
+                  <div className="rk-comment-meta-actions">
+                    {canEdit && !isEditing ? (
+                      <button
+                        className="rk-button-text rk-button-tiny"
+                        onClick={() => handleStartEdit(comment)}
+                        disabled={editCommentMutation.isPending}
+                      >
+                        Edit
+                      </button>
+                    ) : null}
+                    <button
+                      className="rk-button-text rk-button-danger rk-button-tiny"
+                      onClick={() => handleDelete(comment.id)}
+                      disabled={editCommentMutation.isPending}
+                    >
+                      Delete
+                    </button>
+                  </div>
                 )}
               </div>
             )

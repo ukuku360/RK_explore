@@ -54,3 +54,17 @@ export async function createComment(input: CreateCommentInput): Promise<void> {
 
   throwIfPostgrestError(error)
 }
+
+export async function updateComment(commentId: string, userId: string, text: string): Promise<void> {
+  const { data, error } = await supabaseClient
+    .from('comments')
+    .update({ text })
+    .eq('id', commentId)
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+  if (!data) {
+    throw new Error('Unable to update comment. The comment was not found or you do not have permission.')
+  }
+}

@@ -15,8 +15,8 @@ import {
 } from '../../../lib/queryInvalidation'
 import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
 import { createAdminLog } from '../../../services/admin/admin.service'
-import { createComment } from '../../../services/comments/comments.service'
-import { createPost, deletePost } from '../../../services/posts/posts.service'
+import { createComment, updateComment as updateFeedComment } from '../../../services/comments/comments.service'
+import { createPost, deletePost, updatePost, type UpdatePostInput } from '../../../services/posts/posts.service'
 import { uploadPostImage } from '../../../services/posts/post-image.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
@@ -31,6 +31,8 @@ import {
   getInitialFormState,
   getInitialStep1TouchedState,
   isStep1Valid,
+  parseEstimatedCost,
+  parseRsvpDeadlineIso,
   validateOptionalFields,
   validateStep1,
   type OptionalErrors,
@@ -134,6 +136,34 @@ function getSuggestedDate(daysFromNow: number): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+function toDateTimeLocalValue(value: string | null): string {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function buildPostEditDraft(post: Post): PostFormState {
+  return {
+    location: post.location,
+    category: post.category,
+    proposedDate: post.proposed_date ?? '',
+    capacity: String(post.capacity),
+    meetupPlace: post.meetup_place ?? '',
+    meetupTime: post.meeting_time ?? '',
+    estimatedCost: post.estimated_cost === null ? '' : String(post.estimated_cost),
+    rsvpDeadline: toDateTimeLocalValue(post.rsvp_deadline),
+    prepNotes: post.prep_notes ?? '',
+  }
 }
 
 function getLetsGoTitle(location: string): string {
@@ -370,6 +400,45 @@ function getAvatarFallbackText(name: string): string {
   return trimmed.charAt(0).toUpperCase()
 }
 
+function validatePostEditOptionalFields(form: PostFormState): {
+  errors: OptionalErrors
+  values: {
+    estimatedCost: number | null
+    rsvpDeadline: string | null
+  }
+} {
+  const errors: OptionalErrors = {}
+  let estimatedCost: number | null = null
+  let rsvpDeadline: string | null = null
+
+  try {
+    estimatedCost = parseEstimatedCost(form.estimatedCost)
+  } catch (error) {
+    errors.estimatedCost = error instanceof Error ? error.message : 'Please check estimated cost.'
+  }
+
+  try {
+    rsvpDeadline = parseRsvpDeadlineIso(form.rsvpDeadline)
+  } catch (error) {
+    errors.rsvpDeadline = error instanceof Error ? error.message : 'Please check RSVP deadline.'
+  }
+
+  if (rsvpDeadline && form.proposedDate) {
+    const latestAllowed = new Date(`${form.proposedDate}T23:59:59`)
+    if (new Date(rsvpDeadline) > latestAllowed) {
+      errors.rsvpDeadline = 'RSVP deadline should be before the trip date.'
+    }
+  }
+
+  return {
+    errors,
+    values: {
+      estimatedCost,
+      rsvpDeadline,
+    },
+  }
+}
+
 export function FeedPage() {
   const { user } = useAuthSession()
   const queryClient = useQueryClient()
@@ -395,6 +464,12 @@ export function FeedPage() {
   const [isDeletePendingByPostId, setIsDeletePendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [postEditDraftByPostId, setPostEditDraftByPostId] = useState<Record<string, PostFormState>>({})
+  const [isPostEditPendingByPostId, setIsPostEditPendingByPostId] = useState<Record<string, boolean>>({})
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null)
+  const [commentEditDraftByCommentId, setCommentEditDraftByCommentId] = useState<Record<string, string>>({})
+  const [isCommentEditPendingByCommentId, setIsCommentEditPendingByCommentId] = useState<Record<string, boolean>>({})
   const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
   const [replyOpenByCommentId, setReplyOpenByCommentId] = useState<Record<string, boolean>>({})
   const [commentsOpenByPostId, setCommentsOpenByPostId] = useState<Record<string, boolean>>({})
@@ -1210,6 +1285,142 @@ export function FeedPage() {
     })
   }
 
+  function startPostEdit(post: Post) {
+    setEditingPostId(post.id)
+    setPostEditDraftByPostId((previous) => ({
+      ...previous,
+      [post.id]: buildPostEditDraft(post),
+    }))
+  }
+
+  function cancelPostEdit(postId: string) {
+    setEditingPostId((previous) => (previous === postId ? null : previous))
+    setPostEditDraftByPostId((previous) => {
+      const next = { ...previous }
+      delete next[postId]
+      return next
+    })
+  }
+
+  function updatePostEditField<Key extends keyof PostFormState>(
+    postId: string,
+    key: Key,
+    value: PostFormState[Key],
+  ) {
+    setPostEditDraftByPostId((previous) => ({
+      ...previous,
+      [postId]: {
+        ...(previous[postId] ?? getInitialFormState()),
+        [key]: value,
+      },
+    }))
+  }
+
+  async function submitPostEdit(post: Post) {
+    if (!user) return
+    if (user.id !== post.user_id) return
+
+    const draft = postEditDraftByPostId[post.id] ?? buildPostEditDraft(post)
+    const step1Errors = validateStep1(draft, new Date(0))
+
+    if (!isStep1Valid(step1Errors)) {
+      const firstError = Object.values(step1Errors).find((value) => Boolean(value))
+      setStatusTone('error')
+      setStatusMessage(firstError ?? 'Please check the required fields before saving.')
+      return
+    }
+
+    const optionalValidation = validatePostEditOptionalFields(draft)
+    if (Object.keys(optionalValidation.errors).length > 0) {
+      const firstError = Object.values(optionalValidation.errors).find((value) => Boolean(value))
+      setStatusTone('error')
+      setStatusMessage(firstError ?? 'Please check optional fields before saving.')
+      return
+    }
+
+    const payload: UpdatePostInput = {
+      location: draft.location.trim(),
+      category: draft.category,
+      proposed_date: draft.proposedDate.trim() || null,
+      capacity: Number(draft.capacity),
+      meetup_place: draft.meetupPlace.trim() || null,
+      meeting_time: draft.meetupTime.trim() || null,
+      estimated_cost: optionalValidation.values.estimatedCost,
+      prep_notes: draft.prepNotes.trim() || null,
+      rsvp_deadline: optionalValidation.values.rsvpDeadline,
+    }
+
+    setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      await updatePost(post.id, user.id, payload)
+      await invalidateAfterPostMutation(queryClient)
+      await invalidateForRealtimeTable(queryClient, 'posts')
+      setEditingPostId((previous) => (previous === post.id ? null : previous))
+      setPostEditDraftByPostId((previous) => {
+        const next = { ...previous }
+        delete next[post.id]
+        return next
+      })
+      setStatusTone('success')
+      setStatusMessage('Post updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to save post edit.')
+    } finally {
+      setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
+    }
+  }
+
+  function startCommentEdit(comment: PostComment) {
+    setEditingCommentId(comment.id)
+    setCommentEditDraftByCommentId((previous) => ({
+      ...previous,
+      [comment.id]: comment.text,
+    }))
+  }
+
+  function cancelCommentEdit(commentId: string) {
+    setEditingCommentId((previous) => (previous === commentId ? null : previous))
+    setCommentEditDraftByCommentId((previous) => {
+      const next = { ...previous }
+      delete next[commentId]
+      return next
+    })
+  }
+
+  async function submitCommentEdit(comment: PostComment) {
+    if (!user) return
+    if (comment.user_id !== user.id) return
+
+    const draft = (commentEditDraftByCommentId[comment.id] ?? '').trim()
+    if (!draft) {
+      setStatusTone('error')
+      setStatusMessage('Comment text cannot be empty.')
+      return
+    }
+
+    if (draft === comment.text.trim()) {
+      cancelCommentEdit(comment.id)
+      return
+    }
+
+    setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: true }))
+
+    try {
+      await updateFeedComment(comment.id, user.id, draft)
+      await invalidateAfterCommentMutation(queryClient)
+      cancelCommentEdit(comment.id)
+      setStatusTone('success')
+      setStatusMessage('Comment updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to save comment edit.')
+    } finally {
+      setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: false }))
+    }
+  }
+
   async function submitComment(params: { postId: string; parentComment?: PostComment }) {
     if (!user) return
 
@@ -1632,6 +1843,9 @@ export function FeedPage() {
             {displayPosts.map((post) => {
               const hasVoted = post.votes.some((vote) => vote.user_id === viewerUserId)
               const isReported = myReportedFeedPostIds.has(post.id)
+              const isPostOwner = user?.id === post.user_id
+              const isEditingPost = editingPostId === post.id
+              const postEditDraft = postEditDraftByPostId[post.id] ?? buildPostEditDraft(post)
               const rsvpSnapshot = getRsvpSnapshot(post, viewerUserId)
               const baseRsvpSummary = rsvpSnapshot.summary
               const rsvpSummary = optimisticRsvpByPostId[post.id] ?? baseRsvpSummary
@@ -1727,7 +1941,131 @@ export function FeedPage() {
                     </div>
                   </div>
 
-
+                  {isEditingPost ? (
+                    <div className="rk-post-optional rk-post-edit-panel">
+                      <div className="rk-post-grid rk-post-grid-3">
+                        <label className="rk-auth-label">
+                          Destination
+                          <input
+                            className="rk-auth-input"
+                            value={postEditDraft.location}
+                            onChange={(event) => updatePostEditField(post.id, 'location', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                        <label className="rk-auth-label">
+                          Date
+                          <input
+                            className="rk-auth-input"
+                            type="date"
+                            value={postEditDraft.proposedDate}
+                            onChange={(event) => updatePostEditField(post.id, 'proposedDate', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                        <label className="rk-auth-label">
+                          Capacity
+                          <input
+                            className="rk-auth-input"
+                            type="number"
+                            min={1}
+                            max={200}
+                            value={postEditDraft.capacity}
+                            onChange={(event) => updatePostEditField(post.id, 'capacity', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                      </div>
+                      <div className="rk-post-grid rk-post-grid-2">
+                        <label className="rk-auth-label">
+                          Category
+                          <select
+                            className="rk-auth-input"
+                            value={postEditDraft.category}
+                            onChange={(event) => updatePostEditField(post.id, 'category', event.target.value as Category)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          >
+                            {CATEGORIES.map((category) => (
+                              <option key={`${post.id}-${category}`} value={category}>
+                                {getCategoryLabel(category)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="rk-auth-label">
+                          Meet-up place
+                          <input
+                            className="rk-auth-input"
+                            value={postEditDraft.meetupPlace}
+                            onChange={(event) => updatePostEditField(post.id, 'meetupPlace', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                      </div>
+                      <div className="rk-post-grid rk-post-grid-2">
+                        <label className="rk-auth-label">
+                          Meet-up time
+                          <input
+                            className="rk-auth-input"
+                            type="time"
+                            value={postEditDraft.meetupTime}
+                            onChange={(event) => updatePostEditField(post.id, 'meetupTime', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                        <label className="rk-auth-label">
+                          Estimated cost
+                          <input
+                            className="rk-auth-input"
+                            type="number"
+                            min={0}
+                            value={postEditDraft.estimatedCost}
+                            onChange={(event) => updatePostEditField(post.id, 'estimatedCost', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                      </div>
+                      <div className="rk-post-grid rk-post-grid-2">
+                        <label className="rk-auth-label">
+                          RSVP deadline
+                          <input
+                            className="rk-auth-input"
+                            type="datetime-local"
+                            value={postEditDraft.rsvpDeadline}
+                            onChange={(event) => updatePostEditField(post.id, 'rsvpDeadline', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                        <label className="rk-auth-label">
+                          Preparation notes
+                          <textarea
+                            className="rk-auth-input rk-textarea"
+                            value={postEditDraft.prepNotes}
+                            onChange={(event) => updatePostEditField(post.id, 'prepNotes', event.target.value)}
+                            disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                          />
+                        </label>
+                      </div>
+                      <div className="rk-post-step-actions">
+                        <button
+                          type="button"
+                          className="rk-button rk-button-primary"
+                          onClick={() => void submitPostEdit(post)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isPostEditPendingByPostId[post.id] ? 'Saving...' : 'Save'}
+                        </button>
+                        <button
+                          type="button"
+                          className="rk-button rk-button-secondary"
+                          onClick={() => cancelPostEdit(post.id)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className="rk-post-actions">
                     <div className="rk-action-stack rk-vote-stack">
@@ -1769,6 +2107,24 @@ export function FeedPage() {
                         {copiedPostId === post.id ? 'Copied URL' : 'Share'}
                       </button>
                     </div>
+                    {isPostOwner ? (
+                      <div className="rk-action-stack">
+                        <button
+                          type="button"
+                          className={`rk-action-button ${isEditingPost ? 'rk-action-active' : ''}`}
+                          onClick={() => {
+                            if (isEditingPost) {
+                              cancelPostEdit(post.id)
+                              return
+                            }
+                            startPostEdit(post)
+                          }}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isEditingPost ? 'Editing' : 'Edit'}
+                        </button>
+                      </div>
+                    ) : null}
                     {!user?.isAdmin ? (
                       <div className="rk-action-stack">
                         <button
@@ -1834,6 +2190,10 @@ export function FeedPage() {
                             const renderCommentNode = (node: CommentThreadNode, depth = 0) => {
                               const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
                               const replyDraft = replyDraftByCommentId[node.id] ?? ''
+                              const isCommentOwner = Boolean(user?.id && node.user_id === user.id)
+                              const isEditingComment = editingCommentId === node.id
+                              const commentEditDraft = commentEditDraftByCommentId[node.id] ?? node.text
+                              const isCommentEditingPending = Boolean(isCommentEditPendingByCommentId[node.id])
                               const initial = (node.author || '?').charAt(0).toUpperCase()
 
                               return (
@@ -1844,6 +2204,22 @@ export function FeedPage() {
                                       <strong>{node.author}</strong>
                                       <div className="rk-comment-meta-actions">
                                         <span>{formatTimeAgo(node.created_at)}</span>
+                                        {isCommentOwner ? (
+                                          <button
+                                            type="button"
+                                            className="rk-comment-reply-button"
+                                            onClick={() => {
+                                              if (isEditingComment) {
+                                                cancelCommentEdit(node.id)
+                                                return
+                                              }
+                                              startCommentEdit(node)
+                                            }}
+                                            disabled={isCommentEditingPending || isCommentPendingByPostId[post.id]}
+                                          >
+                                            {isEditingComment ? 'Cancel Edit' : 'Edit'}
+                                          </button>
+                                        ) : null}
                                         <button
                                           type="button"
                                           className="rk-comment-reply-button"
@@ -1854,16 +2230,46 @@ export function FeedPage() {
                                             }
                                             openReplyComposer(node)
                                           }}
-                                          disabled={isCommentPendingByPostId[post.id]}
+                                          disabled={isCommentPendingByPostId[post.id] || isCommentEditingPending}
                                         >
                                           {isReplyOpen ? 'Cancel' : 'Reply'}
                                         </button>
                                       </div>
                                     </div>
-                                    
-                                    <div className="rk-comment-bubble">
-                                      {node.text}
-                                    </div>
+
+                                    {isEditingComment ? (
+                                      <div className="rk-comment-form rk-reply-form">
+                                        <input
+                                          className="rk-post-input"
+                                          value={commentEditDraft}
+                                          onChange={(event) =>
+                                            setCommentEditDraftByCommentId((previous) => ({
+                                              ...previous,
+                                              [node.id]: event.target.value,
+                                            }))
+                                          }
+                                          onKeyDown={(event) => {
+                                            if (event.key !== 'Enter') return
+                                            event.preventDefault()
+                                            void submitCommentEdit(node)
+                                          }}
+                                          disabled={isCommentEditingPending}
+                                          autoFocus
+                                        />
+                                        <button
+                                          type="button"
+                                          className="rk-button rk-button-small"
+                                          onClick={() => void submitCommentEdit(node)}
+                                          disabled={isCommentEditingPending}
+                                        >
+                                          {isCommentEditingPending ? 'Saving...' : 'Save'}
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="rk-comment-bubble">
+                                        {node.text}
+                                      </div>
+                                    )}
 
                                     {isReplyOpen ? (
                                       <div className="rk-comment-form rk-reply-form">

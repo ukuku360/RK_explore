@@ -3,7 +3,25 @@ import { listRsvpsByPostIds } from '../rsvps/rsvps.service'
 import { supabaseClient } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import { listVotesByPostIds } from '../votes/votes.service'
-import type { CreatePostInput, Post, PostRecord, UpdatePostModerationInput } from '../../types/domain'
+import type {
+  Category,
+  CreatePostInput,
+  Post,
+  PostRecord,
+  UpdatePostModerationInput,
+} from '../../types/domain'
+
+export type UpdatePostInput = {
+  location: string
+  category: Category
+  proposed_date: string | null
+  capacity: number
+  meetup_place: string | null
+  meeting_time: string | null
+  estimated_cost: number | null
+  prep_notes: string | null
+  rsvp_deadline: string | null
+}
 
 function groupByPostId<T extends { post_id: string }>(items: T[]): Record<string, T[]> {
   return items.reduce<Record<string, T[]>>((accumulator, item) => {
@@ -68,6 +86,20 @@ export async function confirmPost(postId: string): Promise<void> {
 export async function deletePost(postId: string): Promise<void> {
   const { error } = await supabaseClient.from('posts').delete().eq('id', postId)
   throwIfPostgrestError(error)
+}
+
+export async function updatePost(postId: string, userId: string, input: UpdatePostInput): Promise<void> {
+  const { data, error } = await supabaseClient
+    .from('posts')
+    .update(input)
+    .eq('id', postId)
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+  if (!data) {
+    throw new Error('Unable to update post. The post was not found or you do not have permission.')
+  }
 }
 
 export async function updatePostModeration(postId: string, input: UpdatePostModerationInput): Promise<void> {

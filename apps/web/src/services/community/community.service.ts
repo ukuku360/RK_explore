@@ -88,6 +88,20 @@ export async function deleteCommunityPost(postId: string): Promise<void> {
   throwIfPostgrestError(error)
 }
 
+export async function updateCommunityPost(postId: string, userId: string, content: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('community_posts')
+    .update({ content })
+    .eq('id', postId)
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+  if (!data) {
+    throw new Error('Unable to update post. The post was not found or you do not have permission.')
+  }
+}
+
 export async function toggleLike(postId: string, userId: string): Promise<void> {
   const { data: existingLike, error: likeCheckError } = await supabase
     .from('community_likes')
@@ -145,4 +159,18 @@ export async function createComment(
 export async function deleteComment(commentId: string): Promise<void> {
   const { error } = await supabase.from('community_comments').delete().eq('id', commentId)
   throwIfPostgrestError(error)
+}
+
+export async function updateCommunityComment(commentId: string, userId: string, content: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('community_comments')
+    .update({ content })
+    .eq('id', commentId)
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+  if (!data) {
+    throw new Error('Unable to update comment. The comment was not found or you do not have permission.')
+  }
 }

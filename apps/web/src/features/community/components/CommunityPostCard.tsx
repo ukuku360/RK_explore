@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CommunityPost } from '../../../types/domain'
 import { formatDateTime } from '../../../lib/formatters'
-import { toggleLike } from '../../../services/community/community.service'
+import { toggleLike, updateCommunityPost } from '../../../services/community/community.service'
 import { CommunityCommentSection } from './CommunityCommentSection'
 
 type Props = {
@@ -41,8 +41,29 @@ export function CommunityPostCard({
 }: Props) {
   const isOwner = currentUserId === post.user_id
   const canDelete = isOwner
+  const canEdit = isOwner
   const [showComments, setShowComments] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(post.content)
   const queryClient = useQueryClient()
+  const trimmedEditContent = editContent.trim()
+
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUserId) throw new Error('Please log in first.')
+      if (!canEdit) throw new Error('Only the post owner can edit this post.')
+      if (!trimmedEditContent) throw new Error('Post content cannot be empty.')
+      if (trimmedEditContent.length > 280) throw new Error('Post content must be 280 characters or less.')
+      return updateCommunityPost(post.id, currentUserId, trimmedEditContent)
+    },
+    onSuccess: async () => {
+      setIsEditing(false)
+      await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+    },
+    onError: (error) => {
+      alert(error instanceof Error ? error.message : 'Failed to save post edit.')
+    },
+  })
 
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -85,6 +106,20 @@ export function CommunityPostCard({
     likeMutation.mutate()
   }
 
+  function handleStartEdit() {
+    setEditContent(post.content)
+    setIsEditing(true)
+  }
+
+  function handleCancelEdit() {
+    setEditContent(post.content)
+    setIsEditing(false)
+  }
+
+  function handleSaveEdit() {
+    editMutation.mutate()
+  }
+
   return (
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
@@ -104,7 +139,41 @@ export function CommunityPostCard({
         </div>
       </div>
 
-      <div className="rk-community-content">{post.content}</div>
+      {isEditing ? (
+        <div className="rk-community-form">
+          <textarea
+            className="rk-input rk-textarea"
+            rows={3}
+            value={editContent}
+            onChange={(event) => setEditContent(event.target.value)}
+            maxLength={280}
+            disabled={editMutation.isPending}
+          />
+          <div className="rk-community-compose-meta">
+            <span className="rk-community-compose-help">{trimmedEditContent.length}/280</span>
+            <div className="rk-form-actions">
+              <button
+                type="button"
+                className="rk-button rk-button-primary rk-button-small"
+                onClick={handleSaveEdit}
+                disabled={editMutation.isPending || trimmedEditContent.length === 0}
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="rk-button rk-button-secondary rk-button-small"
+                onClick={handleCancelEdit}
+                disabled={editMutation.isPending}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="rk-community-content">{post.content}</div>
+      )}
 
       {/* Engagement Actions */}
       <div className="rk-community-footer">
@@ -157,10 +226,21 @@ export function CommunityPostCard({
             type="button"
             className="rk-button-text rk-button-danger rk-button-small"
             onClick={() => onDelete(post.id)}
+            disabled={editMutation.isPending}
           >
             Delete
           </button>
         )}
+        {canEdit && !isEditing ? (
+          <button
+            type="button"
+            className="rk-button-text rk-button-small"
+            onClick={handleStartEdit}
+            disabled={editMutation.isPending}
+          >
+            Edit
+          </button>
+        ) : null}
       </div>
 
       {showComments && <CommunityCommentSection postId={post.id} />}

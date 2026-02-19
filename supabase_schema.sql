@@ -23,6 +23,11 @@ create policy "Users can delete their own community posts"
   on public.community_posts for delete
   using ( auth.uid() = user_id );
 
+create policy "Users can update their own community posts"
+  on public.community_posts for update
+  using ( auth.uid() = user_id )
+  with check ( auth.uid() = user_id );
+
 -- Enable Realtime
 alter publication supabase_realtime add table public.community_posts;
 
@@ -67,6 +72,11 @@ create policy "Users can insert their own comments"
 
 create policy "Users can delete their own comments"
   on public.community_comments for delete using (auth.uid() = user_id);
+
+create policy "Users can update their own community comments"
+  on public.community_comments for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 alter publication supabase_realtime add table public.community_comments;
 
