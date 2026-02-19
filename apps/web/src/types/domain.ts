@@ -132,6 +132,7 @@ export type CommunityComment = {
   author: string
   content: string
   created_at: string
+  updated_at: string
 }
 
 export type CommunityPost = {
@@ -140,6 +141,7 @@ export type CommunityPost = {
   author: string
   content: string
   created_at: string
+  updated_at: string
   likes_count: number
   comments_count: number
   has_liked: boolean

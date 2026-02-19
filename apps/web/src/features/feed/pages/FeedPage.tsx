@@ -15,8 +15,8 @@ import {
 } from '../../../lib/queryInvalidation'
 import { formatDate, formatDateTime, formatTimeAgo } from '../../../lib/formatters'
 import { createAdminLog } from '../../../services/admin/admin.service'
-import { createComment } from '../../../services/comments/comments.service'
-import { createPost, deletePost } from '../../../services/posts/posts.service'
+import { createComment, updateComment as updateFeedComment } from '../../../services/comments/comments.service'
+import { createPost, deletePost, updatePost } from '../../../services/posts/posts.service'
 import { uploadPostImage } from '../../../services/posts/post-image.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { addRsvp, removeRsvp } from '../../../services/rsvps/rsvps.service'
@@ -364,6 +364,19 @@ function getRsvpMemberLabel(userId: string, labelsById: Record<string, string>):
   return `User ${userId.slice(0, 8)}`
 }
 
+
+
+function isSameAuthorByFallback(viewer: { id: string; label: string } | null | undefined, ownerUserId: string | null | undefined, ownerAuthor: string | null | undefined): boolean {
+  if (!viewer) return false
+  if (ownerUserId && ownerUserId === viewer.id) return true
+
+  const viewerLabel = viewer.label.trim().toLowerCase()
+  const ownerLabel = (ownerAuthor ?? '').trim().toLowerCase()
+  if (!viewerLabel || !ownerLabel) return false
+
+  return viewerLabel === ownerLabel
+}
+
 function getAvatarFallbackText(name: string): string {
   const trimmed = name.trim()
   if (!trimmed) return '?'
@@ -394,6 +407,8 @@ export function FeedPage() {
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isDeletePendingByPostId, setIsDeletePendingByPostId] = useState<Record<string, boolean>>({})
   const [isCommentPendingByPostId, setIsCommentPendingByPostId] = useState<Record<string, boolean>>({})
+  const [isCommentEditPendingByCommentId, setIsCommentEditPendingByCommentId] = useState<Record<string, boolean>>({})
+  const [isPostEditPendingByPostId, setIsPostEditPendingByPostId] = useState<Record<string, boolean>>({})
   const [commentDraftByPostId, setCommentDraftByPostId] = useState<Record<string, string>>({})
   const [replyDraftByCommentId, setReplyDraftByCommentId] = useState<Record<string, string>>({})
   const [replyOpenByCommentId, setReplyOpenByCommentId] = useState<Record<string, boolean>>({})
@@ -1253,6 +1268,49 @@ export function FeedPage() {
     }
   }
 
+
+  async function editFeedPost(post: Post) {
+    if (!isSameAuthorByFallback(user, post.user_id, post.author)) return
+
+    const nextLocation = window.prompt('Edit destination', post.location)?.trim() ?? ''
+    if (!nextLocation || nextLocation === post.location) return
+
+    setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: true }))
+
+    try {
+      await updatePost(post.id, nextLocation)
+      await queryClient.invalidateQueries({ queryKey: ['posts_with_relations'] })
+      setStatusTone('success')
+      setStatusMessage('Post updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update post.')
+    } finally {
+      setIsPostEditPendingByPostId((previous) => ({ ...previous, [post.id]: false }))
+    }
+  }
+
+  async function editFeedComment(comment: PostComment) {
+    if (!isSameAuthorByFallback(user, comment.user_id, comment.author)) return
+
+    const nextText = window.prompt('Edit comment', comment.text)?.trim() ?? ''
+    if (!nextText || nextText === comment.text) return
+
+    setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: true }))
+
+    try {
+      await updateFeedComment(comment.id, nextText)
+      await invalidateAfterCommentMutation(queryClient)
+      setStatusTone('success')
+      setStatusMessage('Comment updated.')
+    } catch (error) {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to update comment.')
+    } finally {
+      setIsCommentEditPendingByCommentId((previous) => ({ ...previous, [comment.id]: false }))
+    }
+  }
+
   return (
     <section className="rk-page">
       <div className="rk-creation-card">
@@ -1642,7 +1700,8 @@ export function FeedPage() {
               const isClosingSoon = deadlineDiffMs !== null && deadlineDiffMs > 0 && deadlineDiffMs <= 24 * 60 * 60 * 1000
               const remainingSeats = Math.max(rsvpSummary.capacity - rsvpSummary.goingCount, 0)
               const postedAgoLabel = formatTimeAgo(post.created_at)
-              
+              const canEditPost = isSameAuthorByFallback(user, post.user_id, post.author)
+
               const commentThreads = buildCommentThreads(post.comments)
 
               return (
@@ -1684,6 +1743,16 @@ export function FeedPage() {
                       <span className={`rk-status rk-status-${post.status}`}>{getStatusLabel(post.status)}</span>
                       {isClosingSoon ? <span className="rk-status rk-status-closing">Closing Soon</span> : null}
                       {isClosed ? <span className="rk-status rk-status-closed">Closed</span> : null}
+                      {canEditPost ? (
+                        <button
+                          type="button"
+                          className="rk-post-quick-edit"
+                          onClick={() => void editFeedPost(post)}
+                          disabled={Boolean(isPostEditPendingByPostId[post.id])}
+                        >
+                          {isPostEditPendingByPostId[post.id] ? 'Saving...' : 'Edit'}
+                        </button>
+                      ) : null}
                       {user?.isAdmin ? (
                         <button
                           type="button"
@@ -1835,6 +1904,7 @@ export function FeedPage() {
                               const isReplyOpen = Boolean(replyOpenByCommentId[node.id])
                               const replyDraft = replyDraftByCommentId[node.id] ?? ''
                               const initial = (node.author || '?').charAt(0).toUpperCase()
+                              const canEditComment = isSameAuthorByFallback(user, node.user_id, node.author)
 
                               return (
                                 <div key={node.id} className={`rk-comment-item ${depth > 0 ? 'rk-comment-item-reply' : ''}`}>
@@ -1858,6 +1928,16 @@ export function FeedPage() {
                                         >
                                           {isReplyOpen ? 'Cancel' : 'Reply'}
                                         </button>
+                                        {canEditComment ? (
+                                          <button
+                                            type="button"
+                                            className="rk-comment-reply-button"
+                                            onClick={() => void editFeedComment(node)}
+                                            disabled={Boolean(isCommentEditPendingByCommentId[node.id])}
+                                          >
+                                            {isCommentEditPendingByCommentId[node.id] ? 'Saving...' : 'Edit'}
+                                          </button>
+                                        ) : null}
                                       </div>
                                     </div>
                                     

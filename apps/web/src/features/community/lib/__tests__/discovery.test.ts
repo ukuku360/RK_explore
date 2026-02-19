@@ -10,6 +10,7 @@ function createPost(overrides?: Partial<CommunityPost>): CommunityPost {
     author: 'Alice',
     content: 'Weekend market cleanup',
     created_at: '2026-02-17T10:00:00.000Z',
+    updated_at: '2026-02-17T10:00:00.000Z',
     likes_count: 1,
     comments_count: 0,
     has_liked: false,

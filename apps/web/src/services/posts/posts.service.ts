@@ -74,3 +74,8 @@ export async function updatePostModeration(postId: string, input: UpdatePostMode
   const { error } = await supabaseClient.from('posts').update(input).eq('id', postId)
   throwIfPostgrestError(error)
 }
+
+export async function updatePost(postId: string, location: string): Promise<void> {
+  const { error } = await supabaseClient.from('posts').update({ location }).eq('id', postId)
+  throwIfPostgrestError(error)
+}

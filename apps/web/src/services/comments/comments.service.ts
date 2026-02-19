@@ -54,3 +54,8 @@ export async function createComment(input: CreateCommentInput): Promise<void> {
 
   throwIfPostgrestError(error)
 }
+
+export async function updateComment(commentId: string, text: string): Promise<void> {
+  const { error } = await supabaseClient.from('comments').update({ text }).eq('id', commentId)
+  throwIfPostgrestError(error)
+}
