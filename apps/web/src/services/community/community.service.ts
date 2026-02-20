@@ -1,6 +1,6 @@
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
-import type { CommunityPost, CommunityComment } from '../../types/domain'
+import type { CommunityPost, CommunityComment, CommunityPostCategory } from '../../types/domain'
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
   const { data: posts, error } = await supabase
@@ -58,6 +58,7 @@ export async function createCommunityPost(
   content: string,
   author: string,
   userId: string,
+  category: CommunityPostCategory = 'general',
 ): Promise<CommunityPost> {
   const { data, error } = await supabase
     .from('community_posts')
@@ -65,6 +66,7 @@ export async function createCommunityPost(
       content,
       author,
       user_id: userId,
+      category,
     })
     .select()
     .single()
@@ -83,10 +85,19 @@ export async function createCommunityPost(
   }
 }
 
-export async function updateCommunityPost(postId: string, content: string): Promise<CommunityPost> {
+export async function updateCommunityPost(
+  postId: string,
+  content: string,
+  category?: CommunityPostCategory,
+): Promise<CommunityPost> {
+  const updates: Record<string, string> = { content }
+  if (category) {
+    updates.category = category
+  }
+
   const { data, error } = await supabase
     .from('community_posts')
-    .update({ content })
+    .update(updates)
     .eq('id', postId)
     .select()
     .single()

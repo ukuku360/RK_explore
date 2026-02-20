@@ -4,6 +4,29 @@ export type Category = (typeof CATEGORIES)[number]
 export const POST_STATUSES = ['proposed', 'confirmed'] as const
 export type PostStatus = (typeof POST_STATUSES)[number]
 
+export const COMMUNITY_POST_CATEGORIES = [
+  'general',
+  'free_stuff',
+  'laundry_done',
+  'ideas',
+  'lost_and_found',
+  'help_needed',
+  'noise_alert',
+  'marketplace',
+] as const
+export type CommunityPostCategory = (typeof COMMUNITY_POST_CATEGORIES)[number]
+
+export const COMMUNITY_POST_CATEGORY_META: Record<CommunityPostCategory, { label: string; emoji: string }> = {
+  general: { label: 'General', emoji: '📋' },
+  free_stuff: { label: 'Free Stuff', emoji: '🎁' },
+  laundry_done: { label: 'Laundry Done', emoji: '🧺' },
+  ideas: { label: 'Ideas', emoji: '💡' },
+  lost_and_found: { label: 'Lost & Found', emoji: '🔍' },
+  help_needed: { label: 'Help Needed', emoji: '🤝' },
+  noise_alert: { label: 'Noise Alert', emoji: '🔔' },
+  marketplace: { label: 'Marketplace', emoji: '🛒' },
+}
+
 export const REPORT_STATUSES = ['open', 'dismissed', 'actioned'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
@@ -141,6 +164,7 @@ export type CommunityPost = {
   user_id: string
   author: string
   content: string
+  category: CommunityPostCategory
   created_at: string
   updated_at: string
   likes_count: number

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
-import type { CommunityPost } from '../../../types/domain'
+import type { CommunityPost, CommunityPostCategory } from '../../../types/domain'
+import { COMMUNITY_POST_CATEGORIES, COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 
 import { createAdminLog } from '../../../services/admin/admin.service'
 import {
@@ -132,6 +133,7 @@ export function CommunityFeed() {
   const [feedTab, setFeedTab] = useState<CommunityFeedTab>('all')
   const [sortOption, setSortOption] = useState<CommunitySortOption>('newest')
   const [searchText, setSearchText] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<CommunityPostCategory | 'all'>('all')
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
@@ -153,8 +155,9 @@ export function CommunityFeed() {
         tab: feedTab,
         currentUserId: user?.id,
         searchText,
+        category: categoryFilter,
       }),
-    [feedTab, posts, searchText, user?.id],
+    [categoryFilter, feedTab, posts, searchText, user?.id],
   )
   const visiblePosts = useMemo(() => sortCommunityPosts(filteredPosts, sortOption), [filteredPosts, sortOption])
   const myReportedCommunityPostIds = useMemo(() => {
@@ -169,7 +172,7 @@ export function CommunityFeed() {
 
     return reportedPostIds
   }, [myOpenReportsQuery.data])
-  const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest'
+  const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest' || categoryFilter !== 'all'
   const emptyState = getCommunityEmptyState({
     hasAnyPost: posts.length > 0,
     hasSearch: searchText.trim().length > 0,
@@ -229,6 +232,7 @@ export function CommunityFeed() {
     setFeedTab('all')
     setSortOption('newest')
     setSearchText('')
+    setCategoryFilter('all')
   }, [sharedPostId])
 
   useEffect(() => {
@@ -265,17 +269,18 @@ export function CommunityFeed() {
     }
   }, [isLoading, posts, sharedPostId, visiblePosts])
 
-  async function handleCreate(content: string) {
+  async function handleCreate(content: string, category: CommunityPostCategory) {
     if (!user) return
     setIsSubmitting(true)
     setStatusTone('idle')
     setStatusMessage('')
     try {
-      const createdPost = await createCommunityPost(content, user.label, user.id)
+      const createdPost = await createCommunityPost(content, user.label, user.id, category)
 
       setFeedTab('all')
       setSortOption('newest')
       setSearchText('')
+      setCategoryFilter('all')
 
       queryClient.setQueryData<CommunityPost[]>(communityPostsQueryKey, (previous) => {
         const currentPosts = previous ?? []
@@ -337,6 +342,7 @@ export function CommunityFeed() {
     setFeedTab('all')
     setSortOption('newest')
     setSearchText('')
+    setCategoryFilter('all')
   }
 
   async function handleShare(postId: string) {
@@ -492,6 +498,32 @@ export function CommunityFeed() {
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
           />
+        </div>
+
+        <div className="rk-community-category-filter">
+          <span className="rk-community-sort-label">Category</span>
+          <div className="rk-discovery-chips">
+            <button
+              type="button"
+              className={`rk-chip ${categoryFilter === 'all' ? 'rk-chip-active' : ''}`}
+              onClick={() => setCategoryFilter('all')}
+            >
+              All
+            </button>
+            {COMMUNITY_POST_CATEGORIES.map((cat) => {
+              const meta = COMMUNITY_POST_CATEGORY_META[cat]
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`rk-chip ${categoryFilter === cat ? 'rk-chip-active' : ''}`}
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {meta.emoji} {meta.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="rk-feed-tabs" role="tablist" aria-label="Community feed tabs">

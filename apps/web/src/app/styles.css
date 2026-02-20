@@ -2539,6 +2539,59 @@
   color: #637083;
 }
 
+/* Community Category Selector (create form) */
+.rk-community-category-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.rk-community-category-chip {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+}
+
+/* Community Category Badge (post card) */
+.rk-community-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rk-community-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #637083;
+  background: #eef2f8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Community Category Filter (feed) */
+.rk-community-category-filter {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rk-community-category-filter .rk-discovery-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.rk-community-category-filter .rk-chip {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+}
+
 .rk-empty-state {
   text-align: center;
   padding: 3rem 1rem;

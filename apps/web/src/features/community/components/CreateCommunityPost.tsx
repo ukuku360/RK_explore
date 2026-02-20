@@ -1,8 +1,13 @@
 
 import { useState, type FormEvent } from 'react'
+import {
+  COMMUNITY_POST_CATEGORIES,
+  COMMUNITY_POST_CATEGORY_META,
+  type CommunityPostCategory,
+} from '../../../types/domain'
 
 type Props = {
-  onSubmit: (content: string) => Promise<void>
+  onSubmit: (content: string, category: CommunityPostCategory) => Promise<void>
   isSubmitting: boolean
 }
 
@@ -11,6 +16,7 @@ const COMMUNITY_POST_MAX_LENGTH = 280
 
 export function CreateCommunityPost({ onSubmit, isSubmitting }: Props) {
   const [content, setContent] = useState('')
+  const [category, setCategory] = useState<CommunityPostCategory>('general')
   const normalizedContent = content.trim()
   const isTooShort = normalizedContent.length > 0 && normalizedContent.length < COMMUNITY_POST_MIN_LENGTH
   const isSubmitDisabled =
@@ -23,16 +29,36 @@ export function CreateCommunityPost({ onSubmit, isSubmitting }: Props) {
     e.preventDefault()
     if (isSubmitDisabled) return
 
-    await onSubmit(normalizedContent)
+    await onSubmit(normalizedContent, category)
     setContent('')
+    setCategory('general')
   }
 
   return (
     <div className="rk-card rk-community-form-card">
       <h2 className="rk-heading-2">Community Board</h2>
       <p className="rk-text-subtle">Share updates, ask for help, or offer items to neighbors.</p>
-      
+
       <form onSubmit={handleSubmit} className="rk-community-form">
+        <div className="rk-community-category-selector" role="radiogroup" aria-label="Post category">
+          {COMMUNITY_POST_CATEGORIES.map((cat) => {
+            const meta = COMMUNITY_POST_CATEGORY_META[cat]
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="radio"
+                aria-checked={category === cat}
+                className={`rk-chip rk-community-category-chip ${category === cat ? 'rk-chip-active' : ''}`}
+                onClick={() => setCategory(cat)}
+                disabled={isSubmitting}
+              >
+                {meta.emoji} {meta.label}
+              </button>
+            )
+          })}
+        </div>
+
         <textarea
           className="rk-input rk-textarea"
           rows={3}
@@ -53,8 +79,8 @@ export function CreateCommunityPost({ onSubmit, isSubmitting }: Props) {
           </span>
         </div>
         <div className="rk-form-actions">
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="rk-button rk-button-primary"
             disabled={isSubmitDisabled}
           >
