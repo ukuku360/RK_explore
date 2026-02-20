@@ -140,10 +140,10 @@ export function AppShell() {
     <div className="rk-shell">
       <header className="rk-header">
         <div className="rk-header-inner">
-          <div className="rk-brand">
+          <Link to="/" className="rk-brand">
             <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
             <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
-          </div>
+          </Link>
           <nav className="rk-nav" aria-label="Primary">
             <NavLink to="/" end className={navClassName}>
               Explore
