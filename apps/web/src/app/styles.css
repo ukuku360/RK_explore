@@ -71,6 +71,26 @@
   pointer-events: none;
 }
 
+.rk-shell::after {
+  content: '';
+  position: fixed;
+  left: -10vw;
+  bottom: -10vh;
+  width: 60vw;
+  height: 60vw;
+  max-width: 800px;
+  max-height: 800px;
+  background-image: url('/brand/rk-brandmark-colour.svg');
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.04;
+  transform: rotate(-15deg);
+  z-index: 0;
+  pointer-events: none;
+  filter: grayscale(0.2);
+}
+
 .rk-header,
 .rk-main {
   position: relative;
