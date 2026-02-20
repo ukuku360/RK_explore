@@ -9,6 +9,7 @@ function createPost(overrides?: Partial<CommunityPost>): CommunityPost {
     user_id: 'u1',
     author: 'Alice',
     content: 'Weekend market cleanup',
+    category: 'general',
     created_at: '2026-02-17T10:00:00.000Z',
     updated_at: '2026-02-17T10:00:00.000Z',
     likes_count: 1,
@@ -46,6 +47,45 @@ describe('community discovery helpers', () => {
       searchText: 'bike',
     })
     expect(searchResult.map((post) => post.id)).toEqual(['answered'])
+  })
+
+  it('filters by category', () => {
+    const posts = [
+      createPost({ id: 'general-1', category: 'general', content: 'Hello everyone' }),
+      createPost({ id: 'free-1', category: 'free_stuff', content: 'Free couch' }),
+      createPost({ id: 'ideas-1', category: 'ideas', content: 'Rooftop garden' }),
+      createPost({ id: 'free-2', category: 'free_stuff', content: 'Free books' }),
+    ]
+
+    const freeStuff = filterCommunityPosts(posts, {
+      tab: 'all',
+      searchText: '',
+      category: 'free_stuff',
+    })
+    expect(freeStuff.map((post) => post.id)).toEqual(['free-1', 'free-2'])
+
+    const allPosts = filterCommunityPosts(posts, {
+      tab: 'all',
+      searchText: '',
+      category: 'all',
+    })
+    expect(allPosts).toHaveLength(4)
+  })
+
+  it('combines category filter with tab and search', () => {
+    const posts = [
+      createPost({ id: 'p1', user_id: 'u1', category: 'free_stuff', content: 'Free lamp', comments_count: 0 }),
+      createPost({ id: 'p2', user_id: 'u1', category: 'free_stuff', content: 'Free desk', comments_count: 2 }),
+      createPost({ id: 'p3', user_id: 'u2', category: 'ideas', content: 'Free yoga class idea', comments_count: 0 }),
+    ]
+
+    const result = filterCommunityPosts(posts, {
+      tab: 'needs_reply',
+      currentUserId: 'u1',
+      searchText: 'free',
+      category: 'free_stuff',
+    })
+    expect(result.map((post) => post.id)).toEqual(['p1'])
   })
 
   it('sorts popular posts by weighted engagement and recency tiebreaker', () => {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CommunityPost } from '../../../types/domain'
+import { COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 import { formatDateTime } from '../../../lib/formatters'
 import { toggleLike } from '../../../services/community/community.service'
 import { CommunityCommentSection } from './CommunityCommentSection'
@@ -122,7 +123,12 @@ export function CommunityPostCard({
   return (
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
-        <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
+        <div className="rk-community-header-left">
+          <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
+          <span className="rk-community-category-badge">
+            {COMMUNITY_POST_CATEGORY_META[post.category].emoji} {COMMUNITY_POST_CATEGORY_META[post.category].label}
+          </span>
+        </div>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
           {isEdited ? <span className="rk-community-time">(Edited {formattedUpdatedAt})</span> : null}

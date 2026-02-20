@@ -110,6 +110,10 @@ execute function public.set_community_updated_at();
 alter table public.community_posts add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 alter table public.community_comments add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
+-- ─── Community Post Categories ──────────────────────────────────────────────
+-- Add category column (existing posts default to 'general')
+alter table public.community_posts add column if not exists category text not null default 'general';
+
 -- ─── Post Images ──────────────────────────────────────────────────────────────
 
 -- Add image_url column to posts table
