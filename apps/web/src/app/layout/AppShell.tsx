@@ -141,13 +141,14 @@ export function AppShell() {
       <header className="rk-header">
         <div className="rk-header-inner">
           <div className="rk-brand">
-            <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
-            <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
-            <span className="rk-brand-explores">Explores</span>
+            <Link to="/" className="rk-brand-link">
+              <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
+              <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
+            </Link>
           </div>
           <nav className="rk-nav" aria-label="Primary">
             <NavLink to="/" end className={navClassName}>
-              Feed
+              Explore
             </NavLink>
             <NavLink to="/community" className={navClassName}>
               Community
