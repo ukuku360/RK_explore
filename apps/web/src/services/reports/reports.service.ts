@@ -6,8 +6,8 @@ type CreateReportInput = {
   target_type: ReportTargetType
   target_id: string
   reporter_user_id: string
-  reporter_email: string
-  reporter_nickname: string
+  reporter_email?: string
+  reporter_nickname?: string
   reason: string
   status?: ReportStatus
 }
@@ -70,24 +70,10 @@ export async function listOpenReportsByReporter(reporterUserId: string, limitCou
   return (data ?? []) as Report[]
 }
 
-export async function listReportsByReporter(reporterUserId: string, limitCount = 200): Promise<Report[]> {
-  const { data, error } = await supabaseClient
-    .from('post_reports')
-    .select('*')
-    .eq('reporter_user_id', reporterUserId)
-    .order('created_at', { ascending: false })
-    .limit(limitCount)
-  throwIfPostgrestError(error)
-
-  return (data ?? []) as Report[]
-}
-
 export async function createReport(input: CreateReportInput): Promise<void> {
   const payload = {
     ...buildTargetColumns(input.target_type, input.target_id),
     reporter_user_id: input.reporter_user_id,
-    reporter_email: input.reporter_email,
-    reporter_nickname: input.reporter_nickname,
     reason: input.reason,
     status: input.status ?? ('open' satisfies ReportStatus),
   }

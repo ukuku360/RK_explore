@@ -11,7 +11,6 @@ function createPost(overrides?: Partial<CommunityPost>): CommunityPost {
     content: 'Weekend market cleanup',
     category: 'general',
     created_at: '2026-02-17T10:00:00.000Z',
-    updated_at: '2026-02-17T10:00:00.000Z',
     likes_count: 1,
     comments_count: 0,
     has_liked: false,
@@ -45,6 +44,7 @@ describe('community discovery helpers', () => {
       tab: 'all',
       currentUserId: 'u1',
       searchText: 'bike',
+      category: 'all',
     })
     expect(searchResult.map((post) => post.id)).toEqual(['answered'])
   })

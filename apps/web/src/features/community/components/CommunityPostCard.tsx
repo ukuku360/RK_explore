@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CommunityPost } from '../../../types/domain'
 import { COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 import { formatDateTime } from '../../../lib/formatters'
-import { toggleLike } from '../../../services/community/community.service'
+import { toggleLike, updateCommunityPost } from '../../../services/community/community.service'
 import { CommunityCommentSection } from './CommunityCommentSection'
 
 type Props = {
@@ -15,8 +15,7 @@ type Props = {
   isReported: boolean
   isReportPending: boolean
   isAdminDeletePending: boolean
-  communityPostsQueryKey: readonly ['community_posts']
-  onEdit: (id: string, content: string) => void | Promise<void>
+  communityPostsQueryKey: readonly ['community_posts', string]
   onDelete: (id: string) => void
   onAdminDelete: (post: CommunityPost) => void | Promise<void>
   onToggleReport: (id: string, isReported: boolean) => void | Promise<void>
@@ -25,7 +24,7 @@ type Props = {
   elementId: string
 }
 
-const COMMUNITY_POST_MAX_LENGTH = 280
+const ACTION_POP_FEEDBACK_MS = 170
 
 export function CommunityPostCard({
   post,
@@ -36,7 +35,6 @@ export function CommunityPostCard({
   isReportPending,
   isAdminDeletePending,
   communityPostsQueryKey,
-  onEdit,
   onDelete,
   onAdminDelete,
   onToggleReport,
@@ -46,20 +44,37 @@ export function CommunityPostCard({
 }: Props) {
   const isOwner = currentUserId === post.user_id
   const canDelete = isOwner
+  const canEdit = isOwner
   const [showComments, setShowComments] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(post.content)
-  const [isEditPending, setIsEditPending] = useState(false)
+  const [actionPopByType, setActionPopByType] = useState<Record<'like' | 'share', boolean>>({
+    like: false,
+    share: false,
+  })
+  const actionPopTimeoutByTypeRef = useRef<Record<'like' | 'share', number | null>>({
+    like: null,
+    share: null,
+  })
   const queryClient = useQueryClient()
+  const trimmedEditContent = editContent.trim()
 
-  const normalizedEditContent = editContent.trim()
-  const formattedUpdatedAt = formatDateTime(post.updated_at)
-  const isEdited = post.updated_at !== post.created_at && formattedUpdatedAt !== '-'
-  const isEditSubmitDisabled =
-    isEditPending ||
-    normalizedEditContent.length === 0 ||
-    normalizedEditContent.length > COMMUNITY_POST_MAX_LENGTH ||
-    normalizedEditContent === post.content
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentUserId) throw new Error('Please log in first.')
+      if (!canEdit) throw new Error('Only the post owner can edit this post.')
+      if (!trimmedEditContent) throw new Error('Post content cannot be empty.')
+      if (trimmedEditContent.length > 280) throw new Error('Post content must be 280 characters or less.')
+      return updateCommunityPost(post.id, currentUserId, trimmedEditContent)
+    },
+    onSuccess: async () => {
+      setIsEditing(false)
+      await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+    },
+    onError: (error) => {
+      alert(error instanceof Error ? error.message : 'Failed to save post edit.')
+    },
+  })
 
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -94,30 +109,51 @@ export function CommunityPostCard({
     },
   })
 
+  function triggerActionPop(type: 'like' | 'share') {
+    setActionPopByType((previous) => ({ ...previous, [type]: true }))
+
+    const existingTimeoutId = actionPopTimeoutByTypeRef.current[type]
+    if (existingTimeoutId !== null) {
+      window.clearTimeout(existingTimeoutId)
+    }
+
+    actionPopTimeoutByTypeRef.current[type] = window.setTimeout(() => {
+      setActionPopByType((previous) => ({ ...previous, [type]: false }))
+      actionPopTimeoutByTypeRef.current[type] = null
+    }, ACTION_POP_FEEDBACK_MS)
+  }
+
   function handleLike() {
     if (!currentUserId) {
       alert('Please log in to like posts')
       return
     }
+    triggerActionPop('like')
     likeMutation.mutate()
   }
 
-  async function handleEditSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (isEditSubmitDisabled) return
-
-    try {
-      setIsEditPending(true)
-      await onEdit(post.id, normalizedEditContent)
-      setIsEditing(false)
-    } finally {
-      setIsEditPending(false)
+  useEffect(() => {
+    const timeoutByType = actionPopTimeoutByTypeRef.current
+    return () => {
+      for (const timeoutId of Object.values(timeoutByType)) {
+        if (timeoutId === null) continue
+        window.clearTimeout(timeoutId)
+      }
     }
+  }, [])
+
+  function handleStartEdit() {
+    setEditContent(post.content)
+    setIsEditing(true)
   }
 
-  function handleEditCancel() {
+  function handleCancelEdit() {
     setEditContent(post.content)
     setIsEditing(false)
+  }
+
+  function handleSaveEdit() {
+    editMutation.mutate()
   }
 
   return (
@@ -131,7 +167,6 @@ export function CommunityPostCard({
         </div>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
-          {isEdited ? <span className="rk-community-time">(Edited {formattedUpdatedAt})</span> : null}
           {canAdminDelete ? (
             <button
               type="button"
@@ -146,51 +181,53 @@ export function CommunityPostCard({
       </div>
 
       {isEditing ? (
-        <form onSubmit={handleEditSubmit} className="rk-community-edit-form">
+        <div className="rk-community-form">
           <textarea
             className="rk-input rk-textarea"
             rows={3}
             value={editContent}
             onChange={(event) => setEditContent(event.target.value)}
-            maxLength={COMMUNITY_POST_MAX_LENGTH}
-            disabled={isEditPending}
+            maxLength={280}
+            disabled={editMutation.isPending}
           />
           <div className="rk-community-compose-meta">
-            <span className="rk-community-compose-help">{normalizedEditContent.length}/{COMMUNITY_POST_MAX_LENGTH}</span>
-            <div className="rk-community-inline-actions">
+            <span className="rk-community-compose-help">{trimmedEditContent.length}/280</span>
+            <div className="rk-form-actions">
               <button
                 type="button"
-                className="rk-button-text rk-button-small"
-                onClick={handleEditCancel}
-                disabled={isEditPending}
+                className="rk-button rk-button-primary rk-button-small"
+                onClick={handleSaveEdit}
+                disabled={editMutation.isPending || trimmedEditContent.length === 0}
+              >
+                {editMutation.isPending ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="rk-button rk-button-secondary rk-button-small"
+                onClick={handleCancelEdit}
+                disabled={editMutation.isPending}
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="rk-button rk-button-secondary rk-button-small"
-                disabled={isEditSubmitDisabled}
-              >
-                {isEditPending ? 'Saving...' : 'Save'}
-              </button>
             </div>
           </div>
-        </form>
+        </div>
       ) : (
         <div className="rk-community-content">{post.content}</div>
       )}
 
+      {/* Engagement Actions */}
       <div className="rk-community-footer">
         <div className="rk-engagement-actions">
           <button
             type="button"
-            className={`rk-action-btn ${post.has_liked ? 'liked' : ''}`}
+            className={`rk-action-btn ${post.has_liked ? 'liked' : ''} ${actionPopByType.like ? 'rk-action-pop' : ''}`}
             onClick={handleLike}
             aria-pressed={post.has_liked}
             aria-label={post.has_liked ? `Unlike (${post.likes_count})` : `Like (${post.likes_count})`}
           >
-            {post.has_liked ? '❤️' : '🤍'}
-            <span>{post.likes_count}</span>
+            <span className="rk-action-btn-icon" aria-hidden>{post.has_liked ? '❤️' : '🤍'}</span>
+            <span className="rk-action-btn-count">{post.likes_count}</span>
           </button>
 
           <button
@@ -205,11 +242,15 @@ export function CommunityPostCard({
 
           <button
             type="button"
-            className={`rk-action-btn ${isShareCopied ? 'liked' : ''}`}
-            onClick={() => void onShare(post.id)}
+            className={`rk-action-btn ${isShareCopied ? 'liked' : ''} ${actionPopByType.share ? 'rk-action-pop' : ''}`}
+            onClick={() => {
+              triggerActionPop('share')
+              void onShare(post.id)
+            }}
             aria-label={isShareCopied ? 'Community link copied' : 'Share this community post'}
           >
-            🔗 <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
+            <span className={`rk-action-btn-icon rk-share-icon ${isShareCopied ? 'rk-share-icon-copied' : ''}`} aria-hidden>🔗</span>
+            <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
           </button>
 
           {canReport ? (
@@ -225,27 +266,26 @@ export function CommunityPostCard({
           ) : null}
         </div>
 
-        {canDelete && !isEditing && (
-          <div className="rk-community-inline-actions">
-            <button
-              type="button"
-              className="rk-button-text rk-button-small"
-              onClick={() => {
-                setEditContent(post.content)
-                setIsEditing(true)
-              }}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              className="rk-button-text rk-button-danger rk-button-small"
-              onClick={() => onDelete(post.id)}
-            >
-              Delete
-            </button>
-          </div>
+        {canDelete && (
+          <button
+            type="button"
+            className="rk-button-text rk-button-danger rk-button-small"
+            onClick={() => onDelete(post.id)}
+            disabled={editMutation.isPending}
+          >
+            Delete
+          </button>
         )}
+        {canEdit && !isEditing ? (
+          <button
+            type="button"
+            className="rk-button-text rk-button-small"
+            onClick={handleStartEdit}
+            disabled={editMutation.isPending}
+          >
+            Edit
+          </button>
+        ) : null}
       </div>
 
       {showComments && <CommunityCommentSection postId={post.id} />}

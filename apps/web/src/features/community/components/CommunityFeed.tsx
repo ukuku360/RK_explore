@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
-import type { CommunityPost, CommunityPostCategory } from '../../../types/domain'
+import type { CommunityPolicySnapshot, CommunityPost, CommunityPostCategory } from '../../../types/domain'
 import { COMMUNITY_POST_CATEGORIES, COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 
 import { createAdminLog } from '../../../services/admin/admin.service'
-import {
-  fetchCommunityPosts,
-  createCommunityPost,
-  updateCommunityPost,
-  deleteCommunityPost,
-} from '../../../services/community/community.service'
+import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
+import { acceptActiveCommunityPolicy, fetchCommunityPolicySnapshot } from '../../../services/community/community-policy.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { invalidateAfterAdminLogMutation, invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
@@ -31,6 +27,7 @@ import { CreateCommunityPost } from './CreateCommunityPost'
 const SHARED_POST_QUERY_PARAM = 'post'
 const SHARED_POST_HIGHLIGHT_MS = 2200
 const SHARE_COPY_FEEDBACK_MS = 1600
+const SHARE_TOAST_FEEDBACK_MS = 1400
 
 const COMMUNITY_TAB_LABEL: Record<CommunityFeedTab, string> = {
   all: 'All',
@@ -138,8 +135,9 @@ export function CommunityFeed() {
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isAdminDeletePendingByPostId, setIsAdminDeletePendingByPostId] = useState<Record<string, boolean>>({})
-  // Use stable query key without user.id to prevent cache invalidation on auth state change
-  const communityPostsQueryKey = ['community_posts'] as const
+  const [shareToastMessage, setShareToastMessage] = useState('')
+  const shareToastTimeoutRef = useRef<number | null>(null)
+  const communityPostsQueryKey = ['community_posts', user?.id ?? 'anonymous'] as const
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
   const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
 
@@ -147,6 +145,29 @@ export function CommunityFeed() {
     queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
   })
+  const communityPolicyQuery = useQuery<CommunityPolicySnapshot | null>({
+    queryKey: ['community_policy', user?.id ?? 'anonymous'],
+    queryFn: () => (user ? fetchCommunityPolicySnapshot(user.id) : Promise.resolve(null)),
+    enabled: Boolean(user),
+  })
+  const acceptPolicyMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Please log in first.')
+      await acceptActiveCommunityPolicy(user.id)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['community_policy'] })
+      setStatusTone('success')
+      setStatusMessage('Community policy accepted.')
+    },
+    onError: (error) => {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to save policy agreement.')
+    },
+  })
+  const allowedCategories = useMemo(() => {
+    return communityPolicyQuery.data?.allowedCategories ?? [...COMMUNITY_POST_CATEGORIES]
+  }, [communityPolicyQuery.data])
 
   const overview = useMemo(() => getCommunityOverview(posts, user?.id), [posts, user?.id])
   const filteredPosts = useMemo(
@@ -172,7 +193,8 @@ export function CommunityFeed() {
 
     return reportedPostIds
   }, [myOpenReportsQuery.data])
-  const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest' || categoryFilter !== 'all'
+  const hasActiveDiscovery =
+    searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest' || categoryFilter !== 'all'
   const emptyState = getCommunityEmptyState({
     hasAnyPost: posts.length > 0,
     hasSearch: searchText.trim().length > 0,
@@ -225,6 +247,14 @@ export function CommunityFeed() {
   }, [copiedPostId])
 
   useEffect(() => {
+    return () => {
+      if (shareToastTimeoutRef.current !== null) {
+        window.clearTimeout(shareToastTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!sharedPostId) return
     if (preparedSharedPostViewRef.current === sharedPostId) return
 
@@ -271,6 +301,16 @@ export function CommunityFeed() {
 
   async function handleCreate(content: string, category: CommunityPostCategory) {
     if (!user) return
+    if (!communityPolicyQuery.data?.hasAcceptedActivePolicy) {
+      setStatusTone('error')
+      setStatusMessage('Accept Community Terms before posting.')
+      return
+    }
+    if (!communityPolicyQuery.data.allowedCategories.includes(category)) {
+      setStatusTone('error')
+      setStatusMessage('This category is not enabled for your account.')
+      return
+    }
     setIsSubmitting(true)
     setStatusTone('idle')
     setStatusMessage('')
@@ -300,22 +340,6 @@ export function CommunityFeed() {
     }
   }
 
-
-
-  const editMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: string; content: string }) => updateCommunityPost(postId, content),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['community_posts'] })
-      setStatusTone('success')
-      setStatusMessage('Post updated.')
-    },
-    onError: (error) => {
-      console.error('Failed to edit post', error)
-      setStatusTone('error')
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to update post.')
-    },
-  })
-
   const deleteMutation = useMutation({
     mutationFn: deleteCommunityPost,
     onSuccess: () => {
@@ -326,12 +350,6 @@ export function CommunityFeed() {
       alert('Failed to delete post.')
     }
   })
-
-
-
-  async function handleEdit(postId: string, content: string) {
-    await editMutation.mutateAsync({ postId, content })
-  }
 
   function handleDelete(id: string) {
     if (!confirm('Are you sure you want to delete this post?')) return
@@ -357,8 +375,14 @@ export function CommunityFeed() {
     }
 
     setCopiedPostId(postId)
-    setStatusTone('success')
-    setStatusMessage('Community post URL copied. Share it in SNS.')
+    setShareToastMessage('Community link copied')
+    if (shareToastTimeoutRef.current !== null) {
+      window.clearTimeout(shareToastTimeoutRef.current)
+    }
+    shareToastTimeoutRef.current = window.setTimeout(() => {
+      setShareToastMessage('')
+      shareToastTimeoutRef.current = null
+    }, SHARE_TOAST_FEEDBACK_MS)
   }
 
   function promptReportReason(): string | null {
@@ -400,8 +424,6 @@ export function CommunityFeed() {
           target_type: 'community',
           target_id: postId,
           reporter_user_id: user.id,
-          reporter_email: user.email,
-          reporter_nickname: user.label,
           reason: nextReason ?? 'No reason provided',
         })
         setStatusTone('success')
@@ -463,7 +485,17 @@ export function CommunityFeed() {
 
   return (
     <div className="rk-feed-container">
-      <CreateCommunityPost onSubmit={handleCreate} isSubmitting={isSubmitting} />
+      <CreateCommunityPost
+        onSubmit={handleCreate}
+        isSubmitting={isSubmitting}
+        allowedCategories={allowedCategories}
+        policySnapshot={communityPolicyQuery.data ?? null}
+        isPolicyLoading={communityPolicyQuery.isLoading}
+        isAcceptingPolicy={acceptPolicyMutation.isPending}
+        onAcceptPolicy={async () => {
+          await acceptPolicyMutation.mutateAsync()
+        }}
+      />
 
       {statusMessage ? (
         <p className={statusTone === 'error' ? 'rk-auth-message rk-auth-error' : 'rk-auth-message rk-auth-success'}>
@@ -582,7 +614,6 @@ export function CommunityFeed() {
               isReportPending={Boolean(isReportPendingByPostId[post.id])}
               isAdminDeletePending={Boolean(isAdminDeletePendingByPostId[post.id])}
               communityPostsQueryKey={communityPostsQueryKey}
-              onEdit={handleEdit}
               onDelete={handleDelete}
               onAdminDelete={handleAdminQuickDelete}
               onToggleReport={handleReportToggle}
@@ -593,6 +624,13 @@ export function CommunityFeed() {
           ))
         )}
       </div>
+
+      {shareToastMessage ? (
+        <div className="rk-share-toast" role="status" aria-live="polite">
+          <span className="rk-share-toast-icon" aria-hidden>🔗</span>
+          <span>{shareToastMessage}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

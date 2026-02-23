@@ -46,8 +46,9 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const likedPostIds = new Set<string>()
   userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
-  return posts.map((post: CommunityPost) => ({
+  return posts.map((post: CommunityPost & { category?: CommunityPostCategory }) => ({
     ...post,
+    category: post.category ?? 'general',
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id),
@@ -79,18 +80,25 @@ export async function createCommunityPost(
 
   return {
     ...data,
+    category: (data as CommunityPost).category ?? category,
     likes_count: 0,
     comments_count: 0,
     has_liked: false,
   }
 }
 
+export async function deleteCommunityPost(postId: string): Promise<void> {
+  const { error } = await supabase.from('community_posts').delete().eq('id', postId)
+  throwIfPostgrestError(error)
+}
+
 export async function updateCommunityPost(
   postId: string,
+  userId: string,
   content: string,
   category?: CommunityPostCategory,
-): Promise<CommunityPost> {
-  const updates: Record<string, string> = { content }
+): Promise<void> {
+  const updates: { content: string; category?: CommunityPostCategory } = { content }
   if (category) {
     updates.category = category
   }
@@ -99,21 +107,13 @@ export async function updateCommunityPost(
     .from('community_posts')
     .update(updates)
     .eq('id', postId)
-    .select()
-    .single()
-
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
   throwIfPostgrestError(error)
-
   if (!data) {
-    throw new Error('Failed to update community post: no data returned from server')
+    throw new Error('Unable to update post. The post was not found or you do not have permission.')
   }
-
-  return data
-}
-
-export async function deleteCommunityPost(postId: string): Promise<void> {
-  const { error } = await supabase.from('community_posts').delete().eq('id', postId)
-  throwIfPostgrestError(error)
 }
 
 export async function toggleLike(postId: string, userId: string): Promise<void> {
@@ -170,24 +170,21 @@ export async function createComment(
   return data
 }
 
-export async function updateComment(commentId: string, content: string): Promise<CommunityComment> {
+export async function deleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase.from('community_comments').delete().eq('id', commentId)
+  throwIfPostgrestError(error)
+}
+
+export async function updateCommunityComment(commentId: string, userId: string, content: string): Promise<void> {
   const { data, error } = await supabase
     .from('community_comments')
     .update({ content })
     .eq('id', commentId)
-    .select()
-    .single()
-
+    .eq('user_id', userId)
+    .select('id')
+    .maybeSingle()
   throwIfPostgrestError(error)
-
   if (!data) {
-    throw new Error('Failed to update comment: no data returned from server')
+    throw new Error('Unable to update comment. The comment was not found or you do not have permission.')
   }
-
-  return data
-}
-
-export async function deleteComment(commentId: string): Promise<void> {
-  const { error } = await supabase.from('community_comments').delete().eq('id', commentId)
-  throwIfPostgrestError(error)
 }

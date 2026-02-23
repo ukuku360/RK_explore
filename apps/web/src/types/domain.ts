@@ -58,7 +58,6 @@ export type Comment = {
   author: string
   text: string
   created_at: string
-  updated_at?: string
 }
 
 export type PostRecord = {
@@ -117,6 +116,12 @@ export type ProfileDetails = {
   tagline: string
   bio: string
   location: string
+  country: string
+  city: string
+  uni: string
+  major: string
+  instagram_url: string
+  linkedin_url: string
   occupations: string
   hobbies: string
   links: string
@@ -156,7 +161,6 @@ export type CommunityComment = {
   author: string
   content: string
   created_at: string
-  updated_at: string
 }
 
 export type CommunityPost = {
@@ -166,8 +170,32 @@ export type CommunityPost = {
   content: string
   category: CommunityPostCategory
   created_at: string
-  updated_at: string
   likes_count: number
   comments_count: number
   has_liked: boolean
+}
+
+export type CommunityCategorySettings = {
+  user_id: string
+  allowed_categories: CommunityPostCategory[]
+  created_at: string
+  updated_at: string
+}
+
+export type CommunityPolicyVersion = {
+  version: string
+  title: string
+  summary: string
+  terms_markdown: string
+  is_active: boolean
+  created_at: string
+}
+
+export type CommunityPolicySnapshot = {
+  activePolicyVersion: string | null
+  activePolicyTitle: string
+  activePolicySummary: string
+  activePolicyTermsMarkdown: string
+  hasAcceptedActivePolicy: boolean
+  allowedCategories: CommunityPostCategory[]
 }

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, FormEvent } from 'react'
+import type { ChangeEvent, FormEvent, MouseEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 
@@ -33,6 +33,12 @@ const DEFAULT_PROFILE_DETAILS: ProfileDetails = {
   bio: '',
   tagline: '',
   location: '',
+  country: '',
+  city: '',
+  uni: '',
+  major: '',
+  instagram_url: '',
+  linkedin_url: '',
   occupations: '',
   hobbies: '',
   links: '',
@@ -44,6 +50,45 @@ function parseList(text: string): string[] {
     .split(',')
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function toExternalUrl(rawValue: string): string | null {
+  const trimmed = rawValue.trim()
+  if (!trimmed) return null
+
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+
+  try {
+    const parsed = new URL(withScheme)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return null
+    return parsed.toString()
+  } catch {
+    return null
+  }
+}
+
+function getInstagramHandle(rawValue: string): string {
+  const trimmed = rawValue.trim()
+  if (!trimmed) return ''
+
+  const sanitized = trimmed
+    .replace(/^https?:\/\/(www\.)?/i, '')
+    .replace(/^www\./i, '')
+    .replace(/^instagram\.com\/?/i, '')
+    .replace(/^@/, '')
+    .split('?')[0]
+    .split('#')[0]
+    .replace(/^\/+/, '')
+    .split('/')[0]
+    .trim()
+
+  return sanitized
+}
+
+function formatInstagramHandleDisplay(rawValue: string): string {
+  const handle = getInstagramHandle(rawValue)
+  if (!handle) return ''
+  return handle.startsWith('@') ? handle : `@${handle}`
 }
 
 function computeBadges(stats: {
@@ -133,6 +178,7 @@ export function ProfilePage() {
   const [nicknameUpdateError, setNicknameUpdateError] = useState('')
   const [avatarInputError, setAvatarInputError] = useState('')
   const avatarInputRef = useRef<HTMLInputElement | null>(null)
+  const [instagramPopupHandle, setInstagramPopupHandle] = useState('')
 
   const saveDetailsMutation = useMutation({
     mutationFn: (nextDetails: ProfileDetails) => upsertUserProfileDetails(targetUserId ?? '', nextDetails),
@@ -236,10 +282,21 @@ export function ProfilePage() {
   }
 
   const joinedDate = isOwnProfile && user?.createdAt ? formatJoinedDate(user.createdAt) : null
+  const hasFromDetails = [profileDetails.country, profileDetails.city].some((value) => value.trim().length > 0)
+  const hasUniDetails = [profileDetails.uni, profileDetails.major].some((value) => value.trim().length > 0)
+  const instagramHandle = getInstagramHandle(profileDetails.instagram_url)
+  const linkedInUrl = toExternalUrl(profileDetails.linkedin_url)
+  const hasSocialDetails = Boolean(instagramHandle) || Boolean(linkedInUrl)
   const hasProfileDetails = Boolean(profileDetails.avatar_url) || [
     profileDetails.tagline,
     profileDetails.bio,
     profileDetails.location,
+    profileDetails.country,
+    profileDetails.city,
+    profileDetails.uni,
+    profileDetails.major,
+    profileDetails.instagram_url,
+    profileDetails.linkedin_url,
     profileDetails.occupations,
     profileDetails.hobbies,
     profileDetails.links,
@@ -248,6 +305,17 @@ export function ProfilePage() {
   const saveDetailsError = saveDetailsMutation.error instanceof Error ? saveDetailsMutation.error.message : null
   const avatarUploadError = uploadAvatarMutation.error instanceof Error ? uploadAvatarMutation.error.message : null
   const avatarErrorMessage = avatarInputError || avatarUploadError
+
+  function handleInstagramPopupOpen(event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault()
+    const handle = formatInstagramHandleDisplay(profileDetails.instagram_url)
+    if (!handle) return
+    setInstagramPopupHandle(handle)
+  }
+
+  function closeInstagramPopup() {
+    setInstagramPopupHandle('')
+  }
 
   function handleStartEdit() {
     setDraftDetails(profileDetails)
@@ -345,15 +413,6 @@ export function ProfilePage() {
               {uploadAvatarMutation.isPending ? 'Uploading photo...' : 'Tap your profile photo to upload a new one'}
             </p>
           )}
-          {isOwnProfile && (
-            <button
-              type="button"
-              className="rk-button rk-button-ghost"
-              onClick={handleStartEdit}
-            >
-              Edit Nickname / Profile
-            </button>
-          )}
           {avatarErrorMessage && <p className="rk-profile-error">{avatarErrorMessage}</p>}
         </div>
       </div>
@@ -395,7 +454,7 @@ export function ProfilePage() {
               maxLength={20}
             />
 
-            <label className="rk-label" htmlFor="profile-tagline">Tagline</label>
+            <label className="rk-label" htmlFor="profile-tagline">One Liner</label>
             <input
               id="profile-tagline"
               className="rk-input"
@@ -422,14 +481,14 @@ export function ProfilePage() {
 
             <div className="rk-profile-about-grid">
               <label className="rk-profile-about-field">
-                <span className="rk-label">Location</span>
+                <span className="rk-label">Unit Number</span>
                 <input
                   className="rk-input"
                   value={draftDetails.location}
                   onChange={(event) =>
                     setDraftDetails((current) => ({ ...current, location: event.target.value }))
                   }
-                  placeholder="e.g. Seoul · Gyeonggi"
+                  placeholder="e.g. 1502"
                   maxLength={40}
                 />
               </label>
@@ -443,6 +502,64 @@ export function ProfilePage() {
                     setDraftDetails((current) => ({ ...current, occupations: event.target.value }))
                   }
                   placeholder="e.g. Product Designer, PM"
+                  maxLength={80}
+                />
+              </label>
+            </div>
+
+            <p className="rk-profile-meta-title">From</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Country</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.country}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, country: event.target.value }))
+                  }
+                  placeholder="e.g. Korea"
+                  maxLength={60}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">City</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.city}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, city: event.target.value }))
+                  }
+                  placeholder="e.g. Seoul"
+                  maxLength={60}
+                />
+              </label>
+            </div>
+
+            <p className="rk-profile-meta-title">Uni / Major</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Uni</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.uni}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, uni: event.target.value }))
+                  }
+                  placeholder="e.g. Sookmyung Women's University"
+                  maxLength={80}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">Major</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.major}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, major: event.target.value }))
+                  }
+                  placeholder="e.g. Design"
                   maxLength={80}
                 />
               </label>
@@ -472,6 +589,35 @@ export function ProfilePage() {
               maxLength={160}
             />
 
+            <p className="rk-profile-meta-title">SNS</p>
+            <div className="rk-profile-about-grid">
+              <label className="rk-profile-about-field">
+                <span className="rk-label">📸 Instagram</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.instagram_url}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, instagram_url: event.target.value }))
+                  }
+                  placeholder="instagram.com/username"
+                  maxLength={200}
+                />
+              </label>
+
+              <label className="rk-profile-about-field">
+                <span className="rk-label">💼 LinkedIn</span>
+                <input
+                  className="rk-input"
+                  value={draftDetails.linkedin_url}
+                  onChange={(event) =>
+                    setDraftDetails((current) => ({ ...current, linkedin_url: event.target.value }))
+                  }
+                  placeholder="linkedin.com/in/username"
+                  maxLength={200}
+                />
+              </label>
+            </div>
+
             {nicknameUpdateError && <p className="rk-profile-error">{nicknameUpdateError}</p>}
             {saveDetailsError && <p className="rk-profile-error">{saveDetailsError}</p>}
 
@@ -497,12 +643,40 @@ export function ProfilePage() {
             {profileDetails.bio && <p className="rk-profile-bio">{profileDetails.bio}</p>}
             <div className="rk-profile-meta-list">
               {profileDetails.location && (
-                <div className="rk-profile-meta-item"><strong>📍 Location</strong><span>{profileDetails.location}</span></div>
+                <div className="rk-profile-meta-item"><strong>🏠 Unit Number</strong><span>{profileDetails.location}</span></div>
               )}
               {profileDetails.occupations && (
                 <div className="rk-profile-meta-item"><strong>💼 Focus</strong><span>{profileDetails.occupations}</span></div>
               )}
             </div>
+
+            {hasFromDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">From</span>
+                <div className="rk-profile-meta-list">
+                  {profileDetails.country && (
+                    <div className="rk-profile-meta-item"><strong>Country</strong><span>{profileDetails.country}</span></div>
+                  )}
+                  {profileDetails.city && (
+                    <div className="rk-profile-meta-item"><strong>City</strong><span>{profileDetails.city}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {hasUniDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">Uni / Major</span>
+                <div className="rk-profile-meta-list">
+                  {profileDetails.uni && (
+                    <div className="rk-profile-meta-item"><strong>Uni</strong><span>{profileDetails.uni}</span></div>
+                  )}
+                  {profileDetails.major && (
+                    <div className="rk-profile-meta-item"><strong>Major</strong><span>{profileDetails.major}</span></div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {parseList(profileDetails.hobbies).length > 0 && (
               <div className="rk-profile-meta-block">
@@ -525,6 +699,31 @@ export function ProfilePage() {
                 </ul>
               </div>
             )}
+
+            {hasSocialDetails && (
+              <div className="rk-profile-meta-block">
+                <span className="rk-profile-meta-title">SNS</span>
+                <ul className="rk-profile-link-list">
+                  {instagramHandle && (
+                    <li>
+                      <button
+                        type="button"
+                        className="rk-profile-inline-link"
+                        onClick={handleInstagramPopupOpen}
+                        aria-label="Show Instagram ID"
+                      >
+                        📸 Instagram
+                      </button>
+                    </li>
+                  )}
+                  {linkedInUrl && (
+                    <li>
+                      <a href={linkedInUrl} target="_blank" rel="noopener noreferrer">💼 LinkedIn</a>
+                    </li>
+                  )}
+                </ul>
+              </div>
+            )}
           </div>
         ) : (
           <p className="rk-profile-empty">
@@ -534,6 +733,30 @@ export function ProfilePage() {
           </p>
         )}
       </div>
+
+      {instagramPopupHandle && (
+        <div className="rk-instagram-popup-overlay" onMouseDown={closeInstagramPopup}>
+          <div
+            className="rk-instagram-popup-card"
+            onMouseDown={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Instagram ID"
+          >
+            <button
+              type="button"
+              className="rk-instagram-popup-close"
+              onClick={closeInstagramPopup}
+              aria-label="Close Instagram ID popup"
+            >
+              ×
+            </button>
+            <p className="rk-instagram-popup-title">📸 Instagram</p>
+            <p className="rk-instagram-popup-value">{instagramPopupHandle}</p>
+            <p className="rk-instagram-popup-note">Instagram ID shared on this profile</p>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="rk-profile-stats-grid">
@@ -607,7 +830,6 @@ export function ProfilePage() {
           </div>
         </div>
       )}
-
       {!profileData.hasActivity && (
         <p className="rk-profile-empty">No activity yet.</p>
       )}

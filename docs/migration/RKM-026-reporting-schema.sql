@@ -91,8 +91,12 @@ drop policy if exists "post_reports_update_admin_only" on public.post_reports;
 create policy "post_reports_update_admin_only"
   on public.post_reports
   for update
-  using (lower(coalesce(auth.jwt() ->> 'email', '')) = 'swanston@roomingkos.com')
-  with check (lower(coalesce(auth.jwt() ->> 'email', '')) = 'swanston@roomingkos.com');
+  using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) = 'swanston@roomingkos.com'
+  )
+  with check (
+    lower(coalesce(auth.jwt() ->> 'email', '')) = 'swanston@roomingkos.com'
+  );
 
 alter table if exists public.community_posts enable row level security;
 

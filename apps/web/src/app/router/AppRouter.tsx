@@ -6,9 +6,9 @@ import { AppShell } from '../layout/AppShell'
 import { useAuthSession } from '../providers/auth-session-context'
 import { AuthPage } from '../../features/auth/pages/AuthPage'
 import { FeedPage } from '../../features/feed/pages/FeedPage'
+import { MembersPage } from '../../features/members/pages/MembersPage'
 import { NotFoundPage } from '../../features/not-found/pages/NotFoundPage'
 import { ProfilePage } from '../../features/profile/pages/ProfilePage'
-import { MembersPage } from '../../features/members/pages/MembersPage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
 const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))

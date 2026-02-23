@@ -1,17 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, NavLink, Outlet } from 'react-router-dom'
 
 import { useAuthSession } from '../providers/auth-session-context'
 import { useRealtimeSyncStatus } from '../providers/realtime-sync-context'
-import { formatTimeAgo } from '../../lib/formatters'
 import { usePostsWithRelationsQuery } from '../../features/feed/hooks/usePostsWithRelationsQuery'
-import { useMyReportsQuery } from '../../features/reports/hooks/useMyReportsQuery'
-import {
-  buildNotifications,
-  NOTIFICATION_RETENTION_DAYS,
-  type NotificationItem,
-  type NotificationType,
-} from '../../features/notifications/lib/notifications'
 
 function navClassName({ isActive }: { isActive: boolean }) {
   return isActive ? 'rk-nav-link rk-nav-link-active' : 'rk-nav-link'
@@ -35,55 +27,12 @@ function formatStatusLabel(status: 'connecting' | 'live' | 'offline') {
   return 'Syncing'
 }
 
-function getNotificationTypeLabel(type: NotificationType): string {
-  if (type === 'comment') return 'Comment'
-  if (type === 'mention') return 'Mention'
-  if (type === 'report_result') return 'Report'
-  return 'Meetup'
-}
-
-const MAX_NOTIFICATIONS = 40
-
 export function AppShell() {
   const { isAdmin, user, logout } = useAuthSession()
   const realtimeStatus = useRealtimeSyncStatus()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isNotificationOpen, setIsNotificationOpen] = useState(false)
-  const [readNotificationIds, setReadNotificationIds] = useState<Record<string, true>>({})
 
   const postsQuery = usePostsWithRelationsQuery({ enabled: Boolean(user) })
-  const reportsQuery = useMyReportsQuery(user?.id, Boolean(user))
-
-  const notifications = useMemo(() => {
-    if (!user) return []
-
-    return buildNotifications({
-      posts: postsQuery.data ?? [],
-      reports: reportsQuery.data ?? [],
-      userId: user.id,
-      nickname: user.label,
-    }).slice(0, MAX_NOTIFICATIONS)
-  }, [postsQuery.data, reportsQuery.data, user])
-
-  const unreadCount = useMemo(
-    () => notifications.filter((item) => !readNotificationIds[item.id]).length,
-    [notifications, readNotificationIds],
-  )
-
-  useEffect(() => {
-    setReadNotificationIds((previous) => {
-      const liveIds = new Set(notifications.map((item) => item.id))
-      const next: Record<string, true> = {}
-
-      for (const id of Object.keys(previous)) {
-        if (liveIds.has(id)) {
-          next[id] = true
-        }
-      }
-
-      return next
-    })
-  }, [notifications])
 
   const profileStats = useMemo(() => {
     if (!user || !postsQuery.data) {
@@ -99,30 +48,8 @@ export function AppShell() {
     return { ownPosts, votesCast, rsvpsJoined }
   }, [postsQuery.data, user])
 
-  function handleMarkAllNotificationsAsRead() {
-    setReadNotificationIds(() => {
-      const next: Record<string, true> = {}
-      for (const item of notifications) {
-        next[item.id] = true
-      }
-      return next
-    })
-  }
-
-  function handleOpenNotifications() {
-    setIsProfileOpen(false)
-    setIsNotificationOpen((previous) => {
-      const next = !previous
-      if (next) {
-        handleMarkAllNotificationsAsRead()
-      }
-      return next
-    })
-  }
-
   async function handleLogout() {
     setIsProfileOpen(false)
-    setIsNotificationOpen(false)
     await logout()
   }
 
@@ -140,15 +67,14 @@ export function AppShell() {
     <div className="rk-shell">
       <header className="rk-header">
         <div className="rk-header-inner">
-          <div className="rk-brand">
-            <Link to="/" className="rk-brand-link">
-              <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
-              <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
-            </Link>
-          </div>
+          <a className="rk-brand" href="/" onClick={() => setIsProfileOpen(false)}>
+            <img className="rk-brand-logo" src="/brand/rk-logo-colour.svg" alt="RoomingKos" />
+            <img className="rk-brand-mark" src="/brand/rk-brandmark-colour.svg" alt="" aria-hidden />
+            <span className="rk-brand-explores">Explores</span>
+          </a>
           <nav className="rk-nav" aria-label="Primary">
             <NavLink to="/" end className={navClassName}>
-              Explore
+              Feed
             </NavLink>
             <NavLink to="/community" className={navClassName}>
               Community
@@ -169,20 +95,8 @@ export function AppShell() {
             </div>
             <button
               type="button"
-              className="rk-icon-button"
-              onClick={handleOpenNotifications}
-              aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-            >
-              <span aria-hidden>🔔</span>
-              {unreadCount > 0 ? <span className="rk-notification-badge">{unreadCount}</span> : null}
-            </button>
-            <button
-              type="button"
               className="rk-button rk-button-secondary rk-button-small"
-              onClick={() => {
-                setIsNotificationOpen(false)
-                setIsProfileOpen((previous) => !previous)
-              }}
+              onClick={() => setIsProfileOpen((previous) => !previous)}
             >
               {isProfileOpen ? 'Close Profile' : 'My Profile'}
             </button>
@@ -191,43 +105,6 @@ export function AppShell() {
             </button>
           </div>
         </div>
-        {isNotificationOpen ? (
-          <div className="rk-notification-panel">
-            <div className="rk-notification-panel-header">
-              <div>
-                <h3>Notifications</h3>
-                <p>Personalized updates from the last {NOTIFICATION_RETENTION_DAYS} days.</p>
-              </div>
-              <button
-                type="button"
-                className="rk-button rk-button-secondary rk-button-small"
-                onClick={handleMarkAllNotificationsAsRead}
-                disabled={notifications.length === 0}
-              >
-                Mark all read
-              </button>
-            </div>
-            {notifications.length === 0 ? (
-              <p className="rk-feed-note">No notifications yet.</p>
-            ) : (
-              <ul className="rk-notification-list">
-                {notifications.map((notification: NotificationItem) => (
-                  <li key={notification.id} className="rk-notification-item">
-                    <div className="rk-notification-item-meta">
-                      <span className="rk-notification-chip">{getNotificationTypeLabel(notification.type)}</span>
-                      <span>{formatTimeAgo(notification.createdAt)}</span>
-                    </div>
-                    <strong>{notification.title}</strong>
-                    <p>{notification.message}</p>
-                    <Link to={notification.targetPath} onClick={() => setIsNotificationOpen(false)}>
-                      View
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ) : null}
         {isProfileOpen ? (
           <div className="rk-profile-panel">
             <h3>My Profile</h3>

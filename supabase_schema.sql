@@ -4,8 +4,7 @@ create table if not exists public.community_posts (
   user_id uuid references auth.users not null,
   author text not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Enable RLS
@@ -20,15 +19,14 @@ create policy "Users can insert their own community posts"
   on public.community_posts for insert
   with check ( auth.uid() = user_id );
 
-drop policy if exists "Users can update their own community posts" on public.community_posts;
+create policy "Users can delete their own community posts"
+  on public.community_posts for delete
+  using ( auth.uid() = user_id );
+
 create policy "Users can update their own community posts"
   on public.community_posts for update
   using ( auth.uid() = user_id )
   with check ( auth.uid() = user_id );
-
-create policy "Users can delete their own community posts"
-  on public.community_posts for delete
-  using ( auth.uid() = user_id );
 
 -- Enable Realtime
 alter publication supabase_realtime add table public.community_posts;
@@ -61,8 +59,7 @@ create table if not exists public.community_comments (
   user_id uuid references auth.users not null,
   author text not null,
   content text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
-  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 alter table public.community_comments enable row level security;
@@ -73,19 +70,19 @@ create policy "Community comments are viewable by everyone"
 create policy "Users can insert their own comments"
   on public.community_comments for insert with check (auth.uid() = user_id);
 
-drop policy if exists "Users can update their own comments" on public.community_comments;
-create policy "Users can update their own comments"
+create policy "Users can delete their own comments"
+  on public.community_comments for delete using (auth.uid() = user_id);
+
+create policy "Users can update their own community comments"
   on public.community_comments for update
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
 
-create policy "Users can delete their own comments"
-  on public.community_comments for delete using (auth.uid() = user_id);
-
 alter publication supabase_realtime add table public.community_comments;
 
+-- ─── Activity Updated At Tracking ────────────────────────────────────────────
 
-create or replace function public.set_community_updated_at()
+create or replace function public.set_activity_row_updated_at()
 returns trigger
 language plpgsql
 as $$
@@ -95,24 +92,45 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_community_posts_updated_at on public.community_posts;
-create trigger trg_community_posts_updated_at
-before update on public.community_posts
-for each row
-execute function public.set_community_updated_at();
+alter table if exists public.posts
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
-drop trigger if exists trg_community_comments_updated_at on public.community_comments;
-create trigger trg_community_comments_updated_at
-before update on public.community_comments
-for each row
-execute function public.set_community_updated_at();
+alter table if exists public.comments
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
-alter table public.community_posts add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
-alter table public.community_comments add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+alter table if exists public.community_posts
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
 
--- ─── Community Post Categories ──────────────────────────────────────────────
--- Add category column (existing posts default to 'general')
-alter table public.community_posts add column if not exists category text not null default 'general';
+alter table if exists public.community_comments
+  add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+do $$
+begin
+  if to_regclass('public.posts') is not null then
+    execute 'drop trigger if exists trg_posts_updated_at on public.posts';
+    execute
+      'create trigger trg_posts_updated_at before update on public.posts for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.comments') is not null then
+    execute 'drop trigger if exists trg_comments_updated_at on public.comments';
+    execute
+      'create trigger trg_comments_updated_at before update on public.comments for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.community_posts') is not null then
+    execute 'drop trigger if exists trg_community_posts_updated_at on public.community_posts';
+    execute
+      'create trigger trg_community_posts_updated_at before update on public.community_posts for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.community_comments') is not null then
+    execute 'drop trigger if exists trg_community_comments_updated_at on public.community_comments';
+    execute
+      'create trigger trg_community_comments_updated_at before update on public.community_comments for each row execute function public.set_activity_row_updated_at()';
+  end if;
+end;
+$$;
 
 -- ─── Post Images ──────────────────────────────────────────────────────────────
 
@@ -153,6 +171,12 @@ create table if not exists public.user_profile_details (
   tagline text not null default '',
   bio text not null default '',
   location text not null default '',
+  country text not null default '',
+  city text not null default '',
+  uni text not null default '',
+  major text not null default '',
+  instagram_url text not null default '',
+  linkedin_url text not null default '',
   occupations text not null default '',
   hobbies text not null default '',
   links text not null default '',

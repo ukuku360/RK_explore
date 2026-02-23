@@ -68,7 +68,7 @@ export function MembersPage() {
                   <span>Last active {formatLastActive(member.lastActiveAt)}</span>
                 </div>
                 <span className="rk-members-arrow" aria-hidden>
-                  →
+                  {'->'}
                 </span>
               </Link>
             </li>
