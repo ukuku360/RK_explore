@@ -1,4 +1,4 @@
-import type { CommunityPost } from '../../../types/domain'
+import type { CommunityPost, CommunityPostCategory } from '../../../types/domain'
 
 export const COMMUNITY_FEED_TABS = ['all', 'my_posts', 'needs_reply'] as const
 export type CommunityFeedTab = (typeof COMMUNITY_FEED_TABS)[number]
@@ -10,6 +10,7 @@ type FilterParams = {
   tab: CommunityFeedTab
   currentUserId?: string
   searchText: string
+  category?: CommunityPostCategory | 'all'
 }
 
 export function getCommunityPopularityScore(post: CommunityPost): number {
@@ -20,6 +21,11 @@ export function filterCommunityPosts(posts: CommunityPost[], params: FilterParam
   const normalizedSearch = params.searchText.trim().toLowerCase()
 
   let nextPosts = posts
+
+  if (params.category && params.category !== 'all') {
+    const selectedCategory = params.category
+    nextPosts = nextPosts.filter((post) => post.category === selectedCategory)
+  }
 
   if (params.tab === 'my_posts') {
     if (!params.currentUserId) {

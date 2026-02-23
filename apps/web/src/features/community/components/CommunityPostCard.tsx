@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { CommunityPost } from '../../../types/domain'
+import { COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 import { formatDateTime } from '../../../lib/formatters'
 import { toggleLike, updateCommunityPost } from '../../../services/community/community.service'
 import { CommunityCommentSection } from './CommunityCommentSection'
@@ -14,7 +15,7 @@ type Props = {
   isReported: boolean
   isReportPending: boolean
   isAdminDeletePending: boolean
-  communityPostsQueryKey: readonly ['community_posts']
+  communityPostsQueryKey: readonly ['community_posts', string]
   onDelete: (id: string) => void
   onAdminDelete: (post: CommunityPost) => void | Promise<void>
   onToggleReport: (id: string, isReported: boolean) => void | Promise<void>
@@ -22,6 +23,8 @@ type Props = {
   isShareCopied: boolean
   elementId: string
 }
+
+const ACTION_POP_FEEDBACK_MS = 170
 
 export function CommunityPostCard({
   post,
@@ -45,6 +48,14 @@ export function CommunityPostCard({
   const [showComments, setShowComments] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editContent, setEditContent] = useState(post.content)
+  const [actionPopByType, setActionPopByType] = useState<Record<'like' | 'share', boolean>>({
+    like: false,
+    share: false,
+  })
+  const actionPopTimeoutByTypeRef = useRef<Record<'like' | 'share', number | null>>({
+    like: null,
+    share: null,
+  })
   const queryClient = useQueryClient()
   const trimmedEditContent = editContent.trim()
 
@@ -98,13 +109,38 @@ export function CommunityPostCard({
     },
   })
 
+  function triggerActionPop(type: 'like' | 'share') {
+    setActionPopByType((previous) => ({ ...previous, [type]: true }))
+
+    const existingTimeoutId = actionPopTimeoutByTypeRef.current[type]
+    if (existingTimeoutId !== null) {
+      window.clearTimeout(existingTimeoutId)
+    }
+
+    actionPopTimeoutByTypeRef.current[type] = window.setTimeout(() => {
+      setActionPopByType((previous) => ({ ...previous, [type]: false }))
+      actionPopTimeoutByTypeRef.current[type] = null
+    }, ACTION_POP_FEEDBACK_MS)
+  }
+
   function handleLike() {
     if (!currentUserId) {
       alert('Please log in to like posts')
       return
     }
+    triggerActionPop('like')
     likeMutation.mutate()
   }
+
+  useEffect(() => {
+    const timeoutByType = actionPopTimeoutByTypeRef.current
+    return () => {
+      for (const timeoutId of Object.values(timeoutByType)) {
+        if (timeoutId === null) continue
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [])
 
   function handleStartEdit() {
     setEditContent(post.content)
@@ -123,7 +159,12 @@ export function CommunityPostCard({
   return (
     <div id={elementId} className="rk-card rk-community-card">
       <div className="rk-community-header">
-        <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
+        <div className="rk-community-header-left">
+          <Link to={`/profile/${post.user_id}`} className="rk-community-author rk-author-link">{post.author}</Link>
+          <span className="rk-community-category-badge">
+            {COMMUNITY_POST_CATEGORY_META[post.category].emoji} {COMMUNITY_POST_CATEGORY_META[post.category].label}
+          </span>
+        </div>
         <div className="rk-community-header-meta">
           <span className="rk-community-time">{formatDateTime(post.created_at)}</span>
           {canAdminDelete ? (
@@ -180,13 +221,13 @@ export function CommunityPostCard({
         <div className="rk-engagement-actions">
           <button
             type="button"
-            className={`rk-action-btn ${post.has_liked ? 'liked' : ''}`}
+            className={`rk-action-btn ${post.has_liked ? 'liked' : ''} ${actionPopByType.like ? 'rk-action-pop' : ''}`}
             onClick={handleLike}
             aria-pressed={post.has_liked}
             aria-label={post.has_liked ? `Unlike (${post.likes_count})` : `Like (${post.likes_count})`}
           >
-            {post.has_liked ? '❤️' : '🤍'}
-            <span>{post.likes_count}</span>
+            <span className="rk-action-btn-icon" aria-hidden>{post.has_liked ? '❤️' : '🤍'}</span>
+            <span className="rk-action-btn-count">{post.likes_count}</span>
           </button>
 
           <button
@@ -201,11 +242,15 @@ export function CommunityPostCard({
 
           <button
             type="button"
-            className={`rk-action-btn ${isShareCopied ? 'liked' : ''}`}
-            onClick={() => void onShare(post.id)}
+            className={`rk-action-btn ${isShareCopied ? 'liked' : ''} ${actionPopByType.share ? 'rk-action-pop' : ''}`}
+            onClick={() => {
+              triggerActionPop('share')
+              void onShare(post.id)
+            }}
             aria-label={isShareCopied ? 'Community link copied' : 'Share this community post'}
           >
-            🔗 <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
+            <span className={`rk-action-btn-icon rk-share-icon ${isShareCopied ? 'rk-share-icon-copied' : ''}`} aria-hidden>🔗</span>
+            <span>{isShareCopied ? 'Copied URL' : 'Share'}</span>
           </button>
 
           {canReport ? (

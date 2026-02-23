@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLocation } from 'react-router-dom'
-import type { CommunityPost } from '../../../types/domain'
+import type { CommunityPolicySnapshot, CommunityPost, CommunityPostCategory } from '../../../types/domain'
+import { COMMUNITY_POST_CATEGORIES, COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 
 import { createAdminLog } from '../../../services/admin/admin.service'
 import { fetchCommunityPosts, createCommunityPost, deleteCommunityPost } from '../../../services/community/community.service'
+import { acceptActiveCommunityPolicy, fetchCommunityPolicySnapshot } from '../../../services/community/community-policy.service'
 import { clearOpenReportsByReporterTarget, createReport, reviewReportsByTarget } from '../../../services/reports/reports.service'
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { invalidateAfterAdminLogMutation, invalidateAfterReportMutation } from '../../../lib/queryInvalidation'
@@ -25,6 +27,7 @@ import { CreateCommunityPost } from './CreateCommunityPost'
 const SHARED_POST_QUERY_PARAM = 'post'
 const SHARED_POST_HIGHLIGHT_MS = 2200
 const SHARE_COPY_FEEDBACK_MS = 1600
+const SHARE_TOAST_FEEDBACK_MS = 1400
 
 const COMMUNITY_TAB_LABEL: Record<CommunityFeedTab, string> = {
   all: 'All',
@@ -127,12 +130,14 @@ export function CommunityFeed() {
   const [feedTab, setFeedTab] = useState<CommunityFeedTab>('all')
   const [sortOption, setSortOption] = useState<CommunitySortOption>('newest')
   const [searchText, setSearchText] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<CommunityPostCategory | 'all'>('all')
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [isReportPendingByPostId, setIsReportPendingByPostId] = useState<Record<string, boolean>>({})
   const [isAdminDeletePendingByPostId, setIsAdminDeletePendingByPostId] = useState<Record<string, boolean>>({})
-  // Use stable query key without user.id to prevent cache invalidation on auth state change
-  const communityPostsQueryKey = ['community_posts'] as const
+  const [shareToastMessage, setShareToastMessage] = useState('')
+  const shareToastTimeoutRef = useRef<number | null>(null)
+  const communityPostsQueryKey = ['community_posts', user?.id ?? 'anonymous'] as const
   const sharedPostId = useMemo(() => getSharedPostIdFromSearch(location.search), [location.search])
   const myOpenReportsQuery = useMyOpenReportsQuery(user?.id, Boolean(user && !user.isAdmin))
 
@@ -140,6 +145,29 @@ export function CommunityFeed() {
     queryKey: communityPostsQueryKey,
     queryFn: () => fetchCommunityPosts(user?.id),
   })
+  const communityPolicyQuery = useQuery<CommunityPolicySnapshot | null>({
+    queryKey: ['community_policy', user?.id ?? 'anonymous'],
+    queryFn: () => (user ? fetchCommunityPolicySnapshot(user.id) : Promise.resolve(null)),
+    enabled: Boolean(user),
+  })
+  const acceptPolicyMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Please log in first.')
+      await acceptActiveCommunityPolicy(user.id)
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['community_policy'] })
+      setStatusTone('success')
+      setStatusMessage('Community policy accepted.')
+    },
+    onError: (error) => {
+      setStatusTone('error')
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to save policy agreement.')
+    },
+  })
+  const allowedCategories = useMemo(() => {
+    return communityPolicyQuery.data?.allowedCategories ?? [...COMMUNITY_POST_CATEGORIES]
+  }, [communityPolicyQuery.data])
 
   const overview = useMemo(() => getCommunityOverview(posts, user?.id), [posts, user?.id])
   const filteredPosts = useMemo(
@@ -148,8 +176,9 @@ export function CommunityFeed() {
         tab: feedTab,
         currentUserId: user?.id,
         searchText,
+        category: categoryFilter,
       }),
-    [feedTab, posts, searchText, user?.id],
+    [categoryFilter, feedTab, posts, searchText, user?.id],
   )
   const visiblePosts = useMemo(() => sortCommunityPosts(filteredPosts, sortOption), [filteredPosts, sortOption])
   const myReportedCommunityPostIds = useMemo(() => {
@@ -164,7 +193,8 @@ export function CommunityFeed() {
 
     return reportedPostIds
   }, [myOpenReportsQuery.data])
-  const hasActiveDiscovery = searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest'
+  const hasActiveDiscovery =
+    searchText.trim().length > 0 || feedTab !== 'all' || sortOption !== 'newest' || categoryFilter !== 'all'
   const emptyState = getCommunityEmptyState({
     hasAnyPost: posts.length > 0,
     hasSearch: searchText.trim().length > 0,
@@ -217,6 +247,14 @@ export function CommunityFeed() {
   }, [copiedPostId])
 
   useEffect(() => {
+    return () => {
+      if (shareToastTimeoutRef.current !== null) {
+        window.clearTimeout(shareToastTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (!sharedPostId) return
     if (preparedSharedPostViewRef.current === sharedPostId) return
 
@@ -224,6 +262,7 @@ export function CommunityFeed() {
     setFeedTab('all')
     setSortOption('newest')
     setSearchText('')
+    setCategoryFilter('all')
   }, [sharedPostId])
 
   useEffect(() => {
@@ -260,17 +299,28 @@ export function CommunityFeed() {
     }
   }, [isLoading, posts, sharedPostId, visiblePosts])
 
-  async function handleCreate(content: string) {
+  async function handleCreate(content: string, category: CommunityPostCategory) {
     if (!user) return
+    if (!communityPolicyQuery.data?.hasAcceptedActivePolicy) {
+      setStatusTone('error')
+      setStatusMessage('Accept Community Terms before posting.')
+      return
+    }
+    if (!communityPolicyQuery.data.allowedCategories.includes(category)) {
+      setStatusTone('error')
+      setStatusMessage('This category is not enabled for your account.')
+      return
+    }
     setIsSubmitting(true)
     setStatusTone('idle')
     setStatusMessage('')
     try {
-      const createdPost = await createCommunityPost(content, user.label, user.id)
+      const createdPost = await createCommunityPost(content, user.label, user.id, category)
 
       setFeedTab('all')
       setSortOption('newest')
       setSearchText('')
+      setCategoryFilter('all')
 
       queryClient.setQueryData<CommunityPost[]>(communityPostsQueryKey, (previous) => {
         const currentPosts = previous ?? []
@@ -310,6 +360,7 @@ export function CommunityFeed() {
     setFeedTab('all')
     setSortOption('newest')
     setSearchText('')
+    setCategoryFilter('all')
   }
 
   async function handleShare(postId: string) {
@@ -324,8 +375,14 @@ export function CommunityFeed() {
     }
 
     setCopiedPostId(postId)
-    setStatusTone('success')
-    setStatusMessage('Community post URL copied. Share it in SNS.')
+    setShareToastMessage('Community link copied')
+    if (shareToastTimeoutRef.current !== null) {
+      window.clearTimeout(shareToastTimeoutRef.current)
+    }
+    shareToastTimeoutRef.current = window.setTimeout(() => {
+      setShareToastMessage('')
+      shareToastTimeoutRef.current = null
+    }, SHARE_TOAST_FEEDBACK_MS)
   }
 
   function promptReportReason(): string | null {
@@ -367,8 +424,6 @@ export function CommunityFeed() {
           target_type: 'community',
           target_id: postId,
           reporter_user_id: user.id,
-          reporter_email: user.email,
-          reporter_nickname: user.label,
           reason: nextReason ?? 'No reason provided',
         })
         setStatusTone('success')
@@ -430,7 +485,17 @@ export function CommunityFeed() {
 
   return (
     <div className="rk-feed-container">
-      <CreateCommunityPost onSubmit={handleCreate} isSubmitting={isSubmitting} />
+      <CreateCommunityPost
+        onSubmit={handleCreate}
+        isSubmitting={isSubmitting}
+        allowedCategories={allowedCategories}
+        policySnapshot={communityPolicyQuery.data ?? null}
+        isPolicyLoading={communityPolicyQuery.isLoading}
+        isAcceptingPolicy={acceptPolicyMutation.isPending}
+        onAcceptPolicy={async () => {
+          await acceptPolicyMutation.mutateAsync()
+        }}
+      />
 
       {statusMessage ? (
         <p className={statusTone === 'error' ? 'rk-auth-message rk-auth-error' : 'rk-auth-message rk-auth-success'}>
@@ -465,6 +530,32 @@ export function CommunityFeed() {
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
           />
+        </div>
+
+        <div className="rk-community-category-filter">
+          <span className="rk-community-sort-label">Category</span>
+          <div className="rk-discovery-chips">
+            <button
+              type="button"
+              className={`rk-chip ${categoryFilter === 'all' ? 'rk-chip-active' : ''}`}
+              onClick={() => setCategoryFilter('all')}
+            >
+              All
+            </button>
+            {COMMUNITY_POST_CATEGORIES.map((cat) => {
+              const meta = COMMUNITY_POST_CATEGORY_META[cat]
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`rk-chip ${categoryFilter === cat ? 'rk-chip-active' : ''}`}
+                  onClick={() => setCategoryFilter(cat)}
+                >
+                  {meta.emoji} {meta.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div className="rk-feed-tabs" role="tablist" aria-label="Community feed tabs">
@@ -533,6 +624,13 @@ export function CommunityFeed() {
           ))
         )}
       </div>
+
+      {shareToastMessage ? (
+        <div className="rk-share-toast" role="status" aria-live="polite">
+          <span className="rk-share-toast-icon" aria-hidden>🔗</span>
+          <span>{shareToastMessage}</span>
+        </div>
+      ) : null}
     </div>
   )
 }

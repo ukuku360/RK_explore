@@ -1,6 +1,6 @@
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
-import type { CommunityPost, CommunityComment } from '../../types/domain'
+import type { CommunityPost, CommunityComment, CommunityPostCategory } from '../../types/domain'
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
   const { data: posts, error } = await supabase
@@ -46,8 +46,9 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const likedPostIds = new Set<string>()
   userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
-  return posts.map((post: CommunityPost) => ({
+  return posts.map((post: CommunityPost & { category?: CommunityPostCategory }) => ({
     ...post,
+    category: post.category ?? 'general',
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id),
@@ -58,6 +59,7 @@ export async function createCommunityPost(
   content: string,
   author: string,
   userId: string,
+  category: CommunityPostCategory = 'general',
 ): Promise<CommunityPost> {
   const { data, error } = await supabase
     .from('community_posts')
@@ -65,6 +67,7 @@ export async function createCommunityPost(
       content,
       author,
       user_id: userId,
+      category,
     })
     .select()
     .single()
@@ -77,6 +80,7 @@ export async function createCommunityPost(
 
   return {
     ...data,
+    category: (data as CommunityPost).category ?? category,
     likes_count: 0,
     comments_count: 0,
     has_liked: false,
@@ -88,10 +92,20 @@ export async function deleteCommunityPost(postId: string): Promise<void> {
   throwIfPostgrestError(error)
 }
 
-export async function updateCommunityPost(postId: string, userId: string, content: string): Promise<void> {
+export async function updateCommunityPost(
+  postId: string,
+  userId: string,
+  content: string,
+  category?: CommunityPostCategory,
+): Promise<void> {
+  const updates: { content: string; category?: CommunityPostCategory } = { content }
+  if (category) {
+    updates.category = category
+  }
+
   const { data, error } = await supabase
     .from('community_posts')
-    .update({ content })
+    .update(updates)
     .eq('id', postId)
     .eq('user_id', userId)
     .select('id')
