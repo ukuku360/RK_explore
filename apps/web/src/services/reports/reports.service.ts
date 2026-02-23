@@ -6,6 +6,8 @@ type CreateReportInput = {
   target_type: ReportTargetType
   target_id: string
   reporter_user_id: string
+  reporter_email?: string
+  reporter_nickname?: string
   reason: string
   status?: ReportStatus
 }
