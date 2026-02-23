@@ -85,7 +85,7 @@ export function CreateCommunityPost({
 
         <section className="rk-community-policy-panel">
           <p className="rk-community-policy-title">
-            {policySnapshot?.activePolicyTitle || 'Community Terms & Conditions'}
+            <span role="img" aria-label="shield">🛡️</span> {policySnapshot?.activePolicyTitle || 'Community Terms & Conditions'}
           </p>
           <p className="rk-community-policy-summary">
             {policySnapshot?.activePolicySummary || 'Posts must match your selected category and community purpose.'}
@@ -93,13 +93,19 @@ export function CreateCommunityPost({
           {policySnapshot?.activePolicyTermsMarkdown ? (
             <details className="rk-community-policy-details">
               <summary>Read full policy</summary>
-              <div className="rk-community-policy-body">{policySnapshot.activePolicyTermsMarkdown}</div>
+              <div className="rk-community-policy-body">
+                {policySnapshot.activePolicyTermsMarkdown.split(/(?=\d+\.\s)/).map((p, i) => (
+                  <p key={i}>{p.trim()}</p>
+                ))}
+              </div>
             </details>
           ) : null}
           {isPolicyLoading ? (
             <p className="rk-feed-note">Checking policy status...</p>
           ) : hasAcceptedPolicy ? (
-            <p className="rk-community-policy-accepted">Policy accepted for this account.</p>
+            <p className="rk-community-policy-accepted">
+              <span role="img" aria-label="check">✅</span> Policy accepted for this account
+            </p>
           ) : (
             <button
               type="button"
@@ -107,7 +113,7 @@ export function CreateCommunityPost({
               onClick={() => void onAcceptPolicy()}
               disabled={isAcceptingPolicy}
             >
-              {isAcceptingPolicy ? 'Saving agreement...' : 'Agree to Community Terms'}
+              <span role="img" aria-label="memo">📝</span> {isAcceptingPolicy ? 'Saving agreement...' : 'Agree to Community Terms'}
             </button>
           )}
         </section>

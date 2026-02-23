@@ -2525,6 +2525,148 @@
   color: #637083;
 }
 
+/* Community Category Selector (create form) */
+.rk-community-category-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.rk-community-category-chip {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+}
+
+/* Community Category Badge (post card) */
+.rk-community-header-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rk-community-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #637083;
+  background: #eef2f8;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* Community Category Filter (feed) */
+.rk-community-category-filter {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rk-community-category-filter .rk-discovery-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.rk-community-category-filter .rk-chip {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+}
+
+/* Community Terms */
+.rk-community-policy-panel {
+  border: 1px solid rgba(218, 31, 67, 0.15);
+  border-radius: 16px;
+  background: #fff5f7;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(218, 31, 67, 0.04);
+  transition: all 0.2s ease;
+}
+
+.rk-community-policy-panel:hover {
+  box-shadow: 0 6px 16px rgba(218, 31, 67, 0.08);
+  transform: translateY(-1px);
+}
+
+.rk-community-policy-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--rk-brand-strong);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rk-community-policy-summary {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #5a4b51;
+  line-height: 1.45;
+}
+
+.rk-community-policy-details summary {
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rk-brand);
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  margin-left: -8px;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+}
+
+.rk-community-policy-details summary:hover {
+  background: rgba(218, 31, 67, 0.06);
+}
+
+.rk-community-policy-body {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: #5a4b51;
+  line-height: 1.55;
+  background: #ffffff;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(218, 31, 67, 0.08);
+}
+
+.rk-community-policy-body p {
+  margin: 0 0 10px;
+}
+.rk-community-policy-body p:last-child {
+  margin: 0;
+}
+
+.rk-community-policy-accepted {
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--rk-success);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rk-community-policy-warning {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--rk-danger);
+  background: var(--rk-danger-bg);
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+
 .rk-empty-state {
   text-align: center;
   padding: 3rem 1rem;
@@ -3413,4 +3555,200 @@
   margin-left: auto;
   color: #94a3b8;
   font-size: 1.1rem;
+}
+
+/* ─── Delight Motion Layer ───────────────────────────────────────── */
+
+@keyframes rk-creation-shimmer {
+  0% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+  22% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(260%);
+    opacity: 0;
+  }
+}
+
+@keyframes rk-pop-action {
+  0% {
+    transform: scale(0.92);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes rk-comments-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rk-comment-stagger-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rk-reply-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes rk-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rk-creation-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -45%;
+  width: 42%;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(218, 31, 67, 0.55) 40%,
+    rgba(255, 255, 255, 0.95) 60%,
+    transparent 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rk-creation-card-celebrate::after {
+  opacity: 1;
+  animation: rk-creation-shimmer 0.9s ease-out 1;
+}
+
+.rk-button-success-badge {
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  box-shadow: 0 8px 18px rgba(22, 163, 74, 0.34);
+}
+
+.rk-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.rk-action-icon,
+.rk-action-label,
+.rk-action-btn-icon,
+.rk-action-btn-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: center;
+}
+
+.rk-action-pop .rk-action-icon,
+.rk-action-pop .rk-action-label,
+.rk-action-pop .rk-action-btn-icon,
+.rk-action-pop .rk-action-btn-count,
+.rk-vote-count-pop {
+  animation: rk-pop-action 170ms cubic-bezier(0.3, 0.8, 0.35, 1);
+}
+
+.rk-share-icon {
+  transition: color 0.18s ease, filter 0.18s ease;
+}
+
+.rk-share-icon-copied {
+  color: #15803d;
+  filter: drop-shadow(0 0 4px rgba(21, 128, 61, 0.28));
+}
+
+.rk-share-toast {
+  position: fixed;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 130;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid #d8e6d8;
+  background: #f3fbf5;
+  color: #166534;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+  pointer-events: none;
+  animation: rk-toast-in 0.2s ease-out both;
+}
+
+.rk-share-toast-icon {
+  display: inline-flex;
+  line-height: 1;
+}
+
+.rk-comments-enter,
+.rk-comment-section-enter {
+  animation: rk-comments-fade-in 0.22s ease-out both;
+}
+
+.rk-comment-item-enter {
+  opacity: 0;
+  transform: translateY(8px);
+  animation: rk-comment-stagger-in 0.24s ease-out both;
+  animation-delay: calc(var(--rk-comment-stagger-index, 0) * 45ms);
+}
+
+.rk-reply-form-enter {
+  animation: rk-reply-slide-down 0.22s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rk-creation-card-celebrate::after,
+  .rk-action-pop .rk-action-icon,
+  .rk-action-pop .rk-action-label,
+  .rk-action-pop .rk-action-btn-icon,
+  .rk-action-pop .rk-action-btn-count,
+  .rk-vote-count-pop,
+  .rk-comments-enter,
+  .rk-comment-section-enter,
+  .rk-comment-item-enter,
+  .rk-reply-form-enter,
+  .rk-share-toast {
+    animation: none !important;
+  }
+
+  .rk-share-icon {
+    transition: none !important;
+  }
 }
