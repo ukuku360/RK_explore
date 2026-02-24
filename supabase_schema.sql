@@ -459,8 +459,8 @@ begin
 
     execute 'alter table public.votes enable row level security';
     execute 'create policy "Votes are viewable by authenticated users" on public.votes for select using (auth.uid() is not null)';
-    execute 'create policy "Users can insert their own votes" on public.votes for insert with check (auth.uid() = user_id)';
-    execute 'create policy "Users can delete their own votes" on public.votes for delete using (auth.uid() = user_id)';
+    execute 'create policy "Users can insert their own votes" on public.votes for insert with check (auth.uid()::text = user_id::text)';
+    execute 'create policy "Users can delete their own votes" on public.votes for delete using (auth.uid()::text = user_id::text)';
   end if;
 
   if to_regclass('public.rsvps') is not null then
@@ -475,8 +475,8 @@ begin
 
     execute 'alter table public.rsvps enable row level security';
     execute 'create policy "Rsvps are viewable by authenticated users" on public.rsvps for select using (auth.uid() is not null)';
-    execute 'create policy "Users can insert their own rsvps" on public.rsvps for insert with check (auth.uid() = user_id)';
-    execute 'create policy "Users can delete their own rsvps" on public.rsvps for delete using (auth.uid() = user_id)';
+    execute 'create policy "Users can insert their own rsvps" on public.rsvps for insert with check (auth.uid()::text = user_id::text)';
+    execute 'create policy "Users can delete their own rsvps" on public.rsvps for delete using (auth.uid()::text = user_id::text)';
   end if;
 end
 $$;
