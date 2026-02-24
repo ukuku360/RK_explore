@@ -17,6 +17,7 @@ import { computeAdminMetrics, formatPercent } from '../lib/metrics'
 
 const METRIC_WINDOWS = [7, 14, 30] as const
 type MetricWindow = (typeof METRIC_WINDOWS)[number]
+type MetricTone = 'good' | 'watch' | 'risk' | 'empty'
 
 type ReportQueueItem = {
   targetType: ReportTargetType
@@ -74,6 +75,26 @@ function summarizeContent(content: string): string {
   const normalizedContent = content.trim().replace(/\s+/g, ' ')
   if (normalizedContent.length <= 64) return normalizedContent
   return `${normalizedContent.slice(0, 61)}...`
+}
+
+function toPercentNumber(value: number | null): number {
+  if (value === null) return 0
+  const normalized = Math.max(0, Math.min(1, value))
+  return Number((normalized * 100).toFixed(1))
+}
+
+function getMetricTone(value: number | null): MetricTone {
+  if (value === null) return 'empty'
+  if (value >= 0.65) return 'good'
+  if (value >= 0.4) return 'watch'
+  return 'risk'
+}
+
+function getMetricToneLabel(tone: MetricTone): string {
+  if (tone === 'good') return 'Healthy'
+  if (tone === 'watch') return 'Watch'
+  if (tone === 'risk') return 'Needs Action'
+  return 'No Data'
 }
 
 export default function AdminPage() {
@@ -184,6 +205,48 @@ export default function AdminPage() {
   const metrics = useMemo(() => {
     return computeAdminMetrics(analyticsQuery.data ?? [])
   }, [analyticsQuery.data])
+
+  const metricCards = useMemo(() => {
+    return [
+      {
+        key: 'activation',
+        label: 'Activation Rate',
+        value: metrics.activationRate,
+        numeratorLabel: metrics.coreActionUsers,
+        denominatorLabel: metrics.feedViewUsers,
+        helperText: 'Users with any core action',
+      },
+      {
+        key: 'post-completion',
+        label: 'Post Completion Rate',
+        value: metrics.postCompletionRate,
+        numeratorLabel: metrics.postCreateSuccessCount,
+        denominatorLabel: metrics.postCreateStartCount,
+        helperText: 'Successful posts after create start',
+      },
+      {
+        key: 'feed-action',
+        label: 'Feed Action Rate',
+        value: metrics.feedActionRate,
+        numeratorLabel: metrics.feedActionUsers,
+        denominatorLabel: metrics.feedViewUsers,
+        helperText: 'Users who voted or joined RSVP',
+      },
+    ].map((card) => {
+      const tone = getMetricTone(card.value)
+      return {
+        ...card,
+        tone,
+        toneLabel: getMetricToneLabel(tone),
+        valuePercent: toPercentNumber(card.value),
+        valueText: formatPercent(card.value),
+      }
+    })
+  }, [metrics])
+
+  const totalTrackedEvents = useMemo(() => {
+    return Object.values(metrics.eventCountByName).reduce((sum, count) => sum + count, 0)
+  }, [metrics.eventCountByName])
 
   async function handleRefresh() {
     await Promise.all([
@@ -391,8 +454,14 @@ export default function AdminPage() {
       </div>
 
       <section className="rk-panel rk-admin-metrics-panel">
-        <div className="rk-admin-metrics-head">
-          <h2>Activation Metrics</h2>
+        <div className="rk-admin-metrics-hero">
+          <div className="rk-admin-metrics-title-wrap">
+            <p className="rk-admin-metrics-eyebrow">Admin Analytics</p>
+            <h2>Activation Metrics</h2>
+            <p className="rk-admin-metrics-subtitle">
+              Current window tracks first-session actions and posting conversion quality.
+            </p>
+          </div>
           <div className="rk-admin-metrics-windows">
             {METRIC_WINDOWS.map((days) => (
               <button
@@ -406,7 +475,11 @@ export default function AdminPage() {
             ))}
           </div>
         </div>
-        <p className="rk-feed-note">Admin only. Metrics are computed from tracked analytics events.</p>
+        <div className="rk-admin-metrics-meta">
+          <span>Admin only</span>
+          <span>{metricWindow} day window</span>
+          <span>{totalTrackedEvents} tracked events</span>
+        </div>
 
         {analyticsQuery.isLoading ? <p className="rk-feed-note">Loading activation metrics...</p> : null}
         {analyticsQuery.error instanceof Error ? (
@@ -416,30 +489,33 @@ export default function AdminPage() {
         {!analyticsQuery.isLoading && !(analyticsQuery.error instanceof Error) ? (
           <>
             <div className="rk-admin-metrics-grid">
-              <article className="rk-admin-metric-card">
-                <span>Activation Rate</span>
-                <strong>{formatPercent(metrics.activationRate)}</strong>
-                <small>{metrics.coreActionUsers} core-action users / {metrics.feedViewUsers} feed viewers</small>
-              </article>
-              <article className="rk-admin-metric-card">
-                <span>Post Completion Rate</span>
-                <strong>{formatPercent(metrics.postCompletionRate)}</strong>
-                <small>{metrics.postCreateSuccessCount} success / {metrics.postCreateStartCount} starts</small>
-              </article>
-              <article className="rk-admin-metric-card">
-                <span>Feed Action Rate</span>
-                <strong>{formatPercent(metrics.feedActionRate)}</strong>
-                <small>{metrics.feedActionUsers} vote-or-rsvp users / {metrics.feedViewUsers} feed viewers</small>
-              </article>
+              {metricCards.map((card) => (
+                <article key={card.key} className={`rk-admin-metric-card rk-admin-metric-card-${card.tone}`}>
+                  <div className="rk-admin-metric-card-head">
+                    <span>{card.label}</span>
+                    <em>{card.toneLabel}</em>
+                  </div>
+                  <div className="rk-admin-metric-card-value">
+                    <strong>{card.valueText}</strong>
+                    <small>
+                      {card.numeratorLabel} / {card.denominatorLabel}
+                    </small>
+                  </div>
+                  <div className="rk-admin-metric-track" aria-hidden>
+                    <span style={{ width: `${card.valuePercent}%` }} />
+                  </div>
+                  <p>{card.helperText}</p>
+                </article>
+              ))}
             </div>
 
             <div className="rk-admin-metric-events">
-              <strong>Event counts ({metricWindow}d)</strong>
-              <span>feed_view: {metrics.eventCountByName.feed_view ?? 0}</span>
-              <span>post_create_start: {metrics.eventCountByName.post_create_start ?? 0}</span>
-              <span>post_create_success: {metrics.eventCountByName.post_create_success ?? 0}</span>
-              <span>vote_cast: {metrics.eventCountByName.vote_cast ?? 0}</span>
-              <span>rsvp_join: {metrics.eventCountByName.rsvp_join ?? 0}</span>
+              <strong>Event counts</strong>
+              <span className="rk-admin-event-pill">feed_view {metrics.eventCountByName.feed_view ?? 0}</span>
+              <span className="rk-admin-event-pill">post_create_start {metrics.eventCountByName.post_create_start ?? 0}</span>
+              <span className="rk-admin-event-pill">post_create_success {metrics.eventCountByName.post_create_success ?? 0}</span>
+              <span className="rk-admin-event-pill">vote_cast {metrics.eventCountByName.vote_cast ?? 0}</span>
+              <span className="rk-admin-event-pill">rsvp_join {metrics.eventCountByName.rsvp_join ?? 0}</span>
             </div>
           </>
         ) : null}
