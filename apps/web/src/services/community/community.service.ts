@@ -1,3 +1,4 @@
+import { enforceLength, INPUT_LIMITS } from '../../lib/inputLimits'
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import type { CommunityPost, CommunityComment, CommunityPostCategory } from '../../types/domain'
@@ -61,6 +62,8 @@ export async function createCommunityPost(
   userId: string,
   category: CommunityPostCategory = 'general',
 ): Promise<CommunityPost> {
+  enforceLength(content, INPUT_LIMITS.community_post, 'Post')
+
   const { data, error } = await supabase
     .from('community_posts')
     .insert({
@@ -98,6 +101,8 @@ export async function updateCommunityPost(
   content: string,
   category?: CommunityPostCategory,
 ): Promise<void> {
+  enforceLength(content, INPUT_LIMITS.community_post, 'Post')
+
   const updates: { content: string; category?: CommunityPostCategory } = { content }
   if (category) {
     updates.category = category
@@ -155,6 +160,8 @@ export async function createComment(
   author: string,
   userId: string,
 ): Promise<CommunityComment> {
+  enforceLength(content, INPUT_LIMITS.community_comment, 'Comment')
+
   const { data, error } = await supabase
     .from('community_comments')
     .insert({
@@ -176,6 +183,8 @@ export async function deleteComment(commentId: string): Promise<void> {
 }
 
 export async function updateCommunityComment(commentId: string, userId: string, content: string): Promise<void> {
+  enforceLength(content, INPUT_LIMITS.community_comment, 'Comment')
+
   const { data, error } = await supabase
     .from('community_comments')
     .update({ content })

@@ -1,3 +1,4 @@
+import { enforceLength, INPUT_LIMITS } from '../../lib/inputLimits'
 import { listCommentsByPostIds } from '../comments/comments.service'
 import { listRsvpsByPostIds } from '../rsvps/rsvps.service'
 import { supabaseClient } from '../supabase/client'
@@ -68,7 +69,16 @@ export async function listPostsWithRelations(limit = 50): Promise<Post[]> {
   }))
 }
 
+function validatePostTextFields(input: { prep_notes?: string | null; meetup_place?: string | null; meeting_time?: string | null; location?: string }): void {
+  if (input.location) enforceLength(input.location, INPUT_LIMITS.location, 'Location')
+  if (input.prep_notes) enforceLength(input.prep_notes, INPUT_LIMITS.prep_notes, 'Prep notes')
+  if (input.meetup_place) enforceLength(input.meetup_place, INPUT_LIMITS.meetup_place, 'Meetup place')
+  if (input.meeting_time) enforceLength(input.meeting_time, INPUT_LIMITS.meeting_time, 'Meeting time')
+}
+
 export async function createPost(input: CreatePostInput): Promise<void> {
+  validatePostTextFields(input)
+
   const payload = {
     ...input,
     status: input.status ?? 'proposed',
@@ -89,6 +99,8 @@ export async function deletePost(postId: string): Promise<void> {
 }
 
 export async function updatePost(postId: string, userId: string, input: UpdatePostInput): Promise<void> {
+  validatePostTextFields(input)
+
   const { data, error } = await supabaseClient
     .from('posts')
     .update(input)

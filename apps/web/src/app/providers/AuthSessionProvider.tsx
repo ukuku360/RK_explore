@@ -1,5 +1,12 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 
+import { logger } from '../../lib/logger'
+import {
+  formatRetryMessage,
+  LOGIN_RATE_LIMIT,
+  RateLimiter,
+  SIGNUP_RATE_LIMIT,
+} from '../../lib/rateLimit'
 import { ensureSignupEmailAllowed, warmSignupAllowlist } from '../../lib/signupAllowlist'
 import { isCurrentUserAdmin } from '../../services/auth/user-roles.service'
 import { supabaseClient } from '../../services/supabase/client'
@@ -58,7 +65,7 @@ async function mapSessionUser(rawUser: RawAuthUser | null | undefined): Promise<
       isAdmin,
     }
   } catch (error) {
-    console.error('[auth] failed to resolve user role', error)
+    logger.error('[auth] failed to resolve user role', error)
     return fallbackUser
   }
 }
@@ -66,6 +73,8 @@ async function mapSessionUser(rawUser: RawAuthUser | null | undefined): Promise<
 export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const loginLimiter = useRef(new RateLimiter(LOGIN_RATE_LIMIT))
+  const signupLimiter = useRef(new RateLimiter(SIGNUP_RATE_LIMIT))
 
   useEffect(() => {
     void warmSignupAllowlist()
@@ -77,7 +86,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       if (!isMounted || hasResolvedInitialSession) return
 
       hasResolvedInitialSession = true
-      console.error('[auth] session restore timed out')
+      logger.error('[auth] session restore timed out')
       setUser(null)
       setIsLoading(false)
     }, SESSION_RESTORE_TIMEOUT_MS)
@@ -97,7 +106,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         if (!isMounted || hasResolvedInitialSession) return
 
         if (error) {
-          console.error('[auth] session restore failed', error)
+          logger.error('[auth] session restore failed', error)
           setUser(null)
           return
         }
@@ -105,7 +114,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
         await resolveAndSetUser((data.session?.user as RawAuthUser | null) ?? null)
       } catch (error) {
         if (!isMounted || hasResolvedInitialSession) return
-        console.error('[auth] unexpected session restore failure', error)
+        logger.error('[auth] unexpected session restore failure', error)
         setUser(null)
       } finally {
         if (isMounted && !hasResolvedInitialSession) {
@@ -137,6 +146,11 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   }, [])
 
   async function login(input: LoginInput): Promise<AuthActionResult> {
+    const rateCheck = loginLimiter.current.check()
+    if (!rateCheck.allowed) {
+      return { ok: false, message: formatRetryMessage(rateCheck.retryAfterMs) }
+    }
+
     const email = input.email.trim()
     const password = input.password.trim()
 
@@ -146,6 +160,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
     const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password })
     if (error) {
+      loginLimiter.current.recordFailure()
       return { ok: false, message: error.message }
     }
 
@@ -158,12 +173,25 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
   }
 
   async function signup(input: SignupInput): Promise<AuthActionResult> {
+    const rateCheck = signupLimiter.current.check()
+    if (!rateCheck.allowed) {
+      return { ok: false, message: formatRetryMessage(rateCheck.retryAfterMs) }
+    }
+
     const email = input.email.trim()
     const password = input.password.trim()
     const nickname = normalizeNickname(input.nickname)
 
     if (!email || !password) {
       return { ok: false, message: 'Please enter email and password.' }
+    }
+
+    if (password.length < 8) {
+      return { ok: false, message: 'Password must be at least 8 characters.' }
+    }
+
+    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return { ok: false, message: 'Password must include uppercase, lowercase, and a number.' }
     }
 
     if (nickname.length < 2) {
@@ -182,6 +210,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     })
 
     if (error) {
+      signupLimiter.current.recordFailure()
       return { ok: false, message: error.message }
     }
 

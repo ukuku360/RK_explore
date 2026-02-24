@@ -4,6 +4,7 @@ import type { ReactElement } from 'react'
 
 import { AppShell } from '../layout/AppShell'
 import { useAuthSession } from '../providers/auth-session-context'
+import { resolvePostAuthRedirect } from '../../lib/redirect'
 import { AuthPage } from '../../features/auth/pages/AuthPage'
 import { FeedPage } from '../../features/feed/pages/FeedPage'
 import { MembersPage } from '../../features/members/pages/MembersPage'
@@ -12,18 +13,6 @@ import { ProfilePage } from '../../features/profile/pages/ProfilePage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
 const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
-
-function resolvePostAuthRedirect(state: unknown): string {
-  if (!state || typeof state !== 'object') return '/'
-
-  const redirectTo = (state as { redirectTo?: unknown }).redirectTo
-  if (typeof redirectTo !== 'string') return '/'
-  if (!redirectTo.startsWith('/')) return '/'
-  if (redirectTo.startsWith('//')) return '/'
-  if (redirectTo.startsWith('/auth')) return '/'
-
-  return redirectTo
-}
 
 function RouteLoading({ label }: { label: string }) {
   return (

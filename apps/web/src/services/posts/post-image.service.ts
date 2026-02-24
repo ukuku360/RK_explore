@@ -1,8 +1,12 @@
+import { validateImageFile } from '../../lib/fileValidation'
 import { supabaseClient } from '../supabase/client'
 
 const BUCKET = 'post-images'
 
 export async function uploadPostImage(userId: string, file: File): Promise<string> {
+  const validation = await validateImageFile(file)
+  if (!validation.ok) throw new Error(validation.message)
+
   const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
   const path = `${userId}/${Date.now()}.${ext}`
 

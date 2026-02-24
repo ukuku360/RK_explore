@@ -1,4 +1,5 @@
 import { env } from './env'
+import { logger } from './logger'
 
 const NOT_ALLOWED_MESSAGE =
   'This email is not eligible for signup yet. Please contact RoomingKos staff.'
@@ -107,7 +108,7 @@ export async function warmSignupAllowlist(): Promise<void> {
   try {
     await getAllowlistPromise()
   } catch (error) {
-    console.error('[signup-allowlist] warmup failed', error)
+    logger.error('[signup-allowlist] warmup failed', error)
   }
 }
 
@@ -133,7 +134,7 @@ export async function ensureSignupEmailAllowed(email: string): Promise<SignupAll
 
     return { ok: false, message: NOT_ALLOWED_MESSAGE }
   } catch (error) {
-    console.error('[signup-allowlist] validation failed', error)
+    logger.error('[signup-allowlist] validation failed', error)
     return {
       ok: false,
       message: import.meta.env.DEV

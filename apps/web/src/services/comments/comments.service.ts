@@ -1,5 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 
+import { enforceLength, INPUT_LIMITS } from '../../lib/inputLimits'
 import { supabaseClient } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
 import type { Comment } from '../../types/domain'
@@ -36,6 +37,8 @@ export async function listCommentsByPostIds(postIds: string[]): Promise<Comment[
 }
 
 export async function createComment(input: CreateCommentInput): Promise<void> {
+  enforceLength(input.text, INPUT_LIMITS.comment, 'Comment')
+
   const { error } = await supabaseClient.from('comments').insert(input)
   if (!error) return
 
@@ -56,6 +59,8 @@ export async function createComment(input: CreateCommentInput): Promise<void> {
 }
 
 export async function updateComment(commentId: string, userId: string, text: string): Promise<void> {
+  enforceLength(text, INPUT_LIMITS.comment, 'Comment')
+
   const { data, error } = await supabaseClient
     .from('comments')
     .update({ text })
