@@ -270,3 +270,131 @@ create policy "Users can delete their profile images"
     bucket_id = 'profile-images'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+-- Security Hardening: role-based admin + authenticated-only resident reads
+create table if not exists public.user_roles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  role text not null default 'resident',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  constraint user_roles_role_check check (role in ('resident', 'admin'))
+);
+
+alter table public.user_roles enable row level security;
+
+create or replace function public.set_user_roles_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = timezone('utc'::text, now());
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_user_roles_updated_at on public.user_roles;
+create trigger trg_user_roles_updated_at
+before update on public.user_roles
+for each row
+execute function public.set_user_roles_updated_at();
+
+drop policy if exists "Users can view their own role" on public.user_roles;
+create policy "Users can view their own role"
+  on public.user_roles for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Service role can manage user roles" on public.user_roles;
+create policy "Service role can manage user roles"
+  on public.user_roles for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+as $$
+  select
+    auth.uid() is not null
+    and exists (
+      select 1
+      from public.user_roles roles
+      where roles.user_id = auth.uid()
+        and roles.role = 'admin'
+    );
+$$;
+
+drop policy if exists "Community posts are viewable by everyone" on public.community_posts;
+drop policy if exists "Community posts are viewable by authenticated users" on public.community_posts;
+create policy "Community posts are viewable by authenticated users"
+  on public.community_posts for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Community likes are viewable by everyone" on public.community_likes;
+drop policy if exists "Community likes are viewable by authenticated users" on public.community_likes;
+create policy "Community likes are viewable by authenticated users"
+  on public.community_likes for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Community comments are viewable by everyone" on public.community_comments;
+drop policy if exists "Community comments are viewable by authenticated users" on public.community_comments;
+create policy "Community comments are viewable by authenticated users"
+  on public.community_comments for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Profile details are viewable by everyone" on public.user_profile_details;
+drop policy if exists "Profile details are viewable by authenticated users" on public.user_profile_details;
+create policy "Profile details are viewable by authenticated users"
+  on public.user_profile_details for select
+  using (auth.uid() is not null);
+
+do $$
+begin
+  if to_regclass('public.community_policy_versions') is not null then
+    execute 'drop policy if exists "Community policy versions are viewable by everyone" on public.community_policy_versions';
+    execute 'drop policy if exists "Community policy versions are viewable by authenticated users" on public.community_policy_versions';
+    execute 'create policy "Community policy versions are viewable by authenticated users" on public.community_policy_versions for select using (auth.uid() is not null)';
+  end if;
+end
+$$;
+
+drop policy if exists "Admins can delete any community posts" on public.community_posts;
+create policy "Admins can delete any community posts"
+  on public.community_posts
+  for delete
+  using (public.is_admin());
+
+do $$
+begin
+  if to_regclass('public.post_reports') is not null then
+    execute 'alter table public.post_reports enable row level security';
+    execute 'drop policy if exists "post_reports_select_owner_or_admin" on public.post_reports';
+    execute 'drop policy if exists "post_reports_insert_own" on public.post_reports';
+    execute 'drop policy if exists "post_reports_delete_owner_or_admin" on public.post_reports';
+    execute 'drop policy if exists "post_reports_delete_own_or_admin" on public.post_reports';
+    execute 'drop policy if exists "post_reports_update_admin_only" on public.post_reports';
+
+    execute 'create policy "post_reports_select_owner_or_admin" on public.post_reports for select using (auth.uid() = reporter_user_id or public.is_admin())';
+    execute 'create policy "post_reports_insert_own" on public.post_reports for insert with check (auth.uid() = reporter_user_id)';
+    execute 'create policy "post_reports_delete_own_or_admin" on public.post_reports for delete using (auth.uid() = reporter_user_id or public.is_admin())';
+    execute 'create policy "post_reports_update_admin_only" on public.post_reports for update using (public.is_admin()) with check (public.is_admin())';
+  end if;
+end
+$$;
+
+do $$
+begin
+  if to_regclass('public.admin_action_logs') is not null then
+    execute 'alter table public.admin_action_logs enable row level security';
+    execute 'drop policy if exists "admin_action_logs_select_admin_only" on public.admin_action_logs';
+    execute 'drop policy if exists "admin_action_logs_insert_admin_only" on public.admin_action_logs';
+    execute 'drop policy if exists "admin_action_logs_update_admin_only" on public.admin_action_logs';
+    execute 'drop policy if exists "admin_action_logs_delete_admin_only" on public.admin_action_logs';
+
+    execute 'create policy "admin_action_logs_select_admin_only" on public.admin_action_logs for select using (public.is_admin())';
+    execute 'create policy "admin_action_logs_insert_admin_only" on public.admin_action_logs for insert with check (public.is_admin())';
+    execute 'create policy "admin_action_logs_update_admin_only" on public.admin_action_logs for update using (public.is_admin()) with check (public.is_admin())';
+    execute 'create policy "admin_action_logs_delete_admin_only" on public.admin_action_logs for delete using (public.is_admin())';
+  end if;
+end
+$$;

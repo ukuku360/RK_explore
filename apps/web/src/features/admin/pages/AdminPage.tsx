@@ -334,7 +334,7 @@ export default function AdminPage() {
     return (
       <section className="rk-page">
         <h1>Admin Workspace</h1>
-        <p>Admin mode requires `swanston@roomingkos.com`.</p>
+        <p>Admin mode requires an administrator role.</p>
       </section>
     )
   }

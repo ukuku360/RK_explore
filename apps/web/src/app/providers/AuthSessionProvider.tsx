@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 
-import { isAdminEmail } from '../../lib/guards'
 import { ensureSignupEmailAllowed, warmSignupAllowlist } from '../../lib/signupAllowlist'
+import { isCurrentUserAdmin } from '../../services/auth/user-roles.service'
 import { supabaseClient } from '../../services/supabase/client'
 import {
   AuthSessionContext,
@@ -29,7 +29,7 @@ function normalizeNickname(value: string): string {
   return value.trim().replace(/\s+/g, ' ').slice(0, 20)
 }
 
-function mapAuthUser(rawUser: RawAuthUser): AuthUser | null {
+function mapAuthUser(rawUser: RawAuthUser, isAdmin: boolean): AuthUser | null {
   const email = rawUser.email?.trim().toLowerCase()
   if (!email) return null
 
@@ -41,7 +41,25 @@ function mapAuthUser(rawUser: RawAuthUser): AuthUser | null {
     email,
     label: nickname.length > 0 ? nickname : fallbackLabel,
     createdAt: rawUser.created_at ?? new Date().toISOString(),
-    isAdmin: isAdminEmail(email),
+    isAdmin,
+  }
+}
+
+async function mapSessionUser(rawUser: RawAuthUser | null | undefined): Promise<AuthUser | null> {
+  if (!rawUser) return null
+
+  const fallbackUser = mapAuthUser(rawUser, false)
+  if (!fallbackUser) return null
+
+  try {
+    const isAdmin = await isCurrentUserAdmin(rawUser.id)
+    return {
+      ...fallbackUser,
+      isAdmin,
+    }
+  } catch (error) {
+    console.error('[auth] failed to resolve user role', error)
+    return fallbackUser
   }
 }
 
@@ -54,6 +72,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
 
     let isMounted = true
     let hasResolvedInitialSession = false
+    let latestSessionResolveId = 0
     const sessionRestoreTimeoutId = window.setTimeout(() => {
       if (!isMounted || hasResolvedInitialSession) return
 
@@ -62,6 +81,14 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       setUser(null)
       setIsLoading(false)
     }, SESSION_RESTORE_TIMEOUT_MS)
+
+    async function resolveAndSetUser(rawUser: RawAuthUser | null | undefined): Promise<void> {
+      const resolveId = ++latestSessionResolveId
+      const mappedUser = await mapSessionUser(rawUser)
+
+      if (!isMounted || resolveId !== latestSessionResolveId) return
+      setUser(mappedUser)
+    }
 
     async function restoreSession() {
       try {
@@ -75,7 +102,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
           return
         }
 
-        setUser(data.session?.user ? mapAuthUser(data.session.user) : null)
+        await resolveAndSetUser((data.session?.user as RawAuthUser | null) ?? null)
       } catch (error) {
         if (!isMounted || hasResolvedInitialSession) return
         console.error('[auth] unexpected session restore failure', error)
@@ -96,8 +123,10 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
     } = supabaseClient.auth.onAuthStateChange((_event, session) => {
       hasResolvedInitialSession = true
       window.clearTimeout(sessionRestoreTimeoutId)
-      setUser(session?.user ? mapAuthUser(session.user) : null)
-      setIsLoading(false)
+      void resolveAndSetUser((session?.user as RawAuthUser | null) ?? null).finally(() => {
+        if (!isMounted) return
+        setIsLoading(false)
+      })
     })
 
     return () => {
@@ -180,7 +209,7 @@ export function AuthSessionProvider({ children }: AuthSessionProviderProps) {
       return { ok: false, message: error.message }
     }
 
-    const mappedUser = data.user ? mapAuthUser(data.user) : null
+    const mappedUser = await mapSessionUser((data.user as RawAuthUser | null) ?? null)
     if (mappedUser) {
       setUser(mappedUser)
     } else {

@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import { ADMIN_EMAIL, isAdminEmail } from '../guards'
+import { normalizeEmail } from '../guards'
 
-describe('isAdminEmail', () => {
-  it('accepts hardcoded admin email', () => {
-    expect(isAdminEmail(ADMIN_EMAIL)).toBe(true)
-  })
-
+describe('normalizeEmail', () => {
   it('normalizes case and spaces', () => {
-    expect(isAdminEmail('  SWANSTON@ROOMINGKOS.COM  ')).toBe(true)
+    expect(normalizeEmail('  SWANSTON@ROOMINGKOS.COM  ')).toBe('swanston@roomingkos.com')
   })
 
-  it('rejects non-admin emails', () => {
-    expect(isAdminEmail('member@example.com')).toBe(false)
-    expect(isAdminEmail('')).toBe(false)
-    expect(isAdminEmail(null)).toBe(false)
+  it('handles empty-ish values', () => {
+    expect(normalizeEmail('')).toBe('')
+    expect(normalizeEmail(null)).toBe('')
+    expect(normalizeEmail(undefined)).toBe('')
   })
 })

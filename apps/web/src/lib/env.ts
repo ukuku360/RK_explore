@@ -2,6 +2,7 @@ type RequiredEnvKey = 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'
 type OptionalEnvKey = 'VITE_SIGNUP_ALLOWLIST_ENABLED' | 'VITE_SIGNUP_ALLOWLIST_PATH'
 
 const DEFAULT_SIGNUP_ALLOWLIST_PATH = '/signup-allowlist.txt'
+const DEFAULT_SIGNUP_ALLOWLIST_ENABLED = import.meta.env.PROD
 const missingRequiredEnvKeys: RequiredEnvKey[] = []
 
 function readRequiredEnv(key: RequiredEnvKey): string {
@@ -40,7 +41,7 @@ function readBooleanEnv(key: OptionalEnvKey, fallbackValue: boolean): boolean {
 export const env = {
   supabaseUrl: readRequiredEnv('VITE_SUPABASE_URL'),
   supabaseAnonKey: readRequiredEnv('VITE_SUPABASE_ANON_KEY'),
-  signupAllowlistEnabled: readBooleanEnv('VITE_SIGNUP_ALLOWLIST_ENABLED', false),
+  signupAllowlistEnabled: readBooleanEnv('VITE_SIGNUP_ALLOWLIST_ENABLED', DEFAULT_SIGNUP_ALLOWLIST_ENABLED),
   signupAllowlistPath: readOptionalEnv('VITE_SIGNUP_ALLOWLIST_PATH') ?? DEFAULT_SIGNUP_ALLOWLIST_PATH,
 } as const
 
