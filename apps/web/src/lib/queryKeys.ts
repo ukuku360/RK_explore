@@ -29,6 +29,10 @@ export const queryKeys = {
     all: ['admin-logs'] as const,
     list: () => ['admin-logs', 'list'] as const,
   },
+  analytics: {
+    all: ['analytics'] as const,
+    events: (windowDays: number) => ['analytics', 'events', windowDays] as const,
+  },
   profile: {
     all: ['profile'] as const,
     details: (userId: string) => ['profile', 'details', userId] as const,

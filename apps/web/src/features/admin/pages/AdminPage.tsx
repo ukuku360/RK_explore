@@ -10,8 +10,13 @@ import { deletePost, updatePostModeration } from '../../../services/posts/posts.
 import { reviewReportsByTarget } from '../../../services/reports/reports.service'
 import type { Report, ReportTargetType } from '../../../types/domain'
 import { usePostsWithRelationsQuery } from '../../feed/hooks/usePostsWithRelationsQuery'
+import { useAdminAnalyticsEventsQuery } from '../hooks/useAdminAnalyticsEventsQuery'
 import { useAdminLogsQuery } from '../hooks/useAdminLogsQuery'
 import { useAdminReportsQuery } from '../hooks/useAdminReportsQuery'
+import { computeAdminMetrics, formatPercent } from '../lib/metrics'
+
+const METRIC_WINDOWS = [7, 14, 30] as const
+type MetricWindow = (typeof METRIC_WINDOWS)[number]
 
 type ReportQueueItem = {
   targetType: ReportTargetType
@@ -82,6 +87,8 @@ export default function AdminPage() {
   })
   const reportsQuery = useAdminReportsQuery(isAdmin)
   const logsQuery = useAdminLogsQuery(isAdmin)
+  const [metricWindow, setMetricWindow] = useState<MetricWindow>(14)
+  const analyticsQuery = useAdminAnalyticsEventsQuery(isAdmin, metricWindow)
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null)
@@ -174,8 +181,18 @@ export default function AdminPage() {
     return openReportQueue.reduce((sum, item) => sum + item.reportCount, 0)
   }, [openReportQueue])
 
+  const metrics = useMemo(() => {
+    return computeAdminMetrics(analyticsQuery.data ?? [])
+  }, [analyticsQuery.data])
+
   async function handleRefresh() {
-    await Promise.all([postsQuery.refetch(), communityPostsQuery.refetch(), reportsQuery.refetch(), logsQuery.refetch()])
+    await Promise.all([
+      postsQuery.refetch(),
+      communityPostsQuery.refetch(),
+      reportsQuery.refetch(),
+      logsQuery.refetch(),
+      analyticsQuery.refetch(),
+    ])
   }
 
   function promptForReason(promptText: string, minLength = 5): string | null {
@@ -372,6 +389,61 @@ export default function AdminPage() {
           Refresh
         </button>
       </div>
+
+      <section className="rk-panel rk-admin-metrics-panel">
+        <div className="rk-admin-metrics-head">
+          <h2>Activation Metrics</h2>
+          <div className="rk-admin-metrics-windows">
+            {METRIC_WINDOWS.map((days) => (
+              <button
+                key={days}
+                type="button"
+                className={`rk-chip ${metricWindow === days ? 'rk-chip-active' : ''}`}
+                onClick={() => setMetricWindow(days)}
+              >
+                {days}d
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="rk-feed-note">Admin only. Metrics are computed from tracked analytics events.</p>
+
+        {analyticsQuery.isLoading ? <p className="rk-feed-note">Loading activation metrics...</p> : null}
+        {analyticsQuery.error instanceof Error ? (
+          <p className="rk-feed-note">Unable to load analytics: {analyticsQuery.error.message}</p>
+        ) : null}
+
+        {!analyticsQuery.isLoading && !(analyticsQuery.error instanceof Error) ? (
+          <>
+            <div className="rk-admin-metrics-grid">
+              <article className="rk-admin-metric-card">
+                <span>Activation Rate</span>
+                <strong>{formatPercent(metrics.activationRate)}</strong>
+                <small>{metrics.coreActionUsers} core-action users / {metrics.feedViewUsers} feed viewers</small>
+              </article>
+              <article className="rk-admin-metric-card">
+                <span>Post Completion Rate</span>
+                <strong>{formatPercent(metrics.postCompletionRate)}</strong>
+                <small>{metrics.postCreateSuccessCount} success / {metrics.postCreateStartCount} starts</small>
+              </article>
+              <article className="rk-admin-metric-card">
+                <span>Feed Action Rate</span>
+                <strong>{formatPercent(metrics.feedActionRate)}</strong>
+                <small>{metrics.feedActionUsers} vote-or-rsvp users / {metrics.feedViewUsers} feed viewers</small>
+              </article>
+            </div>
+
+            <div className="rk-admin-metric-events">
+              <strong>Event counts ({metricWindow}d)</strong>
+              <span>feed_view: {metrics.eventCountByName.feed_view ?? 0}</span>
+              <span>post_create_start: {metrics.eventCountByName.post_create_start ?? 0}</span>
+              <span>post_create_success: {metrics.eventCountByName.post_create_success ?? 0}</span>
+              <span>vote_cast: {metrics.eventCountByName.vote_cast ?? 0}</span>
+              <span>rsvp_join: {metrics.eventCountByName.rsvp_join ?? 0}</span>
+            </div>
+          </>
+        ) : null}
+      </section>
 
       <div className="rk-admin-columns">
         <section className="rk-panel">

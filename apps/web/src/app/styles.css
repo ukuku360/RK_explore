@@ -1846,6 +1846,71 @@
   gap: 6px;
 }
 
+.rk-admin-metrics-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.rk-admin-metrics-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rk-admin-metrics-head h2 {
+  margin: 0;
+}
+
+.rk-admin-metrics-windows {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.rk-admin-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.rk-admin-metric-card {
+  border: 1px solid #dce3eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+}
+
+.rk-admin-metric-card span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #6f7c8c;
+}
+
+.rk-admin-metric-card strong {
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+
+.rk-admin-metric-card small {
+  font-size: 0.78rem;
+  color: #6f7c8c;
+}
+
+.rk-admin-metric-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: #5f6f82;
+}
+
+.rk-admin-metric-events strong {
+  color: #334154;
+}
+
 .rk-empty-templates {
   margin-top: 10px;
   display: inline-flex;

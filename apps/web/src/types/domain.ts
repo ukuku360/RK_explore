@@ -36,6 +36,38 @@ export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number]
 export const ADMIN_ACTIONS = ['hide', 'unhide', 'delete', 'dismiss_report'] as const
 export type AdminAction = (typeof ADMIN_ACTIONS)[number]
 
+export const ANALYTICS_ROLES = ['admin', 'member'] as const
+export type AnalyticsRole = (typeof ANALYTICS_ROLES)[number]
+
+export const ANALYTICS_EVENT_NAMES = [
+  'feed_view',
+  'post_create_start',
+  'post_step1_valid',
+  'post_create_success',
+  'post_create_fail',
+  'filter_applied',
+  'filter_cleared',
+  'personalized_tab_viewed',
+  'empty_state_cta_clicked',
+  'mobile_create_start',
+  'vote_cast',
+  'rsvp_join',
+] as const
+export type AnalyticsEventName = (typeof ANALYTICS_EVENT_NAMES)[number]
+
+export type AnalyticsProperties = Record<string, string | number | boolean | null>
+
+export type AnalyticsEvent = {
+  id: string
+  event_name: string
+  user_id: string
+  role: AnalyticsRole
+  post_id: string | null
+  surface: string
+  properties: AnalyticsProperties
+  created_at: string
+}
+
 export type Vote = {
   id: string
   post_id: string

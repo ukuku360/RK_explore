@@ -448,6 +448,7 @@ export function FeedPage() {
   const formRef = useRef<HTMLFormElement | null>(null)
   const hasTrackedPostCreateStartRef = useRef(false)
   const hasTrackedStep1ValidRef = useRef(false)
+  const hasTrackedFeedViewRef = useRef(false)
   const preparedSharedPostViewRef = useRef<string | null>(null)
   const focusedSharedPostRef = useRef<string | null>(null)
 
@@ -820,6 +821,18 @@ export function FeedPage() {
       viewport.removeEventListener('resize', handleResize)
     }
   }, [])
+
+  useEffect(() => {
+    if (!user) return
+    if (hasTrackedFeedViewRef.current) return
+
+    hasTrackedFeedViewRef.current = true
+    trackEvent('feed_view', {
+      user_id: user.id,
+      role: user.isAdmin ? 'admin' : 'member',
+      surface: 'feed',
+    })
+  }, [user])
 
   function trackPostCreateStartOnce() {
     if (!user || hasTrackedPostCreateStartRef.current) return
@@ -1195,6 +1208,12 @@ export function FeedPage() {
         await removeVote(postId, user.id)
       } else {
         await addVote(postId, user.id)
+        trackEvent('vote_cast', {
+          user_id: user.id,
+          role: user.isAdmin ? 'admin' : 'member',
+          post_id: postId,
+          surface: 'feed_card',
+        })
       }
       await invalidateAfterVoteMutation(queryClient)
       setStatusTone('success')
@@ -1234,6 +1253,12 @@ export function FeedPage() {
       }
 
       await addRsvp(post.id, user.id)
+      trackEvent('rsvp_join', {
+        user_id: user.id,
+        role: user.isAdmin ? 'admin' : 'member',
+        post_id: post.id,
+        surface: 'feed_card',
+      })
       await invalidateAfterRsvpMutation(queryClient)
     } catch (error) {
       setOptimisticRsvpByPostId((previous) => {
