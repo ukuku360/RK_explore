@@ -596,8 +596,6 @@ export function CommunityFeed() {
         <p className="rk-feed-note">Showing {visiblePosts.length} posts</p>
       </section>
 
-      <div className="rk-community-divider" />
-
       <div className="rk-community-list">
         {visiblePosts.length === 0 ? (
           <div className="rk-empty-state">
