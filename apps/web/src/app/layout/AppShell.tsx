@@ -9,6 +9,10 @@ function navClassName({ isActive }: { isActive: boolean }) {
   return isActive ? 'rk-nav-link rk-nav-link-active' : 'rk-nav-link'
 }
 
+function membersRailClassName({ isActive }: { isActive: boolean }) {
+  return isActive ? 'rk-members-rail-link rk-members-rail-link-active' : 'rk-members-rail-link'
+}
+
 function formatJoinedDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
@@ -82,7 +86,7 @@ export function AppShell() {
             <NavLink to="/marketplace" className={navClassName}>
               Marketplace
             </NavLink>
-            <NavLink to="/members" className={navClassName}>
+            <NavLink to="/members" className={({ isActive }) => `${navClassName({ isActive })} rk-nav-link-members-inline`}>
               Members
             </NavLink>
             {isAdmin ? (
@@ -154,6 +158,13 @@ export function AppShell() {
       <main className="rk-main">
         <Outlet />
       </main>
+
+      <aside className="rk-members-rail" aria-label="Members shortcut">
+        <NavLink to="/members" className={membersRailClassName}>
+          <span className="rk-members-rail-kicker">Community</span>
+          <span className="rk-members-rail-title">Members</span>
+        </NavLink>
+      </aside>
     </div>
   )
 }
