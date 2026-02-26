@@ -161,8 +161,16 @@ export function AppShell() {
 
       <aside className="rk-members-rail" aria-label="Members shortcut">
         <NavLink to="/members" className={membersRailClassName}>
-          <span className="rk-members-rail-kicker">Community</span>
-          <span className="rk-members-rail-title">Members</span>
+          <span className="rk-members-rail-icon" aria-hidden>
+            M
+          </span>
+          <span className="rk-members-rail-copy">
+            <span className="rk-members-rail-kicker">Community</span>
+            <span className="rk-members-rail-title">Members</span>
+          </span>
+          <span className="rk-members-rail-arrow" aria-hidden>
+            {'->'}
+          </span>
         </NavLink>
       </aside>
     </div>
