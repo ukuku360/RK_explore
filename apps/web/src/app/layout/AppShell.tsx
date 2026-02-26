@@ -92,34 +92,20 @@ export function AppShell() {
             ) : null}
           </nav>
           <div className="rk-session-group">
-            <div className="rk-user-hud">
-              <div className="rk-hud-status" title={formatStatusLabel(realtimeStatus)}>
-                <span className={`rk-hud-dot rk-hud-dot-${realtimeStatus}`} />
-              </div>
-              <button
-                type="button"
-                className="rk-hud-profile"
-                onClick={() => setIsProfileOpen((previous) => !previous)}
-                title={isProfileOpen ? 'Close Profile' : 'My Profile'}
-              >
-                <div className="rk-hud-avatar">
-                  {user.label.charAt(0).toUpperCase()}
-                </div>
-                <span className="rk-hud-name">{user.label}</span>
-              </button>
-              <button
-                type="button"
-                className="rk-hud-logout"
-                onClick={() => void handleLogout()}
-                title="Log out"
-              >
-                <svg viewBox="0 0 24 24">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-                  <polyline points="16 17 21 12 16 7"></polyline>
-                  <line x1="21" y1="12" x2="9" y2="12"></line>
-                </svg>
-              </button>
+            <div className="rk-connection">
+              <span className={`rk-connection-dot rk-connection-${realtimeStatus}`} />
+              <span>{formatStatusLabel(realtimeStatus)}</span>
             </div>
+            <button
+              type="button"
+              className="rk-button rk-button-secondary rk-button-small"
+              onClick={() => setIsProfileOpen((previous) => !previous)}
+            >
+              {isProfileOpen ? 'Close Profile' : 'My Profile'}
+            </button>
+            <button type="button" className="rk-button rk-button-small" onClick={() => void handleLogout()}>
+              Log out
+            </button>
           </div>
         </div>
         {isProfileOpen ? (
