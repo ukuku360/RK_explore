@@ -60,6 +60,10 @@ export const queryKeys = {
     threads: (viewerId: string) => ['marketplace-chats', 'threads', viewerId] as const,
     messages: (threadId: string) => ['marketplace-chats', 'messages', threadId] as const,
   },
+  marketplaceTransactions: {
+    all: ['marketplace-transactions'] as const,
+    byPost: (postId: string) => ['marketplace-transactions', 'post', postId] as const,
+  },
 } as const
 
 export type RealtimeTableName =
@@ -76,3 +80,4 @@ export type RealtimeTableName =
   | 'marketplace_bid_events'
   | 'marketplace_chat_threads'
   | 'marketplace_chat_messages'
+  | 'marketplace_transactions'

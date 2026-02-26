@@ -32,6 +32,7 @@ async function invalidateMarketplaceReadModels(queryClient: QueryClient): Promis
     queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceBids.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceBidEvents.all }),
     queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceChats.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceTransactions.all }),
   ])
 }
 
@@ -98,7 +99,8 @@ export async function invalidateForRealtimeTable(
     tableName === 'marketplace_bids' ||
     tableName === 'marketplace_bid_events' ||
     tableName === 'marketplace_chat_threads' ||
-    tableName === 'marketplace_chat_messages'
+    tableName === 'marketplace_chat_messages' ||
+    tableName === 'marketplace_transactions'
   ) {
     await invalidateMarketplaceReadModels(queryClient)
     return

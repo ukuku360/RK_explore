@@ -1,12 +1,15 @@
 import {
   MARKETPLACE_BID_EVENT_TYPES,
   MARKETPLACE_POST_STATUSES,
+  MARKETPLACE_TRANSACTION_STATUSES,
   type MarketplaceBid,
   type MarketplaceBidEvent,
   type MarketplaceBidEventType,
   type MarketplaceComment,
   type MarketplacePost,
   type MarketplacePostStatus,
+  type MarketplaceTransaction,
+  type MarketplaceTransactionStatus,
 } from '../../types/domain'
 import { enforceLength, INPUT_LIMITS } from '../../lib/inputLimits'
 import { supabaseClient } from '../supabase/client'
@@ -46,6 +49,25 @@ type MarketplaceBidEventRow = {
   amount: number | string
   event_type: string | null
   created_at: string
+}
+
+type MarketplaceTransactionRow = {
+  id: string
+  post_id: string
+  seller_user_id: string
+  buyer_user_id: string
+  accepted_bid_id: string
+  accepted_bid_amount: number | string
+  accepted_bidder_nickname: string
+  status: string | null
+  seller_rating_score: number | null
+  seller_rating_note: string | null
+  buyer_rating_score: number | null
+  buyer_rating_note: string | null
+  completed_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  updated_at: string | null
 }
 
 type CreateMarketplacePostInput = {
@@ -90,6 +112,36 @@ function normalizeBidEventType(value: string | null | undefined): MarketplaceBid
     return value as MarketplaceBidEventType
   }
   return 'updated'
+}
+
+function normalizeMarketplaceTransactionStatus(
+  value: string | null | undefined,
+): MarketplaceTransactionStatus {
+  if (value && MARKETPLACE_TRANSACTION_STATUSES.includes(value as MarketplaceTransactionStatus)) {
+    return value as MarketplaceTransactionStatus
+  }
+  return 'pending_meetup'
+}
+
+function toMarketplaceTransaction(row: MarketplaceTransactionRow): MarketplaceTransaction {
+  return {
+    id: row.id,
+    post_id: row.post_id,
+    seller_user_id: row.seller_user_id,
+    buyer_user_id: row.buyer_user_id,
+    accepted_bid_id: row.accepted_bid_id,
+    accepted_bid_amount: parseMoney(row.accepted_bid_amount),
+    accepted_bidder_nickname: row.accepted_bidder_nickname,
+    status: normalizeMarketplaceTransactionStatus(row.status),
+    seller_rating_score: row.seller_rating_score,
+    seller_rating_note: row.seller_rating_note,
+    buyer_rating_score: row.buyer_rating_score,
+    buyer_rating_note: row.buyer_rating_note,
+    completed_at: row.completed_at,
+    cancelled_at: row.cancelled_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at ?? row.created_at,
+  }
 }
 
 function toMarketplaceBid(row: MarketplaceBidRow): MarketplaceBid {
@@ -285,6 +337,14 @@ export async function deleteMarketplacePost(postId: string, sellerUserId: string
   throwIfPostgrestError(error)
 }
 
+export async function adminDeleteMarketplacePost(postId: string): Promise<void> {
+  const { error } = await supabaseClient
+    .from('marketplace_posts')
+    .delete()
+    .eq('id', postId)
+  throwIfPostgrestError(error)
+}
+
 export async function fetchMarketplaceComments(postId: string): Promise<MarketplaceComment[]> {
   const { data, error } = await supabaseClient
     .from('marketplace_comments')
@@ -432,4 +492,105 @@ export async function fetchMarketplaceBidEvents(postId: string): Promise<Marketp
     event_type: normalizeBidEventType(row.event_type),
     created_at: row.created_at,
   }))
+}
+
+export async function fetchMarketplaceTransactionByPost(
+  postId: string,
+): Promise<MarketplaceTransaction | null> {
+  const { data, error } = await supabaseClient
+    .from('marketplace_transactions')
+    .select('*')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  throwIfPostgrestError(error)
+
+  if (!data) return null
+  return toMarketplaceTransaction(data as MarketplaceTransactionRow)
+}
+
+export async function acceptMarketplaceBid(
+  postId: string,
+  bidId: string,
+  sellerUserId: string,
+): Promise<MarketplaceTransaction> {
+  const { data, error } = await supabaseClient.rpc('accept_marketplace_bid', {
+    p_post_id: postId,
+    p_bid_id: bidId,
+    p_seller_user_id: sellerUserId,
+  })
+  throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Failed to accept bid.')
+  }
+
+  if (Array.isArray(data)) {
+    if (data.length < 1) throw new Error('Failed to accept bid.')
+    return toMarketplaceTransaction(data[0] as MarketplaceTransactionRow)
+  }
+
+  return toMarketplaceTransaction(data as MarketplaceTransactionRow)
+}
+
+export async function updateMarketplaceTransactionStatus(
+  transactionId: string,
+  status: MarketplaceTransactionStatus,
+): Promise<MarketplaceTransaction> {
+  if (!MARKETPLACE_TRANSACTION_STATUSES.includes(status)) {
+    throw new Error('Invalid transaction status.')
+  }
+
+  const { data, error } = await supabaseClient
+    .from('marketplace_transactions')
+    .update({ status })
+    .eq('id', transactionId)
+    .select('*')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Unable to update transaction status.')
+  }
+
+  return toMarketplaceTransaction(data as MarketplaceTransactionRow)
+}
+
+export async function submitMarketplaceTransactionRating(input: {
+  transactionId: string
+  actorRole: 'seller' | 'buyer'
+  score: number
+  note: string
+}): Promise<MarketplaceTransaction> {
+  if (!Number.isInteger(input.score) || input.score < 1 || input.score > 5) {
+    throw new Error('Rating score must be between 1 and 5.')
+  }
+
+  const note = enforceLength(input.note.trim(), INPUT_LIMITS.marketplace_rating_note, 'Rating note')
+
+  const updates =
+    input.actorRole === 'seller'
+      ? {
+          buyer_rating_score: input.score,
+          buyer_rating_note: note,
+        }
+      : {
+          seller_rating_score: input.score,
+          seller_rating_note: note,
+        }
+
+  const { data, error } = await supabaseClient
+    .from('marketplace_transactions')
+    .update(updates)
+    .eq('id', input.transactionId)
+    .select('*')
+    .maybeSingle()
+  throwIfPostgrestError(error)
+
+  if (!data) {
+    throw new Error('Unable to save rating.')
+  }
+
+  return toMarketplaceTransaction(data as MarketplaceTransactionRow)
 }

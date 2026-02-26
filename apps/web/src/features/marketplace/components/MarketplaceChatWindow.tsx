@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { formatDateTime } from '../../../lib/formatters'
 import { INPUT_LIMITS } from '../../../lib/inputLimits'
@@ -14,6 +14,12 @@ type MarketplaceChatWindowProps = {
   onSendMessage: (content: string) => Promise<void> | void
 }
 
+const CHAT_QUICK_REPLIES = [
+  'Is this still available?',
+  'Can we meet at the lobby?',
+  'I can pick this up today.',
+] as const
+
 export function MarketplaceChatWindow({
   thread,
   messages,
@@ -25,12 +31,20 @@ export function MarketplaceChatWindow({
 }: MarketplaceChatWindowProps) {
   const [draft, setDraft] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const messageListRef = useRef<HTMLDivElement | null>(null)
 
   const title = useMemo(() => {
     if (!thread) return 'Select a conversation'
     const isSeller = thread.seller_user_id === currentUserId
     return isSeller ? thread.buyer_nickname : thread.seller_nickname
   }, [currentUserId, thread])
+
+  useEffect(() => {
+    if (!thread) return
+    const container = messageListRef.current
+    if (!container) return
+    container.scrollTop = container.scrollHeight
+  }, [isLoading, messages.length, thread])
 
   return (
     <section className="rk-marketplace-chat-window rk-card">
@@ -43,7 +57,7 @@ export function MarketplaceChatWindow({
         <p className="rk-feed-note">Pick a chat to open messages.</p>
       ) : (
         <>
-          <div className="rk-marketplace-message-list">
+          <div ref={messageListRef} className="rk-marketplace-message-list">
             {isLoading ? <p className="rk-feed-note">Loading messages...</p> : null}
             {!isLoading && messages.length === 0 ? (
               <p className="rk-feed-note">No messages yet. Start the conversation.</p>
@@ -56,7 +70,7 @@ export function MarketplaceChatWindow({
                   className={`rk-marketplace-message ${isMine ? 'rk-marketplace-message-mine' : ''}`}
                 >
                   <div className="rk-marketplace-message-meta">
-                    <strong>{message.sender_nickname}</strong>
+                    <strong>{isMine ? 'You' : message.sender_nickname}</strong>
                     <span>{formatDateTime(message.created_at)}</span>
                   </div>
                   <p>{message.content}</p>
@@ -84,6 +98,19 @@ export function MarketplaceChatWindow({
                 }
               }}
             >
+              <div className="rk-marketplace-quick-replies" role="group" aria-label="Quick reply suggestions">
+                {CHAT_QUICK_REPLIES.map((reply) => (
+                  <button
+                    key={reply}
+                    type="button"
+                    className="rk-chip"
+                    onClick={() => setDraft(reply)}
+                    disabled={isSending}
+                  >
+                    {reply}
+                  </button>
+                ))}
+              </div>
               <textarea
                 className="rk-auth-input rk-textarea"
                 rows={3}

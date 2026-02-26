@@ -31,10 +31,13 @@ export type MarketplacePostStatus = (typeof MARKETPLACE_POST_STATUSES)[number]
 export const MARKETPLACE_BID_EVENT_TYPES = ['created', 'updated'] as const
 export type MarketplaceBidEventType = (typeof MARKETPLACE_BID_EVENT_TYPES)[number]
 
+export const MARKETPLACE_TRANSACTION_STATUSES = ['pending_meetup', 'completed', 'cancelled'] as const
+export type MarketplaceTransactionStatus = (typeof MARKETPLACE_TRANSACTION_STATUSES)[number]
+
 export const REPORT_STATUSES = ['open', 'dismissed', 'actioned'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
-export const REPORT_TARGET_TYPES = ['feed', 'community'] as const
+export const REPORT_TARGET_TYPES = ['feed', 'community', 'marketplace'] as const
 export type ReportTargetType = (typeof REPORT_TARGET_TYPES)[number]
 
 export const ADMIN_ACTIONS = ['hide', 'unhide', 'delete', 'dismiss_report'] as const
@@ -169,6 +172,7 @@ export type Report = {
   target_type: ReportTargetType
   post_id: string | null
   community_post_id: string | null
+  marketplace_post_id: string | null
   reporter_user_id: string
   reporter_email: string
   reporter_nickname: string
@@ -306,4 +310,23 @@ export type MarketplaceChatMessage = {
   sender_nickname: string
   content: string
   created_at: string
+}
+
+export type MarketplaceTransaction = {
+  id: string
+  post_id: string
+  seller_user_id: string
+  buyer_user_id: string
+  accepted_bid_id: string
+  accepted_bid_amount: number
+  accepted_bidder_nickname: string
+  status: MarketplaceTransactionStatus
+  seller_rating_score: number | null
+  seller_rating_note: string | null
+  buyer_rating_score: number | null
+  buyer_rating_note: string | null
+  completed_at: string | null
+  cancelled_at: string | null
+  created_at: string
+  updated_at: string
 }

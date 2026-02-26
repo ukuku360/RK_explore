@@ -21,6 +21,8 @@ export const INPUT_LIMITS = {
   marketplace_comment: 500,
   /** Marketplace direct message */
   marketplace_chat_message: 1000,
+  /** Marketplace transaction rating note */
+  marketplace_rating_note: 500,
 } as const
 
 export function enforceLength(value: string, limit: number, fieldName: string): string {

@@ -30,12 +30,23 @@ function buildTargetColumns(targetType: ReportTargetType, targetId: string): {
   target_type: ReportTargetType
   post_id: string | null
   community_post_id: string | null
+  marketplace_post_id: string | null
 } {
   if (targetType === 'community') {
     return {
       target_type: 'community',
       post_id: null,
       community_post_id: targetId,
+      marketplace_post_id: null,
+    }
+  }
+
+  if (targetType === 'marketplace') {
+    return {
+      target_type: 'marketplace',
+      post_id: null,
+      community_post_id: null,
+      marketplace_post_id: targetId,
     }
   }
 
@@ -43,6 +54,7 @@ function buildTargetColumns(targetType: ReportTargetType, targetId: string): {
     target_type: 'feed',
     post_id: targetId,
     community_post_id: null,
+    marketplace_post_id: null,
   }
 }
 
@@ -97,12 +109,22 @@ export async function clearOpenReportsByReporterTarget(input: ClearOpenReportsBy
           .match(reviewFilters)
           .eq('community_post_id', input.target_id)
           .is('post_id', null)
-      : supabaseClient
+          .is('marketplace_post_id', null)
+      : input.target_type === 'marketplace'
+        ? supabaseClient
+            .from('post_reports')
+            .delete()
+            .match(reviewFilters)
+            .eq('marketplace_post_id', input.target_id)
+            .is('post_id', null)
+            .is('community_post_id', null)
+        : supabaseClient
           .from('post_reports')
           .delete()
           .match(reviewFilters)
           .eq('post_id', input.target_id)
           .is('community_post_id', null)
+          .is('marketplace_post_id', null)
 
   const { error } = await mutation
   throwIfPostgrestError(error)
@@ -144,12 +166,22 @@ export async function reviewReportsByTarget(input: ReviewReportsByTargetInput): 
           .match(reviewFilters)
           .eq('community_post_id', input.target_id)
           .is('post_id', null)
-      : supabaseClient
+          .is('marketplace_post_id', null)
+      : input.target_type === 'marketplace'
+        ? supabaseClient
+            .from('post_reports')
+            .update(payload)
+            .match(reviewFilters)
+            .eq('marketplace_post_id', input.target_id)
+            .is('post_id', null)
+            .is('community_post_id', null)
+        : supabaseClient
           .from('post_reports')
           .update(payload)
           .match(reviewFilters)
           .eq('post_id', input.target_id)
           .is('community_post_id', null)
+          .is('marketplace_post_id', null)
 
   const { error } = await mutation
   throwIfPostgrestError(error)

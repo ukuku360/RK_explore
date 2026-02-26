@@ -86,6 +86,7 @@ describe('query invalidation rules', () => {
       queryKeys.marketplaceBids.all,
       queryKeys.marketplaceBidEvents.all,
       queryKeys.marketplaceChats.all,
+      queryKeys.marketplaceTransactions.all,
     ])
   })
 
@@ -117,6 +118,7 @@ describe('query invalidation rules', () => {
       queryKeys.marketplaceBids.all,
       queryKeys.marketplaceBidEvents.all,
       queryKeys.marketplaceChats.all,
+      queryKeys.marketplaceTransactions.all,
     ])
   })
 })

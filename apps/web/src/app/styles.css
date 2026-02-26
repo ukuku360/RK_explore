@@ -4046,6 +4046,68 @@
   gap: 16px;
 }
 
+.rk-marketplace-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.rk-marketplace-workspace-nav {
+  border: 1px solid var(--rk-line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #fff7fb 100%);
+  padding: 12px;
+  box-shadow: var(--rk-shadow-sm);
+  display: grid;
+  gap: 10px;
+}
+
+.rk-marketplace-workspace-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.rk-marketplace-workspace-tab {
+  border: 1px solid #dce4ee;
+  background: #f8fafc;
+  border-radius: 12px;
+  min-height: 56px;
+  padding: 8px 10px;
+  display: grid;
+  gap: 2px;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.rk-marketplace-workspace-tab:hover {
+  transform: translateY(-1px);
+}
+
+.rk-marketplace-workspace-tab span {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.rk-marketplace-workspace-tab small {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.rk-marketplace-workspace-tab-active {
+  background: #fff3f7;
+  border-color: #f4c1d1;
+  box-shadow: 0 10px 22px -20px rgba(190, 24, 93, 0.6);
+}
+
+.rk-marketplace-workspace-note {
+  margin: 0;
+  color: #526074;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .rk-marketplace-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 360px);
@@ -4067,6 +4129,25 @@
 .rk-marketplace-feed {
   display: grid;
   gap: 14px;
+}
+
+.rk-marketplace-hint {
+  border: 1px solid #f3d2dc;
+  border-radius: 12px;
+  background: linear-gradient(120deg, #fff7fb 0%, #fff 100%);
+  padding: 11px 12px;
+}
+
+.rk-marketplace-hint strong {
+  display: block;
+  color: #1e293b;
+  font-size: 0.85rem;
+}
+
+.rk-marketplace-hint p {
+  margin: 4px 0 0;
+  color: #6a7180;
+  font-size: 0.8rem;
 }
 
 .rk-marketplace-create {
@@ -4148,6 +4229,20 @@
   display: block;
 }
 
+.rk-marketplace-hot-badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  border-radius: 999px;
+  background: #0f172a;
+  color: #fff;
+  border: 1px solid #1e293b;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 9px;
+  animation: rk-marketplace-hot-pulse 2.6s ease-in-out infinite;
+}
+
 .rk-marketplace-status {
   position: absolute;
   top: 10px;
@@ -4223,6 +4318,55 @@
   color: #334155;
 }
 
+.rk-marketplace-bid-meter {
+  display: grid;
+  gap: 4px;
+}
+
+.rk-marketplace-bid-meter-track {
+  border-radius: 999px;
+  background: #e8edf4;
+  height: 8px;
+  overflow: hidden;
+}
+
+.rk-marketplace-bid-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #fb7185 0%, #f97316 100%);
+}
+
+.rk-marketplace-bid-meter-label {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.rk-marketplace-bid-signal {
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid #dbe3ed;
+  background: #f8fafc;
+  color: #475569;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.rk-marketplace-bid-signal-good {
+  border-color: #86efac;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.rk-marketplace-bid-signal-warn {
+  border-color: #fdba74;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
 .rk-marketplace-quick-stats {
   display: flex;
   flex-wrap: wrap;
@@ -4269,6 +4413,81 @@
   padding: 10px;
   display: grid;
   gap: 8px;
+}
+
+.rk-marketplace-deal-panel {
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  background: #eef2ff;
+  padding: 9px 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.rk-marketplace-deal-panel p {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #334155;
+}
+
+.rk-marketplace-deal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.rk-marketplace-deal-head strong {
+  color: #312e81;
+  font-size: 0.81rem;
+}
+
+.rk-marketplace-deal-head span {
+  border-radius: 999px;
+  border: 1px solid #a5b4fc;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 9px;
+  text-transform: uppercase;
+}
+
+.rk-marketplace-deal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rk-marketplace-rating-box {
+  border-top: 1px dashed #b8c4df;
+  padding-top: 6px;
+  display: grid;
+  gap: 6px;
+}
+
+.rk-marketplace-rating-box strong {
+  font-size: 0.8rem;
+}
+
+.rk-marketplace-rating-box p {
+  margin: 0;
+  font-size: 0.76rem;
+}
+
+.rk-marketplace-rating-form {
+  display: grid;
+  gap: 6px;
+}
+
+.rk-marketplace-rating-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.72rem;
+  color: #64748b;
+  font-weight: 700;
 }
 
 .rk-marketplace-bids-head {
@@ -4384,6 +4603,31 @@
   font-weight: 700;
 }
 
+.rk-marketplace-chat-head-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rk-marketplace-new-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid #fecdd3;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 3px 8px;
+}
+
+.rk-marketplace-thread-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
 .rk-marketplace-thread-list {
   display: grid;
   gap: 8px;
@@ -4405,6 +4649,23 @@
 .rk-marketplace-thread-row-active {
   background: #fff3f6;
   border-color: #f7c2cf;
+}
+
+.rk-marketplace-thread-row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rk-marketplace-thread-pill {
+  border-radius: 999px;
+  border: 1px solid #fdba74;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 0.66rem;
+  font-weight: 800;
+  padding: 2px 8px;
 }
 
 .rk-marketplace-thread-row strong {
@@ -4458,6 +4719,12 @@
   gap: 8px;
 }
 
+.rk-marketplace-quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .rk-marketplace-message-form-meta {
   display: flex;
   justify-content: space-between;
@@ -4479,6 +4746,10 @@
 }
 
 @media (max-width: 720px) {
+  .rk-marketplace-workspace-tabs {
+    grid-template-columns: 1fr;
+  }
+
   .rk-marketplace-overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4489,5 +4760,30 @@
 
   .rk-marketplace-pricing {
     text-align: left;
+  }
+}
+
+.rk-marketplace-inbox-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 1080px) {
+  .rk-marketplace-inbox-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes rk-marketplace-hot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0);
+  }
+  50% {
+    transform: scale(1.03);
+    box-shadow: 0 0 0 7px rgba(248, 113, 113, 0.15);
   }
 }

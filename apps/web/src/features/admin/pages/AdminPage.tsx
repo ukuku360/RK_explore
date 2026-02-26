@@ -11,6 +11,10 @@ import {
   listMarketplaceChatMessages,
   listMarketplaceChatThreads,
 } from '../../../services/marketplace/marketplace-chat.service'
+import {
+  adminDeleteMarketplacePost,
+  fetchMarketplacePosts,
+} from '../../../services/marketplace/marketplace.service'
 import { deletePost, updatePostModeration } from '../../../services/posts/posts.service'
 import { reviewReportsByTarget } from '../../../services/reports/reports.service'
 import type { Report, ReportTargetType } from '../../../types/domain'
@@ -50,6 +54,10 @@ function resolveReportTarget(report: Report): { targetType: ReportTargetType; ta
     return { targetType: 'community', targetId: report.community_post_id }
   }
 
+  if (report.target_type === 'marketplace' && report.marketplace_post_id) {
+    return { targetType: 'marketplace', targetId: report.marketplace_post_id }
+  }
+
   if (report.target_type === 'feed' && report.post_id) {
     return { targetType: 'feed', targetId: report.post_id }
   }
@@ -61,6 +69,10 @@ function resolveReportTarget(report: Report): { targetType: ReportTargetType; ta
 
   if (report.post_id) {
     return { targetType: 'feed', targetId: report.post_id }
+  }
+
+  if (report.marketplace_post_id) {
+    return { targetType: 'marketplace', targetId: report.marketplace_post_id }
   }
 
   return null
@@ -111,6 +123,11 @@ export default function AdminPage() {
     queryFn: () => fetchCommunityPosts(),
     enabled: isAdmin,
   })
+  const marketplacePostsQuery = useQuery({
+    queryKey: queryKeys.marketplace.posts(),
+    queryFn: () => fetchMarketplacePosts(user?.id),
+    enabled: isAdmin && Boolean(user),
+  })
   const reportsQuery = useAdminReportsQuery(isAdmin)
   const logsQuery = useAdminLogsQuery(isAdmin)
   const [metricWindow, setMetricWindow] = useState<MetricWindow>(14)
@@ -156,6 +173,16 @@ export default function AdminPage() {
 
     return map
   }, [communityPostsQuery.data])
+
+  const marketplacePostById = useMemo(() => {
+    const map: Record<string, { id: string; title: string; sellerNickname: string }> = {}
+
+    for (const post of marketplacePostsQuery.data ?? []) {
+      map[post.id] = { id: post.id, title: post.title, sellerNickname: post.seller_nickname }
+    }
+
+    return map
+  }, [marketplacePostsQuery.data])
 
   const selectedMarketplaceThread = useMemo(() => {
     if (!selectedMarketplaceThreadId) return null
@@ -233,6 +260,10 @@ export default function AdminPage() {
     return openReportQueue.filter((item) => item.targetType === 'community')
   }, [openReportQueue])
 
+  const openMarketplaceReportQueue = useMemo(() => {
+    return openReportQueue.filter((item) => item.targetType === 'marketplace')
+  }, [openReportQueue])
+
   const totalOpenReports = useMemo(() => {
     return openReportQueue.reduce((sum, item) => sum + item.reportCount, 0)
   }, [openReportQueue])
@@ -287,6 +318,7 @@ export default function AdminPage() {
     await Promise.all([
       postsQuery.refetch(),
       communityPostsQuery.refetch(),
+      marketplacePostsQuery.refetch(),
       reportsQuery.refetch(),
       logsQuery.refetch(),
       analyticsQuery.refetch(),
@@ -394,9 +426,12 @@ export default function AdminPage() {
     await runAdminAction(`delete:${targetType}:${targetId}`, async () => {
       if (targetType === 'feed') {
         await deletePost(targetId)
-      } else {
+      } else if (targetType === 'community') {
         await deleteCommunityPost(targetId)
         await queryClient.invalidateQueries({ queryKey: ['community_posts'] })
+      } else {
+        await adminDeleteMarketplacePost(targetId)
+        await queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.posts() })
       }
 
       await reviewReportsByTarget({
@@ -416,7 +451,13 @@ export default function AdminPage() {
       })
 
       setStatusTone('success')
-      setStatusMessage(`${targetType === 'feed' ? 'Feed' : 'Community'} post deleted by admin.`)
+      setStatusMessage(
+        targetType === 'feed'
+          ? 'Feed post deleted by admin.'
+          : targetType === 'community'
+            ? 'Community post deleted by admin.'
+            : 'Marketplace listing deleted by admin.',
+      )
     })
   }
 
@@ -459,7 +500,7 @@ export default function AdminPage() {
   return (
     <section className="rk-page rk-admin-page">
       <h1>Admin Workspace</h1>
-      <p>Monitor feed/community reports, review reporters, and follow up with logged moderation actions.</p>
+      <p>Monitor feed, community, and marketplace reports, then follow up with logged moderation actions.</p>
       {statusMessage ? (
         <p className={statusTone === 'error' ? 'rk-auth-message rk-auth-error' : 'rk-auth-message rk-auth-success'}>
           {statusMessage}
@@ -653,6 +694,56 @@ export default function AdminPage() {
                       type="button"
                       className="rk-chip"
                       onClick={() => void handleDismissTarget('community', item.targetId)}
+                      disabled={pendingActionKey !== null}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        </section>
+
+        <section className="rk-panel">
+          <h2>Marketplace Report Queue</h2>
+          {reportsQuery.isLoading || marketplacePostsQuery.isLoading ? (
+            <p className="rk-feed-note">Loading marketplace reports...</p>
+          ) : null}
+          {openMarketplaceReportQueue.length === 0 && !reportsQuery.isLoading ? (
+            <p className="rk-feed-note">No open marketplace reports.</p>
+          ) : null}
+          <div className="rk-admin-list">
+            {openMarketplaceReportQueue.map((item) => {
+              const targetPost = marketplacePostById[item.targetId]
+              const hasLinkedPost = Boolean(targetPost)
+              const postLabel = targetPost
+                ? `${targetPost.title} (seller ${targetPost.sellerNickname})`
+                : 'Deleted marketplace listing'
+
+              return (
+                <article key={`marketplace:${item.targetId}`} className="rk-admin-item">
+                  <strong>{postLabel}</strong>
+                  <span>
+                    Reports {item.reportCount} - Last: {formatDateTime(item.latestCreatedAt)}
+                  </span>
+                  <span>Reporters: {item.reporterLabels.join(', ') || '-'}</span>
+                  <p>Latest reason: {item.latestReason || '-'}</p>
+                  <div className="rk-admin-actions">
+                    {hasLinkedPost ? (
+                      <button
+                        type="button"
+                        className="rk-chip"
+                        onClick={() => void handleDeleteTarget('marketplace', item.targetId, postLabel)}
+                        disabled={pendingActionKey !== null}
+                      >
+                        Delete Listing
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="rk-chip"
+                      onClick={() => void handleDismissTarget('marketplace', item.targetId)}
                       disabled={pendingActionKey !== null}
                     >
                       Dismiss

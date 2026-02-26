@@ -5,7 +5,7 @@ export function MarketplacePage() {
     <div className="rk-page rk-marketplace-page">
       <h1>Marketplace</h1>
       <p className="rk-page-subtitle">
-        Buy, sell, bid, and negotiate privately with other tenants.
+        Discover listings, sell faster, and close deals in private chat.
       </p>
       <MarketplaceHub />
     </div>
