@@ -511,3 +511,455 @@ begin
   end if;
 end
 $$;
+
+-- Marketplace
+create table if not exists public.marketplace_posts (
+  id uuid default gen_random_uuid() primary key,
+  seller_user_id uuid references auth.users(id) on delete cascade not null,
+  seller_nickname text not null,
+  title text not null,
+  description text not null,
+  asking_price numeric(12, 2) not null check (asking_price > 0),
+  image_url text default null,
+  status text not null default 'active' check (status in ('active', 'reserved', 'sold')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists marketplace_posts_created_at_idx
+  on public.marketplace_posts (created_at desc);
+create index if not exists marketplace_posts_status_idx
+  on public.marketplace_posts (status, created_at desc);
+create index if not exists marketplace_posts_seller_idx
+  on public.marketplace_posts (seller_user_id, created_at desc);
+
+alter table public.marketplace_posts enable row level security;
+
+drop policy if exists "Marketplace posts are viewable by authenticated users" on public.marketplace_posts;
+create policy "Marketplace posts are viewable by authenticated users"
+  on public.marketplace_posts for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Users can insert their own marketplace posts" on public.marketplace_posts;
+create policy "Users can insert their own marketplace posts"
+  on public.marketplace_posts for insert
+  with check (auth.uid() = seller_user_id);
+
+drop policy if exists "Users can update their own marketplace posts" on public.marketplace_posts;
+create policy "Users can update their own marketplace posts"
+  on public.marketplace_posts for update
+  using (auth.uid() = seller_user_id)
+  with check (auth.uid() = seller_user_id);
+
+drop policy if exists "Users can delete their own marketplace posts" on public.marketplace_posts;
+create policy "Users can delete their own marketplace posts"
+  on public.marketplace_posts for delete
+  using (auth.uid() = seller_user_id);
+
+create table if not exists public.marketplace_comments (
+  id uuid default gen_random_uuid() primary key,
+  post_id uuid references public.marketplace_posts(id) on delete cascade not null,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  author text not null,
+  content text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists marketplace_comments_post_idx
+  on public.marketplace_comments (post_id, created_at asc);
+create index if not exists marketplace_comments_user_idx
+  on public.marketplace_comments (user_id, created_at desc);
+
+alter table public.marketplace_comments enable row level security;
+
+drop policy if exists "Marketplace comments are viewable by authenticated users" on public.marketplace_comments;
+create policy "Marketplace comments are viewable by authenticated users"
+  on public.marketplace_comments for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Users can insert their own marketplace comments" on public.marketplace_comments;
+create policy "Users can insert their own marketplace comments"
+  on public.marketplace_comments for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own marketplace comments" on public.marketplace_comments;
+create policy "Users can update their own marketplace comments"
+  on public.marketplace_comments for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own marketplace comments" on public.marketplace_comments;
+create policy "Users can delete their own marketplace comments"
+  on public.marketplace_comments for delete
+  using (auth.uid() = user_id);
+
+create table if not exists public.marketplace_bids (
+  id uuid default gen_random_uuid() primary key,
+  post_id uuid references public.marketplace_posts(id) on delete cascade not null,
+  bidder_user_id uuid references auth.users(id) on delete cascade not null,
+  bidder_nickname text not null,
+  amount numeric(12, 2) not null check (amount > 0),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  unique (post_id, bidder_user_id)
+);
+
+create index if not exists marketplace_bids_post_idx
+  on public.marketplace_bids (post_id, amount desc, updated_at desc);
+create index if not exists marketplace_bids_bidder_idx
+  on public.marketplace_bids (bidder_user_id, updated_at desc);
+
+alter table public.marketplace_bids enable row level security;
+
+drop policy if exists "Marketplace bids are viewable by authenticated users" on public.marketplace_bids;
+create policy "Marketplace bids are viewable by authenticated users"
+  on public.marketplace_bids for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Users can insert their own marketplace bids" on public.marketplace_bids;
+create policy "Users can insert their own marketplace bids"
+  on public.marketplace_bids for insert
+  with check (auth.uid() = bidder_user_id);
+
+drop policy if exists "Users can update their own marketplace bids" on public.marketplace_bids;
+create policy "Users can update their own marketplace bids"
+  on public.marketplace_bids for update
+  using (auth.uid() = bidder_user_id)
+  with check (auth.uid() = bidder_user_id);
+
+drop policy if exists "Users can delete their own marketplace bids" on public.marketplace_bids;
+create policy "Users can delete their own marketplace bids"
+  on public.marketplace_bids for delete
+  using (auth.uid() = bidder_user_id);
+
+create table if not exists public.marketplace_bid_events (
+  id uuid default gen_random_uuid() primary key,
+  bid_id uuid references public.marketplace_bids(id) on delete cascade not null,
+  post_id uuid references public.marketplace_posts(id) on delete cascade not null,
+  bidder_user_id uuid references auth.users(id) on delete cascade not null,
+  bidder_nickname text not null,
+  amount numeric(12, 2) not null check (amount > 0),
+  event_type text not null check (event_type in ('created', 'updated')),
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists marketplace_bid_events_post_idx
+  on public.marketplace_bid_events (post_id, created_at desc);
+create index if not exists marketplace_bid_events_bid_idx
+  on public.marketplace_bid_events (bid_id, created_at desc);
+
+alter table public.marketplace_bid_events enable row level security;
+
+drop policy if exists "Marketplace bid events are viewable by authenticated users" on public.marketplace_bid_events;
+create policy "Marketplace bid events are viewable by authenticated users"
+  on public.marketplace_bid_events for select
+  using (auth.uid() is not null);
+
+drop policy if exists "Users can insert their own marketplace bid events" on public.marketplace_bid_events;
+create policy "Users can insert their own marketplace bid events"
+  on public.marketplace_bid_events for insert
+  with check (auth.uid() = bidder_user_id);
+
+create or replace function public.log_marketplace_bid_event()
+returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    insert into public.marketplace_bid_events (
+      bid_id,
+      post_id,
+      bidder_user_id,
+      bidder_nickname,
+      amount,
+      event_type
+    ) values (
+      new.id,
+      new.post_id,
+      new.bidder_user_id,
+      new.bidder_nickname,
+      new.amount,
+      'created'
+    );
+    return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if old.amount is distinct from new.amount then
+      insert into public.marketplace_bid_events (
+        bid_id,
+        post_id,
+        bidder_user_id,
+        bidder_nickname,
+        amount,
+        event_type
+      ) values (
+        new.id,
+        new.post_id,
+        new.bidder_user_id,
+        new.bidder_nickname,
+        new.amount,
+        'updated'
+      );
+    end if;
+    return new;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_marketplace_bids_log_event on public.marketplace_bids;
+create trigger trg_marketplace_bids_log_event
+after insert or update on public.marketplace_bids
+for each row
+execute function public.log_marketplace_bid_event();
+
+create table if not exists public.marketplace_chat_threads (
+  id uuid default gen_random_uuid() primary key,
+  post_id uuid references public.marketplace_posts(id) on delete cascade not null,
+  post_title text not null,
+  post_image_url text default null,
+  seller_user_id uuid references auth.users(id) on delete cascade not null,
+  seller_nickname text not null,
+  buyer_user_id uuid references auth.users(id) on delete cascade not null,
+  buyer_nickname text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  last_message_at timestamp with time zone default null,
+  last_message_preview text default null,
+  unique (post_id, buyer_user_id),
+  constraint marketplace_chat_participants_different check (seller_user_id <> buyer_user_id)
+);
+
+create index if not exists marketplace_chat_threads_seller_idx
+  on public.marketplace_chat_threads (seller_user_id, last_message_at desc);
+create index if not exists marketplace_chat_threads_buyer_idx
+  on public.marketplace_chat_threads (buyer_user_id, last_message_at desc);
+create index if not exists marketplace_chat_threads_post_idx
+  on public.marketplace_chat_threads (post_id);
+
+alter table public.marketplace_chat_threads enable row level security;
+
+drop policy if exists "Marketplace chat threads are visible to participants or admin" on public.marketplace_chat_threads;
+create policy "Marketplace chat threads are visible to participants or admin"
+  on public.marketplace_chat_threads for select
+  using (
+    public.is_admin()
+    or auth.uid() = seller_user_id
+    or auth.uid() = buyer_user_id
+  );
+
+drop policy if exists "Participants can create marketplace chat threads" on public.marketplace_chat_threads;
+create policy "Participants can create marketplace chat threads"
+  on public.marketplace_chat_threads for insert
+  with check (
+    auth.uid() is not null
+    and (auth.uid() = seller_user_id or auth.uid() = buyer_user_id)
+    and seller_user_id <> buyer_user_id
+    and exists (
+      select 1
+      from public.marketplace_posts posts
+      where posts.id = post_id
+        and posts.seller_user_id = seller_user_id
+    )
+  );
+
+drop policy if exists "Participants can update marketplace chat threads" on public.marketplace_chat_threads;
+create policy "Participants can update marketplace chat threads"
+  on public.marketplace_chat_threads for update
+  using (
+    public.is_admin()
+    or auth.uid() = seller_user_id
+    or auth.uid() = buyer_user_id
+  )
+  with check (
+    public.is_admin()
+    or auth.uid() = seller_user_id
+    or auth.uid() = buyer_user_id
+  );
+
+create table if not exists public.marketplace_chat_messages (
+  id uuid default gen_random_uuid() primary key,
+  thread_id uuid references public.marketplace_chat_threads(id) on delete cascade not null,
+  sender_user_id uuid references auth.users(id) on delete cascade not null,
+  sender_nickname text not null,
+  content text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists marketplace_chat_messages_thread_idx
+  on public.marketplace_chat_messages (thread_id, created_at asc);
+create index if not exists marketplace_chat_messages_sender_idx
+  on public.marketplace_chat_messages (sender_user_id, created_at desc);
+
+alter table public.marketplace_chat_messages enable row level security;
+
+drop policy if exists "Marketplace chat messages are visible to participants or admin" on public.marketplace_chat_messages;
+create policy "Marketplace chat messages are visible to participants or admin"
+  on public.marketplace_chat_messages for select
+  using (
+    public.is_admin()
+    or exists (
+      select 1
+      from public.marketplace_chat_threads threads
+      where threads.id = thread_id
+        and (threads.seller_user_id = auth.uid() or threads.buyer_user_id = auth.uid())
+    )
+  );
+
+drop policy if exists "Participants can insert marketplace chat messages" on public.marketplace_chat_messages;
+create policy "Participants can insert marketplace chat messages"
+  on public.marketplace_chat_messages for insert
+  with check (
+    auth.uid() = sender_user_id
+    and exists (
+      select 1
+      from public.marketplace_chat_threads threads
+      where threads.id = thread_id
+        and (threads.seller_user_id = auth.uid() or threads.buyer_user_id = auth.uid())
+    )
+  );
+
+create or replace function public.marketplace_update_chat_thread_summary()
+returns trigger
+language plpgsql
+as $$
+begin
+  update public.marketplace_chat_threads
+  set
+    last_message_at = new.created_at,
+    last_message_preview = left(trim(new.content), 160)
+  where id = new.thread_id;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_marketplace_chat_messages_summary on public.marketplace_chat_messages;
+create trigger trg_marketplace_chat_messages_summary
+after insert on public.marketplace_chat_messages
+for each row
+execute function public.marketplace_update_chat_thread_summary();
+
+do $$
+begin
+  if to_regclass('public.marketplace_posts') is not null then
+    execute 'drop trigger if exists trg_marketplace_posts_updated_at on public.marketplace_posts';
+    execute
+      'create trigger trg_marketplace_posts_updated_at before update on public.marketplace_posts for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.marketplace_comments') is not null then
+    execute 'drop trigger if exists trg_marketplace_comments_updated_at on public.marketplace_comments';
+    execute
+      'create trigger trg_marketplace_comments_updated_at before update on public.marketplace_comments for each row execute function public.set_activity_row_updated_at()';
+  end if;
+
+  if to_regclass('public.marketplace_bids') is not null then
+    execute 'drop trigger if exists trg_marketplace_bids_updated_at on public.marketplace_bids';
+    execute
+      'create trigger trg_marketplace_bids_updated_at before update on public.marketplace_bids for each row execute function public.set_activity_row_updated_at()';
+  end if;
+end
+$$;
+
+do $$
+begin
+  if exists (
+    select 1 from pg_publication where pubname = 'supabase_realtime'
+  ) then
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_posts'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_posts;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_comments'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_comments;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_bids'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_bids;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_bid_events'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_bid_events;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_chat_threads'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_chat_threads;
+    end if;
+
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = 'marketplace_chat_messages'
+    ) then
+      alter publication supabase_realtime add table public.marketplace_chat_messages;
+    end if;
+  end if;
+end
+$$;
+
+insert into storage.buckets (id, name, public)
+values ('marketplace-images', 'marketplace-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Marketplace images are publicly accessible" on storage.objects;
+create policy "Marketplace images are publicly accessible"
+  on storage.objects for select
+  using (bucket_id = 'marketplace-images');
+
+drop policy if exists "Users can upload marketplace images" on storage.objects;
+create policy "Users can upload marketplace images"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'marketplace-images'
+    and auth.uid() is not null
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can update marketplace images" on storage.objects;
+create policy "Users can update marketplace images"
+  on storage.objects for update
+  using (
+    bucket_id = 'marketplace-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  )
+  with check (
+    bucket_id = 'marketplace-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "Users can delete marketplace images" on storage.objects;
+create policy "Users can delete marketplace images"
+  on storage.objects for delete
+  using (
+    bucket_id = 'marketplace-images'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

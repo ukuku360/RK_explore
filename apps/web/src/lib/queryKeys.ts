@@ -38,6 +38,28 @@ export const queryKeys = {
     details: (userId: string) => ['profile', 'details', userId] as const,
     avatars: (userIdsHash: string) => ['profile', 'avatars', userIdsHash] as const,
   },
+  marketplace: {
+    all: ['marketplace'] as const,
+    posts: () => ['marketplace', 'posts'] as const,
+    postDetail: (postId: string) => ['marketplace', 'post', postId] as const,
+  },
+  marketplaceComments: {
+    all: ['marketplace-comments'] as const,
+    byPost: (postId: string) => ['marketplace-comments', 'post', postId] as const,
+  },
+  marketplaceBids: {
+    all: ['marketplace-bids'] as const,
+    byPost: (postId: string) => ['marketplace-bids', 'post', postId] as const,
+  },
+  marketplaceBidEvents: {
+    all: ['marketplace-bid-events'] as const,
+    byPost: (postId: string) => ['marketplace-bid-events', 'post', postId] as const,
+  },
+  marketplaceChats: {
+    all: ['marketplace-chats'] as const,
+    threads: (viewerId: string) => ['marketplace-chats', 'threads', viewerId] as const,
+    messages: (threadId: string) => ['marketplace-chats', 'messages', threadId] as const,
+  },
 } as const
 
 export type RealtimeTableName =
@@ -48,3 +70,9 @@ export type RealtimeTableName =
   | 'post_reports'
   | 'admin_action_logs'
   | 'user_profile_details'
+  | 'marketplace_posts'
+  | 'marketplace_comments'
+  | 'marketplace_bids'
+  | 'marketplace_bid_events'
+  | 'marketplace_chat_threads'
+  | 'marketplace_chat_messages'

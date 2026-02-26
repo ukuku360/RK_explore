@@ -13,6 +13,11 @@ import { ProfilePage } from '../../features/profile/pages/ProfilePage'
 
 const AdminPage = lazy(() => import('../../features/admin/pages/AdminPage'))
 const CommunityPage = lazy(() => import('../../features/community/pages/CommunityPage').then(module => ({ default: module.CommunityPage })))
+const MarketplacePage = lazy(() =>
+  import('../../features/marketplace/pages/MarketplacePage').then((module) => ({
+    default: module.MarketplacePage,
+  })),
+)
 
 function RouteLoading({ label }: { label: string }) {
   return (
@@ -97,6 +102,16 @@ export function AppRouter() {
               </Suspense>
             </ProtectedRoute>
           } 
+        />
+        <Route
+          path="/marketplace"
+          element={
+            <ProtectedRoute>
+              <Suspense fallback={<RouteLoading label="Loading marketplace..." />}>
+                <MarketplacePage />
+              </Suspense>
+            </ProtectedRoute>
+          }
         />
         <Route path="/admin" element={<AdminRoute />} />
         <Route

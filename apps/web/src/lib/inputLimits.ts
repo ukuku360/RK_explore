@@ -13,6 +13,14 @@ export const INPUT_LIMITS = {
   community_post: 2000,
   /** Community comment */
   community_comment: 500,
+  /** Marketplace listing title */
+  marketplace_title: 120,
+  /** Marketplace listing description */
+  marketplace_description: 2000,
+  /** Marketplace comment */
+  marketplace_comment: 500,
+  /** Marketplace direct message */
+  marketplace_chat_message: 1000,
 } as const
 
 export function enforceLength(value: string, limit: number, fieldName: string): string {

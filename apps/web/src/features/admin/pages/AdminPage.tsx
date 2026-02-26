@@ -1,11 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { useAuthSession } from '../../../app/providers/auth-session-context'
 import { formatDateTime } from '../../../lib/formatters'
+import { queryKeys } from '../../../lib/queryKeys'
 import { invalidateAfterAdminLogMutation } from '../../../lib/queryInvalidation'
 import { createAdminLog } from '../../../services/admin/admin.service'
 import { deleteCommunityPost, fetchCommunityPosts } from '../../../services/community/community.service'
+import {
+  listMarketplaceChatMessages,
+  listMarketplaceChatThreads,
+} from '../../../services/marketplace/marketplace-chat.service'
 import { deletePost, updatePostModeration } from '../../../services/posts/posts.service'
 import { reviewReportsByTarget } from '../../../services/reports/reports.service'
 import type { Report, ReportTargetType } from '../../../types/domain'
@@ -113,6 +118,20 @@ export default function AdminPage() {
   const [statusMessage, setStatusMessage] = useState('')
   const [statusTone, setStatusTone] = useState<'idle' | 'error' | 'success'>('idle')
   const [pendingActionKey, setPendingActionKey] = useState<string | null>(null)
+  const [selectedMarketplaceThreadId, setSelectedMarketplaceThreadId] = useState<string | null>(null)
+
+  const marketplaceThreadsQuery = useQuery({
+    queryKey: queryKeys.marketplaceChats.threads(user?.id ?? 'admin'),
+    queryFn: () => listMarketplaceChatThreads(user!.id, true),
+    enabled: isAdmin && Boolean(user),
+  })
+  const marketplaceMessagesQuery = useQuery({
+    queryKey: selectedMarketplaceThreadId
+      ? queryKeys.marketplaceChats.messages(selectedMarketplaceThreadId)
+      : ['marketplace-chats', 'messages', 'admin-none'],
+    queryFn: () => listMarketplaceChatMessages(selectedMarketplaceThreadId!),
+    enabled: isAdmin && Boolean(user && selectedMarketplaceThreadId),
+  })
 
   const hiddenPosts = useMemo(() => {
     return (postsQuery.data ?? []).filter((post) => post.is_hidden)
@@ -137,6 +156,22 @@ export default function AdminPage() {
 
     return map
   }, [communityPostsQuery.data])
+
+  const selectedMarketplaceThread = useMemo(() => {
+    if (!selectedMarketplaceThreadId) return null
+    return (marketplaceThreadsQuery.data ?? []).find((thread) => thread.id === selectedMarketplaceThreadId) ?? null
+  }, [marketplaceThreadsQuery.data, selectedMarketplaceThreadId])
+
+  useEffect(() => {
+    const threads = marketplaceThreadsQuery.data ?? []
+    if (threads.length === 0) {
+      setSelectedMarketplaceThreadId(null)
+      return
+    }
+
+    if (selectedMarketplaceThreadId && threads.some((thread) => thread.id === selectedMarketplaceThreadId)) return
+    setSelectedMarketplaceThreadId(threads[0].id)
+  }, [marketplaceThreadsQuery.data, selectedMarketplaceThreadId])
 
   const openReportQueue = useMemo(() => {
     const groupByTarget = new Map<string, ReportQueueAccumulator>()
@@ -255,6 +290,8 @@ export default function AdminPage() {
       reportsQuery.refetch(),
       logsQuery.refetch(),
       analyticsQuery.refetch(),
+      marketplaceThreadsQuery.refetch(),
+      marketplaceMessagesQuery.refetch(),
     ])
   }
 
@@ -657,6 +694,62 @@ export default function AdminPage() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="rk-panel">
+          <h2>Marketplace Chats (Read Only)</h2>
+          {marketplaceThreadsQuery.isLoading ? <p className="rk-feed-note">Loading marketplace chats...</p> : null}
+          {marketplaceThreadsQuery.error instanceof Error ? (
+            <p className="rk-feed-note">Unable to load chats: {marketplaceThreadsQuery.error.message}</p>
+          ) : null}
+          {!marketplaceThreadsQuery.isLoading && (marketplaceThreadsQuery.data ?? []).length === 0 ? (
+            <p className="rk-feed-note">No marketplace chats yet.</p>
+          ) : null}
+          <div className="rk-admin-list">
+            {(marketplaceThreadsQuery.data ?? []).slice(0, 40).map((thread) => (
+              <article key={thread.id} className="rk-admin-item">
+                <strong>
+                  {thread.seller_nickname} ⇄ {thread.buyer_nickname}
+                </strong>
+                <span>{thread.post_title}</span>
+                <span>
+                  Last message:{' '}
+                  {thread.last_message_at ? formatDateTime(thread.last_message_at) : 'No messages'}
+                </span>
+                <p>{thread.last_message_preview || 'No messages yet.'}</p>
+                <div className="rk-admin-actions">
+                  <button
+                    type="button"
+                    className={`rk-chip ${selectedMarketplaceThreadId === thread.id ? 'rk-chip-active' : ''}`}
+                    onClick={() => setSelectedMarketplaceThreadId(thread.id)}
+                  >
+                    View Thread
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+          {selectedMarketplaceThread ? (
+            <div className="rk-admin-list">
+              <article className="rk-admin-item">
+                <strong>
+                  Thread: {selectedMarketplaceThread.seller_nickname} ⇄ {selectedMarketplaceThread.buyer_nickname}
+                </strong>
+                <span>{selectedMarketplaceThread.post_title}</span>
+              </article>
+              {marketplaceMessagesQuery.isLoading ? <p className="rk-feed-note">Loading messages...</p> : null}
+              {(marketplaceMessagesQuery.data ?? []).map((message) => (
+                <article key={message.id} className="rk-admin-item">
+                  <strong>{message.sender_nickname}</strong>
+                  <span>{formatDateTime(message.created_at)}</span>
+                  <p>{message.content}</p>
+                </article>
+              ))}
+              {!marketplaceMessagesQuery.isLoading && (marketplaceMessagesQuery.data ?? []).length === 0 ? (
+                <p className="rk-feed-note">No messages in this thread.</p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="rk-panel">

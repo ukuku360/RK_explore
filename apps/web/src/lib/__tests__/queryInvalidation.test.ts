@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   invalidateAfterAdminLogMutation,
   invalidateAfterCommentMutation,
+  invalidateAfterMarketplaceMutation,
   invalidateAfterPostMutation,
   invalidateAfterReportMutation,
   invalidateAfterRsvpMutation,
@@ -76,6 +77,16 @@ describe('query invalidation rules', () => {
       queryKeys.posts.all,
       queryKeys.feed.all,
     ])
+
+    const marketplace = createFakeQueryClient()
+    await invalidateAfterMarketplaceMutation(marketplace.client)
+    expectKeysToContain(marketplace.mutableCalls, [
+      queryKeys.marketplace.all,
+      queryKeys.marketplaceComments.all,
+      queryKeys.marketplaceBids.all,
+      queryKeys.marketplaceBidEvents.all,
+      queryKeys.marketplaceChats.all,
+    ])
   })
 
   it('maps realtime table events to expected invalidation groups', async () => {
@@ -96,6 +107,16 @@ describe('query invalidation rules', () => {
       queryKeys.adminLogs.all,
       queryKeys.posts.all,
       queryKeys.feed.all,
+    ])
+
+    const marketplaceSide = createFakeQueryClient()
+    await invalidateForRealtimeTable(marketplaceSide.client, 'marketplace_posts')
+    expectKeysToContain(marketplaceSide.mutableCalls, [
+      queryKeys.marketplace.all,
+      queryKeys.marketplaceComments.all,
+      queryKeys.marketplaceBids.all,
+      queryKeys.marketplaceBidEvents.all,
+      queryKeys.marketplaceChats.all,
     ])
   })
 })

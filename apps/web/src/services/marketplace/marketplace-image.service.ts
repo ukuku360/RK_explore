@@ -1,0 +1,21 @@
+import { validateImageFile } from '../../lib/fileValidation'
+import { supabaseClient } from '../supabase/client'
+
+const BUCKET = 'marketplace-images'
+
+export async function uploadMarketplaceImage(userId: string, file: File): Promise<string> {
+  const validation = await validateImageFile(file)
+  if (!validation.ok) throw new Error(validation.message)
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${userId}/${Date.now()}.${ext}`
+
+  const { error } = await supabaseClient.storage.from(BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type,
+  })
+  if (error) throw new Error(`Image upload failed: ${error.message}`)
+
+  const { data } = supabaseClient.storage.from(BUCKET).getPublicUrl(path)
+  return data.publicUrl
+}

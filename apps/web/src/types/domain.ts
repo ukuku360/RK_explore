@@ -12,7 +12,6 @@ export const COMMUNITY_POST_CATEGORIES = [
   'lost_and_found',
   'help_needed',
   'noise_alert',
-  'marketplace',
 ] as const
 export type CommunityPostCategory = (typeof COMMUNITY_POST_CATEGORIES)[number]
 
@@ -24,8 +23,13 @@ export const COMMUNITY_POST_CATEGORY_META: Record<CommunityPostCategory, { label
   lost_and_found: { label: 'Lost & Found', emoji: '🔍' },
   help_needed: { label: 'Help Needed', emoji: '🤝' },
   noise_alert: { label: 'Noise Alert', emoji: '🔔' },
-  marketplace: { label: 'Marketplace', emoji: '🛒' },
 }
+
+export const MARKETPLACE_POST_STATUSES = ['active', 'reserved', 'sold'] as const
+export type MarketplacePostStatus = (typeof MARKETPLACE_POST_STATUSES)[number]
+
+export const MARKETPLACE_BID_EVENT_TYPES = ['created', 'updated'] as const
+export type MarketplaceBidEventType = (typeof MARKETPLACE_BID_EVENT_TYPES)[number]
 
 export const REPORT_STATUSES = ['open', 'dismissed', 'actioned'] as const
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
@@ -230,4 +234,76 @@ export type CommunityPolicySnapshot = {
   activePolicyTermsMarkdown: string
   hasAcceptedActivePolicy: boolean
   allowedCategories: CommunityPostCategory[]
+}
+
+export type MarketplacePost = {
+  id: string
+  seller_user_id: string
+  seller_nickname: string
+  title: string
+  description: string
+  asking_price: number
+  image_url: string | null
+  status: MarketplacePostStatus
+  created_at: string
+  updated_at: string
+  bids_count: number
+  comments_count: number
+  highest_bid_amount: number | null
+  highest_bidder_nickname: string | null
+  my_bid_amount: number | null
+}
+
+export type MarketplaceComment = {
+  id: string
+  post_id: string
+  user_id: string
+  author: string
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+export type MarketplaceBid = {
+  id: string
+  post_id: string
+  bidder_user_id: string
+  bidder_nickname: string
+  amount: number
+  created_at: string
+  updated_at: string
+}
+
+export type MarketplaceBidEvent = {
+  id: string
+  bid_id: string
+  post_id: string
+  bidder_user_id: string
+  bidder_nickname: string
+  amount: number
+  event_type: MarketplaceBidEventType
+  created_at: string
+}
+
+export type MarketplaceChatThread = {
+  id: string
+  post_id: string
+  post_title: string
+  post_image_url: string | null
+  seller_user_id: string
+  seller_nickname: string
+  buyer_user_id: string
+  buyer_nickname: string
+  created_at: string
+  last_message_at: string | null
+  last_message_preview: string | null
+}
+
+export type MarketplaceChatMessage = {
+  id: string
+  thread_id: string
+  sender_user_id: string
+  sender_nickname: string
+  content: string
+  created_at: string
 }

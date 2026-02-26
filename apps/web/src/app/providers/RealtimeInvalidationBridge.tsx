@@ -17,6 +17,12 @@ const REALTIME_TABLES: readonly RealtimeTableName[] = [
   'post_reports',
   'admin_action_logs',
   'user_profile_details',
+  'marketplace_posts',
+  'marketplace_comments',
+  'marketplace_bids',
+  'marketplace_bid_events',
+  'marketplace_chat_threads',
+  'marketplace_chat_messages',
 ]
 
 type RealtimeSyncProviderProps = {

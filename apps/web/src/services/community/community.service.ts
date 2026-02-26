@@ -1,6 +1,7 @@
 import { enforceLength, INPUT_LIMITS } from '../../lib/inputLimits'
 import { supabaseClient as supabase } from '../supabase/client'
 import { throwIfPostgrestError } from '../supabase/errors'
+import { COMMUNITY_POST_CATEGORIES } from '../../types/domain'
 import type { CommunityPost, CommunityComment, CommunityPostCategory } from '../../types/domain'
 
 export async function fetchCommunityPosts(currentUserId?: string): Promise<CommunityPost[]> {
@@ -47,9 +48,11 @@ export async function fetchCommunityPosts(currentUserId?: string): Promise<Commu
   const likedPostIds = new Set<string>()
   userLikes.forEach((like) => likedPostIds.add(like.post_id))
 
-  return posts.map((post: CommunityPost & { category?: CommunityPostCategory }) => ({
+  return posts.map((post: CommunityPost & { category?: string }) => ({
     ...post,
-    category: post.category ?? 'general',
+    category: COMMUNITY_POST_CATEGORIES.includes((post.category ?? '') as CommunityPostCategory)
+      ? (post.category as CommunityPostCategory)
+      : 'general',
     likes_count: likesCounts.get(post.id) ?? 0,
     comments_count: commentsCounts.get(post.id) ?? 0,
     has_liked: likedPostIds.has(post.id),

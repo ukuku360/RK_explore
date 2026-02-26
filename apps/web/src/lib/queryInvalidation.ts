@@ -25,6 +25,16 @@ async function invalidateModerationReadModels(queryClient: QueryClient): Promise
   ])
 }
 
+async function invalidateMarketplaceReadModels(queryClient: QueryClient): Promise<void> {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplace.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceComments.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceBids.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceBidEvents.all }),
+    queryClient.invalidateQueries({ queryKey: queryKeys.marketplaceChats.all }),
+  ])
+}
+
 export async function invalidateAfterPostMutation(queryClient: QueryClient): Promise<void> {
   await invalidateFeedReadModels(queryClient)
 }
@@ -69,12 +79,28 @@ export async function invalidateAfterAdminLogMutation(queryClient: QueryClient):
   ])
 }
 
+export async function invalidateAfterMarketplaceMutation(queryClient: QueryClient): Promise<void> {
+  await invalidateMarketplaceReadModels(queryClient)
+}
+
 export async function invalidateForRealtimeTable(
   queryClient: QueryClient,
   tableName: RealtimeTableName,
 ): Promise<void> {
   if (tableName === 'post_reports' || tableName === 'admin_action_logs') {
     await invalidateModerationReadModels(queryClient)
+    return
+  }
+
+  if (
+    tableName === 'marketplace_posts' ||
+    tableName === 'marketplace_comments' ||
+    tableName === 'marketplace_bids' ||
+    tableName === 'marketplace_bid_events' ||
+    tableName === 'marketplace_chat_threads' ||
+    tableName === 'marketplace_chat_messages'
+  ) {
+    await invalidateMarketplaceReadModels(queryClient)
     return
   }
 
