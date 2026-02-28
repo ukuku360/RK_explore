@@ -79,9 +79,6 @@ export function AppShell() {
             <NavLink to="/community" className={navClassName}>
               Community
             </NavLink>
-            <NavLink to="/members" className={navClassName}>
-              Members
-            </NavLink>
             {isAdmin ? (
               <NavLink to="/admin" className={navClassName}>
                 Admin

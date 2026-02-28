@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { CommunityPolicySnapshot, CommunityPost, CommunityPostCategory } from '../../../types/domain'
 import { COMMUNITY_POST_CATEGORIES, COMMUNITY_POST_CATEGORY_META } from '../../../types/domain'
 
@@ -122,6 +122,7 @@ function getCommunityEmptyState(params: { hasAnyPost: boolean; hasSearch: boolea
 export function CommunityFeed() {
   const { user } = useAuthSession()
   const location = useLocation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const preparedSharedPostViewRef = useRef<string | null>(null)
   const focusedSharedPostRef = useRef<string | null>(null)
@@ -555,6 +556,9 @@ export function CommunityFeed() {
                 </button>
               )
             })}
+            <button type="button" className="rk-chip" onClick={() => navigate('/members')}>
+              Members
+            </button>
           </div>
         </div>
 
